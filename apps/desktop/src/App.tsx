@@ -4,8 +4,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
-  Check, Clipboard, Copy, File, Image, Link, LoaderCircle, MoreHorizontal,
-  Pin, PinOff, Settings2, ShieldCheck, Trash2, Type, X,
+  Check, Clipboard, Copy, File, Image, Link, LoaderCircle, Minus, MoreHorizontal,
+  Pin, PinOff, Settings2, ShieldCheck, Square, Trash2, Type, X,
 } from 'lucide-react'
 import {
   useEffect, useRef, useState,
@@ -231,6 +231,48 @@ const formatOptions: { key: Kind; title: string; detail: string; icon: ReactNode
   { key: 'files', title: '文件与文件夹', detail: '保留原文件引用', icon: <File /> },
 ]
 
+function SettingsHeader() {
+  const [maximized, setMaximized] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!desktop) return
+    let disposed = false
+    const window = getCurrentWindow()
+    const refresh = () => {
+      void window.isMaximized().then((value) => {
+        if (!disposed) setMaximized(value)
+      }).catch((reason: unknown) => { if (!disposed) setError(errorText(reason)) })
+    }
+    refresh()
+    const stop = window.onResized(refresh)
+    return () => { disposed = true; void stop.then((unlisten) => unlisten()) }
+  }, [])
+
+  async function control(operation: 'minimize' | 'toggleMaximize' | 'close') {
+    try {
+      setError(null)
+      await getCurrentWindow()[operation]()
+    } catch (reason) { setError(errorText(reason)) }
+  }
+
+  return <>
+    <header className="settings-header">
+      <div className="settings-heading" data-tauri-drag-region>
+        <img src={logo} width={32} height={32} alt="" draggable={false} />
+        <div><h1>设置</h1><p>{product.name}</p></div>
+      </div>
+      <div className="settings-window-actions" role="group" aria-label="窗口操作">
+        <IconButton label="最小化" onClick={() => void control('minimize')}><Minus /></IconButton>
+        <IconButton label={maximized ? '还原窗口' : '最大化'} onClick={() => void control('toggleMaximize')}>
+          {maximized ? <Copy /> : <Square />}
+        </IconButton>
+        <IconButton label="关闭设置" className="window-close" onClick={() => void control('close')}><X /></IconButton>
+      </div>
+    </header>
+    {error && <div className="window-control-error"><Feedback error={error} onDismiss={() => setError(null)} /></div>}
+  </>
+}
+
 function SettingsView({ state }: { state: ClipboardState }) {
   const { snapshot, busy } = state
   const [draft, setDraft] = useState<Settings | null>(null)
@@ -261,7 +303,10 @@ function SettingsView({ state }: { state: ClipboardState }) {
     return () => { void stop.then((unlisten) => unlisten()) }
   }, [])
 
-  if (!draft || !snapshot) return <main className="settings-loading"><LoaderCircle className="animate-spin" /><Feedback error={state.error} /></main>
+  if (!draft || !snapshot) return <main className="settings-window">
+    <SettingsHeader />
+    <div className="settings-loading"><LoaderCircle className="animate-spin" /><Feedback error={state.error} /></div>
+  </main>
 
   function update<Key extends keyof Settings>(key: Key, value: Settings[Key]) {
     setDraft((previous) => previous && { ...previous, [key]: value })
@@ -286,7 +331,7 @@ function SettingsView({ state }: { state: ClipboardState }) {
 
   return (
     <main className="settings-window">
-      <header className="settings-header"><img src={logo} width={32} height={32} alt="" /><div><h1>设置</h1><p>{product.name}</p></div></header>
+      <SettingsHeader />
       <form className="settings-form" noValidate onSubmit={submit}>
         <section className="settings-section">
           <h2>打开剪贴板</h2>

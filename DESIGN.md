@@ -90,6 +90,8 @@ The history window measures 360 by 400 logical pixels. Its header and footer kee
 
 All application surfaces are flat: history cards, settings rows, controls, menus, dialogs and feedback have no decorative borders or elevation shadows. Use solid fills and gaps to separate adjacent surfaces; separate groups with space instead of divider lines. Menus and confirmation dialogs use shadcn/ui portals, with contrasting fills and a modal backdrop where appropriate. Feedback overlays the popup list without changing its geometry. Focus outlines and forced-colors borders are accessibility treatments. Preserve the existing product-mark artwork.
 
+Native history and settings windows also disable system decorations and window shadows in apps/desktop/src-tauri/src/windows.rs. On Windows, enabling shadows for an undecorated window adds a white outer frame, so the borderless contract requires both options to stay disabled. The settings heading is the drag region; adjacent flat controls retain minimize, maximize/restore and close. The controls remain available while settings load or fail to load. Closing uses the existing unsaved-change confirmation. Window-control permissions are limited to the settings window.
+
 ## Shapes
 
 The popup and cards use 9px corners. Standard controls use 7px corners and small controls use 5px corners. Icons use Lucide with mostly 1.5–1.7px strokes.

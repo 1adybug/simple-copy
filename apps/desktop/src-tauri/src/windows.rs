@@ -40,7 +40,8 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .resizable(false)
         .decorations(false)
         .transparent(cfg!(windows))
-        .shadow(true)
+        // Windows adds a 1px white frame when shadows are enabled without decorations.
+        .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
         .visible(false)
@@ -239,6 +240,8 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
         .inner_size(480., 640.)
         .min_inner_size(400., 480.)
         .resizable(true)
+        .decorations(false)
+        .shadow(false)
         .build()
         .map_err(|error| error.to_string())?;
         let owner = handle.clone();

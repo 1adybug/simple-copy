@@ -86,6 +86,8 @@ The Windows font stack matches the reference. History text uses 13px type with 1
 
 The history window measures 360 by 400 logical pixels. Its header and footer keep stable heights while the history list owns scrolling. Cards have a minimum height of 78px with an 8px gap. Image previews preserve aspect ratio. Settings use document scrolling and narrow at 420px.
 
+All desktop scroll surfaces, including history, settings, feedback and menus, hide native scrollbars while retaining wheel, touchpad and keyboard scrolling. Scrollbar tracks reserve no layout space. The global rule in apps/desktop/src/index.css owns this behavior.
+
 ## Elevation & Depth
 
 All application surfaces are flat: history cards, settings rows, controls, menus, dialogs and feedback have no decorative borders or elevation shadows. Use solid fills and gaps to separate adjacent surfaces; separate groups with space instead of divider lines. Menus and confirmation dialogs use shadcn/ui portals, with contrasting fills and a modal backdrop where appropriate. Feedback overlays the popup list without changing its geometry. Focus outlines and forced-colors borders are accessibility treatments. Preserve the existing product-mark artwork.

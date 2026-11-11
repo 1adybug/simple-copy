@@ -45,16 +45,12 @@
   --secondary: var(--sc-secondary);
   --accent: var(--sc-accent);
   --muted-foreground: var(--sc-muted);
-  --scrollbar: #a99aaf;
   --radius: 9px;
   background: transparent;
 }
 
-* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
-*::-webkit-scrollbar { width: 5px; height: 5px; }
-*::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 10px; }
-*::-webkit-scrollbar-thumb:hover { background: #84728e; }
-*::-webkit-scrollbar-track { background: transparent; }
+* { box-sizing: border-box; scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
 body { margin: 0; }
 button, [role="menuitem"], [role="radio"], [role="switch"] { cursor: pointer; }
 button:disabled { cursor: default; }
@@ -83,7 +79,7 @@ kbd { font: inherit; }
 .history-toolbar > button { background: var(--card); color: #44314e; font-size: 11px; padding: 3px 8px; height: 24px; }
 .history-toolbar > button:hover { background: var(--accent); }
 .history-toolbar > button:active { background: var(--primary); color: white; }
-.history-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 5px 12px 8px 14px; scrollbar-gutter: stable; display: flex; flex-direction: column; gap: 8px; }
+.history-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 5px 12px 8px 14px; display: flex; flex-direction: column; gap: 8px; }
 .clip-card { position: relative; flex-shrink: 0; min-height: 78px; padding: 0; gap: 0; border-radius: 9px; background: var(--card); overflow: visible; }
 .clip-card:hover { background: var(--sc-hover); }
 .clip-main { display: flex; width: 100%; min-height: 77px; align-items: flex-start; text-align: left; padding: 10px 35px 24px 10px; border: 0; background: transparent; border-radius: 8px; color: inherit; }
@@ -165,7 +161,6 @@ kbd { font: inherit; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 @media (forced-colors: active) {
-  * { scrollbar-color: auto; }
   .clip-card, .history-window, .setting-row, .retention-option,
   [data-slot="button"], [data-slot="alert-dialog-action"], [data-slot="alert-dialog-cancel"],
   [data-slot="input"], [data-slot="switch"], [data-slot="radio-group-item"],

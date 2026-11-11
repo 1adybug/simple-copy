@@ -1,17 +1,21 @@
 ---
 version: alpha
 name: Simple Copy
-description: Compact Windows-style clipboard history with lavender surfaces and native keyboard interaction.
+description: Compact, flat clipboard history with borderless lavender surfaces and native keyboard interaction.
 colors:
   primary: "#793d91"
-  background: "#f8f5f9"
+  primary-hover: "#633578"
+  primary-active: "#552e67"
+  background: "#f5f0f7"
+  panel: "#eae1f0"
   foreground: "#261d2a"
-  card: "#faf7fc"
-  popover: "#fcf9fd"
-  secondary: "#f0eaf3"
-  accent: "#eee3f3"
+  card: "#ffffff"
+  popover: "#e7dced"
+  secondary: "#eae1f0"
+  accent: "#e4d3ed"
+  hover: "#f4edf8"
+  control: "#947f9f"
   muted: "#716576"
-  border: "#dfd5e4"
   danger: "#a4263b"
 typography:
   sans:
@@ -41,7 +45,7 @@ components:
     backgroundColor: "{colors.popover}"
     textColor: "{colors.foreground}"
   input:
-    backgroundColor: "{colors.background}"
+    backgroundColor: "{colors.secondary}"
     textColor: "{colors.foreground}"
   secondary-button:
     backgroundColor: "{colors.secondary}"
@@ -51,8 +55,8 @@ components:
     textColor: "{colors.primary}"
   caption:
     textColor: "{colors.muted}"
-  divider:
-    backgroundColor: "{colors.border}"
+  panel:
+    backgroundColor: "{colors.panel}"
   destructive-action:
     backgroundColor: "{colors.danger}"
     textColor: "#ffffff"
@@ -62,7 +66,7 @@ components:
 
 ## Overview
 
-The user-supplied Windows clipboard screenshot determines the composition, density, lavender surfaces, rounded cards and pin placement. The primary task is selecting recently copied content while working in another desktop application. The product uses Simplified Chinese copy and operating-system fonts.
+The user-supplied Windows clipboard screenshot determines the composition, density, lavender surfaces, rounded cards and pin placement. The user's flat-design direction determines boundaries: use solid background colors and spacing throughout the software, without decorative borders, gradients or shadows. The primary task is selecting recently copied content while working in another desktop application. The product uses Simplified Chinese copy and operating-system fonts.
 
 The shared runtime source of brand colors and the body font is packages/brand/tokens.css. apps/desktop/src/index.css maps those variables into the existing desktop variables and Tailwind 4 theme adapter, then the shared shadcn/ui components. apps/website/src/styles.css imports the same tokens for the marketing surface. This document mirrors accepted values. Shared palette changes must update the token package and this document together. Desktop geometry and component radii remain owned by apps/desktop/src/index.css.
 
@@ -72,7 +76,7 @@ The monorepo has two visual registers: the compact desktop product and a spaciou
 
 ## Colors
 
-Lavender is used for the popup surface, white-purple for history cards and plum for active pins and primary actions. Errors and deletion confirmations use the danger color. Focus has a visible outline. Forced-colors mode uses system colors and borders.
+Lavender panel surfaces (#eae1f0), white content cards (#ffffff), and lighter settings backgrounds (#f5f0f7) establish boundaries through color. Secondary controls use a lavender fill, menus use the popover fill, and selected options use the accent fill. Hover uses a distinct light fill; pressed controls deepen their fill. Plum identifies active pins and primary actions. Errors and deletion confirmations use the danger color together with explicit text. Keyboard focus retains a visible outline. Forced-colors mode uses system colors and borders so that controls remain distinguishable when background colors are replaced.
 
 ## Typography
 
@@ -84,7 +88,7 @@ The history window measures 360 by 400 logical pixels. Its header and footer kee
 
 ## Elevation & Depth
 
-History cards use a thin lavender border and a shallow shadow. Menus and confirmation dialogs use shadcn/ui portals. Feedback overlays the popup list without changing its geometry.
+All application surfaces are flat: history cards, settings rows, controls, menus, dialogs and feedback have no decorative borders or elevation shadows. Use solid fills and gaps to separate adjacent surfaces; separate groups with space instead of divider lines. Menus and confirmation dialogs use shadcn/ui portals, with contrasting fills and a modal backdrop where appropriate. Feedback overlays the popup list without changing its geometry. Focus outlines and forced-colors borders are accessibility treatments. Preserve the existing product-mark artwork.
 
 ## Shapes
 
@@ -93,6 +97,8 @@ The popup and cards use 9px corners. Standard controls use 7px corners and small
 ## Components
 
 Shared shadcn/ui Button, Card, DropdownMenu, AlertDialog, Switch, RadioGroup, Label, Input and Tooltip own their respective interactions. History actions use sibling buttons to keep paste, pin and menu targets independent.
+
+Button uses filled primary and secondary variants or a ghost variant. Input uses a secondary fill. Switch and RadioGroup use solid control fills, with thumb position and an inner dot identifying state as well as color. Settings rows and retention choices are independent color blocks separated by 4px gaps; the checked retention option uses the accent fill. Shared brand surface and control tokens in packages/brand/tokens.css map through apps/desktop/src/index.css into these primitives; website demonstrations consume the same tokens directly.
 
 Every enabled action has hover, pressed and visible keyboard-focus states. Busy actions are guarded against duplicate requests. Dialogs trap and restore focus. Settings own numeric validation, error text and unsaved-change confirmation. A shared Feedback component announces action outcomes.
 
@@ -103,12 +109,14 @@ Arrow keys navigate history items, Enter selects and Escape dismisses the popup.
 - Keep the popup compact and preserve the reference card structure.
 - Keep action names consistent across the card, menu and settings.
 - Use accessible labels for every icon-only action.
+- Distinguish regions with solid background colors and spacing; keep normal surfaces borderless and shadowless.
+- Preserve visible keyboard focus and system-color boundaries in high-contrast mode.
 
 ## Marketing website
 
 The website feels like a small, useful object on a lavender desktop. Its signature is an interactive, faithful clipboard panel paired with a slightly angled note that receives the selected sample. Keep the rest of the page quiet: no stock photos, invented usage statistics, testimonials, or decorative dashboards.
 
-The palette extends the shared plum (#793d91), ink (#261d2a), muted text (#716576), lavender surfaces and thin borders with a near-white page (#fdfcfe) and a lavender demo stage (#f0e8f5). Website-only color roles live in the root variables in apps/website/src/styles.css; they do not change desktop colors. Muted illustration colors are reserved for decorative samples, not essential controls or body text.
+The palette extends the shared plum (#793d91), ink (#261d2a), muted text (#716576) and flat lavender surfaces with a near-white page (#fdfcfe) and a lavender demo stage (#e0d1e9). Color blocks and whitespace replace borders and shadows throughout the website, including its product demonstrations, keyboard hints, FAQ and build guide. Website-only color roles live in the root variables in apps/website/src/styles.css; they do not change desktop colors. Muted illustration colors are reserved for decorative samples, not essential controls or body text.
 
 Display type uses Segoe UI Variable Display with Segoe UI and Microsoft YaHei UI fallbacks; body type uses the shared operating-system stack. Commands use Cascadia Code and Consolas. No remote font requests or font-swap layout changes. Desktop headings reach 65px, mobile headings scale down to 36px. Section headings use 28–35px, body copy uses 13–15px, with compact supporting captions. Every meaningful text color, including demo captions, meets normal-text contrast against its actual surface.
 

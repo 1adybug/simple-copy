@@ -1,13 +1,17 @@
 :root {
   --sc-font-sans: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
   --sc-primary: #793d91;
-  --sc-background: #f8f5f9;
+  --sc-primary-hover: #633578;
+  --sc-primary-active: #552e67;
+  --sc-background: #f5f0f7;
+  --sc-panel: #eae1f0;
   --sc-foreground: #261d2a;
-  --sc-card: #faf7fc;
-  --sc-popover: #fcf9fd;
-  --sc-secondary: #f0eaf3;
-  --sc-accent: #eee3f3;
+  --sc-card: #ffffff;
+  --sc-popover: #e7dced;
+  --sc-secondary: #eae1f0;
+  --sc-accent: #e4d3ed;
+  --sc-hover: #f4edf8;
+  --sc-control: #947f9f;
   --sc-muted: #716576;
-  --sc-border: #dfd5e4;
   --sc-danger: #a4263b;
 }

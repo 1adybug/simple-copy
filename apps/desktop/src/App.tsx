@@ -112,7 +112,7 @@ function HistoryView({ state }: { state: ClipboardState }) {
         </div>
         <div className="history-toolbar">
           <span className="record-count">{items.length ? items.length + ' 条记录' : '最近复制的内容'}</span>
-          <Button variant="outline" size="xs" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}>
+          <Button variant="secondary" size="xs" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}>
             清除未置顶
           </Button>
         </div>
@@ -132,7 +132,7 @@ function HistoryView({ state }: { state: ClipboardState }) {
             <h2>{snapshot || !desktop ? '复制一点内容，从这里开始' : '正在连接剪贴板'}</h2>
             <p>文字、图片和文件会出现在这里</p>
             {snapshot && !snapshot.capabilities.background && (
-              <Button variant="outline" size="sm" disabled={busy} onClick={() => void state.capture()}>收录当前剪贴板</Button>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void state.capture()}>收录当前剪贴板</Button>
             )}
           </div>
         )}
@@ -409,7 +409,7 @@ function ShortcutInput({ value, onChange }: { value: string; onChange: (value: s
   }
   return (
     <div className="shortcut-setting">
-      <Button type="button" variant="outline" className="shortcut-recorder" aria-pressed={recording}
+      <Button type="button" variant="secondary" className="shortcut-recorder" aria-pressed={recording}
         onClick={() => {
           setRecording(true)
           setError(null)

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Simple Copy",
+  "mainBinaryName": "simple-copy",
+  "version": "0.1.0",
+  "identifier": "io.simplecopy.clipboard",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "deb"],
+    "category": "Productivity",
+    "shortDescription": "本机剪贴板历史与常驻恢复",
+    "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"],
+    "macOS": { "minimumSystemVersion": "13.3" }
+  }
+}

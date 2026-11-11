@@ -1,0 +1,5 @@
+{
+  "productName": "io.simplecopy.clipboard",
+  "app": { "enableGTKAppId": true },
+  "bundle": { "linux": { "deb": { "desktopTemplate": "linux.desktop.hbs" } } }
+}

@@ -1,0 +1,424 @@
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import {
+  Check, Clipboard, Copy, File, Image, Link, LoaderCircle, MoreHorizontal,
+  Pin, PinOff, Settings2, ShieldCheck, Trash2, Type, X,
+} from 'lucide-react'
+import {
+  useEffect, useRef, useState,
+  type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode,
+} from 'react'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { desktop, errorText, shortcutLabel, useClipboard, type Clip, type Kind, type Retention, type Settings } from './native'
+
+const kindLabels: Record<Kind, string> = {
+  text: '纯文本', link: '链接', richText: '富文本', image: '图片', files: '文件与文件夹',
+}
+type ClipboardState = ReturnType<typeof useClipboard>
+
+export default function App() {
+  const state = useClipboard()
+  return new URLSearchParams(location.search).get('view') === 'settings'
+    ? <SettingsView state={state} />
+    : <HistoryView state={state} />
+}
+
+function IconButton({ label, children, ...props }: ComponentProps<typeof Button> & { label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label={label} {...props} onClick={props.onClick}>{children}</Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function Feedback({ error, message, onDismiss }: {
+  error?: string | null; message?: string | null; onDismiss?: () => void
+}) {
+  if (!error && !message) return null
+  return (
+    <div className={error ? 'feedback feedback-error' : 'feedback'} role={error ? 'alert' : 'status'}>
+      <span>{error || message}</span>
+      {onDismiss && <button type="button" aria-label="关闭提示" onClick={onDismiss}><X size={13} /></button>}
+    </div>
+  )
+}
+
+function HistoryView({ state }: { state: ClipboardState }) {
+  const { snapshot, action, busy, clearMessage } = state
+  const [confirmation, setConfirmation] = useState<Clip | 'clear' | null>(null)
+  const [navigationError, setNavigationError] = useState<string | null>(null)
+  const list = useRef<HTMLDivElement>(null)
+  const items = snapshot?.items ?? []
+  const ordinaryCount = items.filter((item) => !item.pinned).length
+
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented
+        && !document.querySelector('[data-slot="alert-dialog-content"], [data-slot="dropdown-menu-content"]')) {
+        void invoke('hide_history').catch(() => {})
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    if (!desktop) return () => document.removeEventListener('keydown', onKey)
+    const unlisten = listen('popup-opened', () => {
+      clearMessage()
+      list.current?.scrollTo({ top: 0 })
+    })
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      void unlisten.then((stop) => stop())
+    }
+  }, [clearMessage])
+
+  function navigate(event: KeyboardEvent<HTMLDivElement>) {
+    if (!(event.target instanceof HTMLButtonElement) || !event.target.classList.contains('clip-main')) return
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>('.clip-main') ?? [])
+    const current = buttons.indexOf(event.target)
+    const destination = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
+      : Math.min(buttons.length - 1, Math.max(0, current + (event.key === 'ArrowDown' ? 1 : -1)))
+    event.preventDefault()
+    buttons[destination]?.focus()
+  }
+
+  return (
+    <main className="history-window">
+      <header className="history-header">
+        <div className="heading-row">
+          <div className="window-heading"><Clipboard size={18} strokeWidth={1.7} /><h1>剪贴板</h1></div>
+          <div className="header-actions">
+            <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><Settings2 /></IconButton>
+            <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><X /></IconButton>
+          </div>
+        </div>
+        <div className="history-toolbar">
+          <span className="record-count">{items.length ? items.length + ' 条记录' : '最近复制的内容'}</span>
+          <Button variant="outline" size="xs" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}>
+            清除未置顶
+          </Button>
+        </div>
+      </header>
+      <div ref={list} className="history-list" role="list" aria-label="剪贴板历史" onKeyDown={navigate}>
+        {items.map((clip) => (
+          <ClipCard key={clip.id} clip={clip} busy={busy}
+            onPaste={() => void action({ type: 'paste', id: clip.id })}
+            onCopy={() => void action({ type: 'copy', id: clip.id })}
+            onPin={() => void action({ type: 'pin', id: clip.id, pinned: !clip.pinned })}
+            onDelete={() => setConfirmation(clip)}
+          />
+        ))}
+        {items.length === 0 && (
+          <div className="empty-state">
+            {snapshot || !desktop ? <Clipboard size={30} strokeWidth={1.25} /> : <LoaderCircle className="animate-spin" size={24} />}
+            <h2>{snapshot || !desktop ? '复制一点内容，从这里开始' : '正在连接剪贴板'}</h2>
+            <p>文字、图片和文件会出现在这里</p>
+            {snapshot && !snapshot.capabilities.background && (
+              <Button variant="outline" size="sm" disabled={busy} onClick={() => void state.capture()}>收录当前剪贴板</Button>
+            )}
+          </div>
+        )}
+      </div>
+      <footer className="history-footer">
+        <span className={snapshot?.settings.restoreEnabled ? 'restore-state enabled' : 'restore-state'}>
+          {snapshot?.settings.restoreEnabled
+            ? <><span className="state-dot" />{snapshot.restorePending ? '等待恢复置顶内容' : '常驻恢复已开启'}</>
+            : <><kbd>{shortcutLabel(snapshot?.settings.shortcut ?? 'Super+V')}</kbd> 打开</>}
+        </span>
+        <span><kbd>Esc</kbd> 收起</span>
+      </footer>
+      <div className="history-feedback">
+        <Feedback error={navigationError || state.error || snapshot?.error || snapshot?.shortcutError}
+          message={state.message} onDismiss={navigationError || state.error || state.message
+            ? () => { setNavigationError(null); state.clearMessage() } : undefined} />
+      </div>
+      <AlertDialog open={confirmation !== null} onOpenChange={(open) => { if (!open) setConfirmation(null) }}>
+        <AlertDialogContent className="confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmation === 'clear' ? '清除未置顶记录？' : '删除这条记录？'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmation === 'clear' ? '将移除 ' + ordinaryCount + ' 条未置顶记录。置顶内容可继续使用。' : '这条内容会从历史中移除。'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction className="danger-button" onClick={() => {
+              if (confirmation === 'clear') void action({ type: 'clearUnpinned' })
+              else if (confirmation) void action({ type: 'delete', id: confirmation.id })
+            }}>{confirmation === 'clear' ? '清除记录' : '删除记录'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </main>
+  )
+}
+
+function ClipCard({ clip, busy, onPaste, onCopy, onPin, onDelete }: {
+  clip: Clip; busy: boolean; onPaste: () => void; onCopy: () => void; onPin: () => void; onDelete: () => void
+}) {
+  return (
+    <Card className="clip-card" role="listitem" data-pinned={clip.pinned || undefined}>
+      <button className="clip-main" type="button" disabled={busy} onClick={onPaste}
+        aria-label={'粘贴' + kindLabels[clip.kind] + (clip.text ? '，' + clip.text.slice(0, 60) : '')}>
+        {clip.hasThumbnail ? <ClipImage id={clip.id} /> : (
+          <div className="clip-text">
+            {clip.kind === 'files' && <div className="file-label"><File size={15} />{clip.fileCount} 个文件或文件夹</div>}
+            <span className="clip-text-lines">{clip.text || kindLabels[clip.kind]}</span>
+          </div>
+        )}
+      </button>
+      <div className="clip-menu">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-xs" disabled={busy} aria-label="更多操作"><MoreHorizontal /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={3} className="clip-dropdown">
+            <DropdownMenuItem onSelect={onCopy}><Copy />复制</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onPin}>{clip.pinned ? <PinOff /> : <Pin />}{clip.pinned ? '取消置顶' : '置顶'}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onDelete} className="delete-menu-item"><Trash2 />删除</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <IconButton label={clip.pinned ? '取消置顶' : '置顶'} disabled={busy} onClick={onPin}
+        aria-pressed={clip.pinned} className="pin-button">
+        <Pin size={15} strokeWidth={1.5} fill={clip.pinned ? 'currentColor' : 'none'} />
+      </IconButton>
+    </Card>
+  )
+}
+
+function ClipImage({ id }: { id: number }) {
+  const [source, setSource] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let disposed = false
+    let objectUrl: string | undefined
+    void invoke<ArrayBuffer>('clipboard_thumbnail', { id }).then((bytes) => {
+      if (disposed) return
+      objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }))
+      setSource(objectUrl)
+    }).catch(() => { if (!disposed) setFailed(true) })
+    return () => { disposed = true; if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [id])
+  return source
+    ? <img className="clip-image" src={source} alt="剪贴板图片预览" draggable={false} />
+    : <span className="image-placeholder"><Image size={22} />{failed ? '图片预览暂不可用' : '正在读取图片'}</span>
+}
+
+const formatOptions: { key: Kind; title: string; detail: string; icon: ReactNode }[] = [
+  { key: 'text', title: '纯文本', detail: '普通文字、代码和数字', icon: <Type /> },
+  { key: 'link', title: '链接', detail: 'HTTP 和 HTTPS 地址', icon: <Link /> },
+  { key: 'richText', title: '富文本', detail: 'HTML 和 RTF 格式', icon: <Clipboard /> },
+  { key: 'image', title: '图片', detail: '截图和复制的图像', icon: <Image /> },
+  { key: 'files', title: '文件与文件夹', detail: '保留原文件引用', icon: <File /> },
+]
+
+function SettingsView({ state }: { state: ClipboardState }) {
+  const { snapshot, busy } = state
+  const [draft, setDraft] = useState<Settings | null>(null)
+  const [delay, setDelay] = useState('5')
+  const [validation, setValidation] = useState<string | null>(null)
+  const [confirmSave, setConfirmSave] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
+  const discardClose = useRef(false)
+  const dirtyRef = useRef(false)
+  const delayInput = useRef<HTMLInputElement>(null)
+  const committed = snapshot ? JSON.stringify(snapshot.settings) : ''
+  useEffect(() => {
+    if (!committed) return
+    const current = JSON.parse(committed) as Settings
+    setDraft(current)
+    setDelay(String(current.restoreSeconds))
+  }, [committed])
+  const dirty = !!draft && (JSON.stringify(draft) !== committed || delay !== String(draft.restoreSeconds))
+  dirtyRef.current = dirty
+  useEffect(() => {
+    if (!desktop) return
+    const stop = getCurrentWindow().onCloseRequested((event) => {
+      if (!discardClose.current && dirtyRef.current) {
+        event.preventDefault()
+        setConfirmClose(true)
+      }
+    })
+    return () => { void stop.then((unlisten) => unlisten()) }
+  }, [])
+
+  if (!draft || !snapshot) return <main className="settings-loading"><LoaderCircle className="animate-spin" /><Feedback error={state.error} /></main>
+
+  function update<Key extends keyof Settings>(key: Key, value: Settings[Key]) {
+    setDraft((previous) => previous && { ...previous, [key]: value })
+    setValidation(null)
+  }
+  async function save() {
+    if (!draft) return
+    if (!/^\d+$/.test(delay) || Number(delay) < 1 || Number(delay) > 3600) {
+      setValidation('请输入 1–3600 之间的整数秒数。')
+      delayInput.current?.focus()
+      return
+    }
+    if (await state.save({ ...draft, restoreSeconds: Number(delay) })) setValidation(null)
+  }
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    if ((snapshot?.settings.retention === 'all' && draft?.retention !== 'all')
+      || (snapshot?.settings.retention === 'pinned' && draft?.retention === 'session')) {
+      setConfirmSave(true)
+    } else void save()
+  }
+
+  return (
+    <main className="settings-window">
+      <header className="settings-header"><Clipboard size={20} /><div><h1>设置</h1><p>Simple Copy</p></div></header>
+      <form className="settings-form" noValidate onSubmit={submit}>
+        <section className="settings-section">
+          <h2>打开剪贴板</h2>
+          <ShortcutInput value={draft.shortcut} onChange={(shortcut) => update('shortcut', shortcut)} />
+          {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
+        </section>
+        <section className="settings-section">
+          <h2>记录内容</h2>
+          <div className="setting-card">
+            {formatOptions.map((format) => (
+              <div className="setting-row" key={format.key}>
+                <div className="format-icon">{format.icon}</div>
+                <Label htmlFor={'format-' + format.key} className="setting-copy">
+                  <span>{format.title}</span><small>{format.detail}</small>
+                </Label>
+                <Switch id={'format-' + format.key} checked={draft.formats[format.key]}
+                  onCheckedChange={(checked) => update('formats', { ...draft.formats, [format.key]: checked })} />
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="settings-section">
+          <h2>退出后保留</h2>
+          <RadioGroup value={draft.retention} onValueChange={(value) => update('retention', value as Retention)}
+            className="retention-options" aria-label="历史保留方式">
+            {([
+              ['session', '仅本次运行', '退出后移除全部历史'],
+              ['pinned', '只保留置顶', '常用内容在下次打开时仍可使用'],
+              ['all', '保留全部', '普通历史和置顶都加密保存在本机'],
+            ] as const).map(([value, title, detail]) => (
+              <Label key={value} className="retention-option" htmlFor={'retention-' + value}>
+                <RadioGroupItem value={value} id={'retention-' + value} />
+                <span>{title}<small>{detail}</small></span>
+              </Label>
+            ))}
+          </RadioGroup>
+          <p className="privacy-note"><ShieldCheck size={14} />历史在本机处理，持久记录使用系统密钥库加密。</p>
+          {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
+        </section>
+        <section className="settings-section">
+          <div className="restore-heading">
+            <div><h2><Label htmlFor="restore-enabled">常驻恢复</Label></h2><p>复制其他内容后，恢复为第一条置顶内容</p></div>
+            <Switch id="restore-enabled" checked={draft.restoreEnabled} disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => update('restoreEnabled', checked)} />
+          </div>
+          <div className="delay-row">
+            <Label htmlFor="restore-delay">每次变化后等待</Label>
+            <Input ref={delayInput} id="restore-delay" type="number" inputMode="numeric" min="1" max="3600" step="1"
+              value={delay} onChange={(event) => { setDelay(event.target.value); setValidation(null) }}
+              aria-invalid={!!validation} aria-describedby={validation ? 'delay-error' : 'delay-help'} />
+            <span>秒</span>
+          </div>
+          <p id="delay-help" className="field-help">连续复制会重新计时。最近置顶的内容排在第一条。</p>
+          {validation && <p id="delay-error" role="alert" className="field-error">{validation}</p>}
+        </section>
+        {snapshot.capabilities.message && <Feedback message={snapshot.capabilities.message} />}
+        <div className="settings-save">
+          <Feedback error={state.error} message={state.message} onDismiss={state.clearMessage} />
+          <Button type="submit" disabled={!dirty || busy} className="save-button">
+            {busy ? <LoaderCircle className="animate-spin" /> : <Check />}保存设置
+          </Button>
+        </div>
+      </form>
+      <AlertDialog open={confirmSave} onOpenChange={setConfirmSave}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>更新历史保留方式？</AlertDialogTitle>
+            <AlertDialogDescription>保存后会按新设置移除磁盘上的历史。本次运行中的记录可继续使用。</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction onClick={() => void save()}>保存设置</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>放弃尚未保存的设置？</AlertDialogTitle>
+            <AlertDialogDescription>本次修改还没有保存。</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>继续编辑</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { discardClose.current = true; void getCurrentWindow().close() }}>放弃修改</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </main>
+  )
+}
+
+function ShortcutInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [recording, setRecording] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const change = useRef(onChange)
+  change.current = onChange
+  useEffect(() => {
+    if (!desktop) return
+    const unlisten = listen<string>('shortcut-recorded', ({ payload }) => {
+      change.current(payload)
+      setRecording(false)
+      setError(null)
+    })
+    return () => {
+      void unlisten.then((stop) => stop())
+      void invoke('record_shortcut', { recording: false }).catch(() => {})
+    }
+  }, [])
+  function stopRecording() {
+    setRecording(false)
+    void invoke('record_shortcut', { recording: false }).catch(() => {})
+  }
+  function record(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!recording) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.key === 'Escape') { stopRecording(); return }
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return
+    const modifiers = [
+      event.ctrlKey && 'Control', event.altKey && 'Alt', event.shiftKey && 'Shift', event.metaKey && 'Super',
+    ].filter(Boolean)
+    if (!modifiers.length) { setError('请按下带修饰键的组合'); return }
+    if (!/^Key[A-Z]$|^Digit[0-9]$|^F([1-9]|1[0-2])$/.test(event.code)) {
+      setError('请选择字母、数字或 F1–F12')
+      return
+    }
+    onChange([...modifiers, event.code].join('+'))
+    stopRecording()
+    setError(null)
+  }
+  return (
+    <div className="shortcut-setting">
+      <Button type="button" variant="outline" className="shortcut-recorder" aria-pressed={recording}
+        onClick={() => {
+          setRecording(true)
+          setError(null)
+          void invoke('record_shortcut', { recording: true }).catch((reason: unknown) => {
+            setError(errorText(reason))
+            setRecording(false)
+          })
+        }} onKeyDown={record} onBlur={stopRecording}>
+        {recording ? '请按下快捷键…' : shortcutLabel(value)}
+      </Button>
+      <small>{error || (recording ? '按 Esc 取消录入' : '点击后录入新的组合键')}</small>
+    </div>
+  )
+}

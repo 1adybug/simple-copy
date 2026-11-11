@@ -87,7 +87,7 @@ package:website 从当前版本的 NSIS 输出中选择安装包，将下载地�
 
 将完整的 apps/website/dist 部署到任意支持静态文件的托管服务即可；无需 Node.js 服务端。宣传网站不会自动发布到外部托管。普通 pnpm build 或 pnpm build:website 会重新生成不含安装包的 dist，发布带下载的网站时应最后运行 pnpm package:website。
 
-共享 Logo 位于 packages/brand/assets/logo.svg，是用平滑曲线、椭圆和圆形重建的卡通鹦鹉，背景透明，不包含嵌入位图。需要调整或重新生成几何时，使用已安装的 image-to-geometric-svg Skill 工具目录：
+共享 Logo 位于 packages/brand/assets/logo.svg，是用平滑曲线、椭圆和圆形重建的无描边卡通鹦鹉，背景透明，不包含嵌入位图。需要调整或重新生成几何时，使用已安装的 image-to-geometric-svg Skill 工具目录：
 
 ~~~powershell
 python scripts/generate-brand-logo.py --skill-dir "<image-to-geometric-svg skill directory>" --output packages/brand/assets/logo.svg --overwrite

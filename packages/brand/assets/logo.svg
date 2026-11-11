@@ -9,29 +9,35 @@
     <stop stop-color="#ffdd09"/><stop offset="1" stop-color="#ffd00a"/>
   </linearGradient>
   <linearGradient id="blue-fill" gradientUnits="userSpaceOnUse" x1="160" y1="780" x2="430" y2="1070">
-    <stop stop-color="#008bdf"/><stop offset="1" stop-color="#007bce"/>
+    <stop stop-color="#0086d2"/><stop offset="1" stop-color="#0068b3"/>
+  </linearGradient>
+  <linearGradient id="blue_fore-fill" gradientUnits="userSpaceOnUse" x1="140" y1="750" x2="300" y2="960">
+    <stop stop-color="#24b1e8"/><stop offset="1" stop-color="#0092d5"/>
+  </linearGradient>
+  <linearGradient id="tail-fill" gradientUnits="userSpaceOnUse" x1="170" y1="1000" x2="270" y2="1150">
+    <stop stop-color="#1266ad"/><stop offset="1" stop-color="#064783"/>
   </linearGradient>
   <linearGradient id="beak-fill" gradientUnits="userSpaceOnUse" x1="810" y1="300" x2="1050" y2="600">
-    <stop stop-color="#fff1dd"/><stop offset="1" stop-color="#fdebd2"/>
+    <stop stop-color="#dfa64f"/><stop offset="1" stop-color="#c48430"/>
   </linearGradient>
-  <clipPath id="wing-clip"><path d="M316 539 C231 564 162 681 133 769 C110 836 112 900 133 938 C151 976 182 963 223 941 C191 980 180 1007 210 1026 C250 1056 330 1025 403 977 C510 900 575 725 523 614 Z"/></clipPath>
+  <clipPath id="wing-clip"><path d="M316 539 C231 564 162 681 133 769 C110 836 112 900 133 938 C151 976 182 963 223.000000 941.000000 C191.000000 980.000000 180.000000 1007.000000 210.000000 1026.000000 C250 1056 330 1025 403 977 C510 900 575 725 523 614 Z"/></clipPath>
   <path id="foot-shape" d="M6 52 C14 17 46 0 91 0 C137 0 169 20 178 53 C185 79 169 96 146 96 C119 96 97 84 91 57 C84 84 62 96 37 96 C11 96 -4 78 6 52 Z"/>
 </defs>
-<g id="parrot">
-  <path id="tail" d="M184 995 C144 1046 112 1086 121 1117 C129 1155 191 1164 349 1083 L278 1002 Z" fill="url(#blue-fill)" stroke="#07111f" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
-  <path id="body" d="M402 149 C482 189 544 153 618 144 S867 133 948 274 C1019 346 1025 483 981 570 C1054 647 1098 726 1077 835 S891 1129 672 1129 C510 1129 391 1120 298 1048 C212 974 177 861 216 721 L253 555 C259 482 305 390 370 323 C331 329 307 308 305 283 C302 260 363 241 416 231 C391 216 376 183 389 158 C392 148 396 146 402 149 Z" fill="url(#body-fill)" stroke="#07111f" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+<g id="parrot" stroke="none">
+  <path id="tail" d="M197.975000 977.711500 C157.880000 1061.654500 113 1079 121 1117 C129 1155 191 1164 349 1083 L278 1002 L245.975000 939.711500 Z" fill="url(#tail-fill)"/>
+  <path id="body" d="M402 149 C482 189 544 153 618 144 S867 133 948 274 C1019 346 1025 483 981 570 C1054 647 1098 726 1077 835 S891 1129 672 1129 C510 1129 391 1120 298 1048 C212 974 177 861 216 721 L253 555 C259 482 305 390 370 323 C331 329 307 308 305 283 C302 260 363 241 416 231 C391 216 376 183 389 158 C392 148 396 146 402 149 Z" fill="url(#body-fill)"/>
   <ellipse id="face" cx="650" cy="430" rx="214" ry="160" transform="rotate(-16 650 430)" fill="#fcf9f4"/>
   <g id="wing" clip-path="url(#wing-clip)">
-    <path d="M316 539 C231 564 162 681 133 769 C110 836 112 900 133 938 C151 976 182 963 223 941 C191 980 180 1007 210 1026 C250 1056 330 1025 403 977 C510 900 575 725 523 614 Z" fill="url(#body-fill)"/>
-    <rect x="90" y="730" width="510" height="400" fill="url(#blue-fill)"/>
+    <path d="M316 539 C231 564 162 681 133 769 C110 836 112 900 133 938 C151 976 182 963 223.000000 941.000000 C191.000000 980.000000 180.000000 1007.000000 210.000000 1026.000000 C250 1056 330 1025 403 977 C510 900 575 725 523 614 Z" fill="url(#body-fill)"/>
+    <rect id="wing-feather-right" x="90" y="730" width="510" height="400" fill="url(#blue-fill)"/>
+    <path id="wing-feather-left" d="M90 730 H345 C327 825 281 887 223.000000 941.000000 C182 963 151 976 133 938 C112 900 110 836 133 769 Z" fill="url(#blue_fore-fill)"/>
     <path d="M185 668 C205 716 251 704 294 672 C297 716 324 735 366 725 C416 716 488 664 523 614 L588 575 V740 C560 796 504 835 456 824 C433 820 419 805 415 786 C372 841 320 869 289 853 C261 840 257 815 266 776 C219 824 166 858 132 833 L92 810 L100 716 Z" fill="url(#yellow-fill)"/>
   </g>
-  <path id="wing-outline" d="M316 539 C231 564 162 681 133 769 C110 836 112 900 133 938 C151 976 182 963 223 941 C191 980 180 1007 210 1026 C250 1056 330 1025 403 977 C510 900 575 725 523 614" fill="none" stroke="#07111f" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
-  <path id="lower-beak" d="M759 431 C733 465 736 526 758 561 C778 598 810 616 842 608 C881 604 917 579 941 544 C911 486 844 443 759 431 Z" fill="#4d4f52" stroke="#07111f" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
-  <path id="upper-beak" d="M746 430 C735 398 749 351 777 314 C804 279 841 262 881 262 C958 262 1033 339 1052 453 C1065 527 1031 594 1002 616 C989 625 981 618 974 603 C940 536 899 491 832 477 C785 468 755 460 746 430 Z" fill="url(#beak-fill)" stroke="#07111f" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <path id="lower-beak" d="M759 431 C733 465 736 526 758 561 C778 598 810 616 842 608 C881 604 917 579 941 544 C911 486 844 443 759 431 Z" fill="#4d4f52"/>
+  <path id="upper-beak" d="M746 430 C735 398 749 351 777 314 C804 279 841 262 881 262 C958 262 1033 339 1052 453 C1065 527 1031 594 1002 616 C989 625 981 618 974 603 C940 536 899 491 832 477 C785 468 755 460 746 430 Z" fill="url(#beak-fill)"/>
   <ellipse id="eye" cx="640" cy="376" rx="52" ry="59" transform="rotate(-4 640 376)" fill="#030506"/>
   <circle id="eye-highlight" cx="652.5" cy="354" r="17" fill="#fff"/>
-  <g id="feet" fill="#9c8377" stroke="#07111f" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+  <g id="feet" fill="#9c8377">
     <use href="#foot-shape" transform="translate(432 1072)"/>
     <use href="#foot-shape" transform="translate(754 1072) scale(.9 1)"/>
   </g>

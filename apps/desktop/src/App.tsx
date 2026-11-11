@@ -104,7 +104,7 @@ function HistoryView({ state }: { state: ClipboardState }) {
     <main className="history-window">
       <header className="history-header">
         <div className="heading-row">
-          <div className="window-heading"><img src={logo} width={24} height={24} alt="" /><h1>剪贴板</h1></div>
+          <div className="window-heading" data-tauri-drag-region><img src={logo} width={24} height={24} alt="" draggable={false} /><h1>剪贴板</h1></div>
           <div className="header-actions">
             <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><Settings2 /></IconButton>
             <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><X /></IconButton>

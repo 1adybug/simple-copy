@@ -1,7 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "local-windows",
-  "description": "Window-local events for the built-in clipboard and settings views",
+  "description": "Window-local events and shared window controls for the built-in clipboard and settings views",
   "windows": ["history", "settings"],
-  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-close"]
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize"
+  ]
 }

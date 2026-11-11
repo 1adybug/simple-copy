@@ -73,7 +73,7 @@ kbd { font: inherit; }
 }
 .history-header { flex-shrink: 0; padding: 9px 10px 7px 14px; }
 .heading-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.window-heading { display: flex; align-items: center; gap: 8px; }
+.window-heading { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; }
 .window-heading > img { display: block; flex-shrink: 0; }
 .window-heading h1 { font-weight: 500; font-size: 14px; line-height: 24px; margin: 0; }
 .header-actions { display: flex; align-items: center; gap: 2px; }
@@ -120,7 +120,7 @@ kbd { font: inherit; }
 .settings-header { position: sticky; top: 0; z-index: 10; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 25px; background: var(--background); color: var(--primary); }
 .settings-heading { display: flex; align-items: center; flex: 1; min-width: 0; gap: 11px; min-height: 39px; user-select: none; }
 .settings-heading > img { flex-shrink: 0; }
-.settings-heading * { pointer-events: none; }
+.window-heading *, .settings-heading * { pointer-events: none; }
 .settings-window-actions { display: flex; flex-shrink: 0; gap: 2px; }
 .settings-window-actions > button { width: 28px; height: 28px; color: var(--muted-foreground); }
 .settings-window-actions > .window-close:hover { background: var(--sc-danger); color: white; }

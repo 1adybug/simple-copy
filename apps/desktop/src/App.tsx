@@ -1,3 +1,4 @@
+import { product } from '@simple-copy/brand'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -284,7 +285,7 @@ function SettingsView({ state }: { state: ClipboardState }) {
 
   return (
     <main className="settings-window">
-      <header className="settings-header"><Clipboard size={20} /><div><h1>设置</h1><p>Simple Copy</p></div></header>
+      <header className="settings-header"><Clipboard size={20} /><div><h1>设置</h1><p>{product.name}</p></div></header>
       <form className="settings-form" noValidate onSubmit={submit}>
         <section className="settings-section">
           <h2>打开剪贴板</h2>

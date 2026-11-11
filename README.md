@@ -2,6 +2,23 @@
 
 使用 Tauri 2、Rust、React、TypeScript、Tailwind CSS 4 和 shadcn/ui 构建的本机剪贴板应用。界面参考 Windows 剪贴板面板，当前交付和验收以 Windows 为目标。
 
+## Monorepo 结构
+
+使用 pnpm workspace 管理应用和共享品牌资源，所有 JavaScript 依赖共用根目录的 pnpm-lock.yaml。
+
+~~~text
+apps/
+  desktop/              # Tauri 桌面端，包含 React 前端和 src-tauri Rust 工程
+  website/              # 中文宣传网站，可独立构建、静态部署
+packages/
+  brand/                # 共享产品名称、SVG 标识、基础配色和字体
+scripts/
+  package-website.mjs    # 将真实 Windows 安装包与宣传网站一起打包
+tsconfig.base.json      # 共享 TypeScript 严格检查配置
+~~~
+
+桌面原生接口和交互组件保留在 desktop 内，网站不依赖 Tauri。共享包以 workspace:* 引用，直接消费源码和 CSS，无需独立编译。
+
 ## 使用
 
 - 默认按 Win + V 打开或收起面板，也可以点击托盘图标。
@@ -30,25 +47,58 @@ Windows 写回在剪贴板锁内核对系统版本。新复制发生在计时到
 
 ~~~powershell
 pnpm install --frozen-lockfile
-pnpm tauri dev
+pnpm dev:desktop
 ~~~
+
+根目录的 pnpm tauri dev、pnpm tauri build 仍可使用，命令会转发给 desktop。Tauri 的前置命令在 desktop 内执行，因此只启动或构建桌面前端。
 
 ~~~powershell
 pnpm build
-cargo fmt --manifest-path src-tauri/Cargo.toml --all --check
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml --lib
-pnpm tauri build --bundles nsis
+pnpm check:rust
+pnpm test
+pnpm build:installer
 ~~~
 
-安装包输出到 src-tauri/target/release/bundle/nsis，独立程序输出到 src-tauri/target/release/simple-copy.exe。当前构建使用 NSIS 的当前用户安装方式，安装包签名需要发布方提供证书。
+pnpm typecheck 检查所有工作区，pnpm build 构建两个应用的前端；原生程序需另外执行 pnpm build:installer。也可以分别运行 pnpm build:desktop 和 pnpm build:website。
+
+安装包输出到 apps/desktop/src-tauri/target/release/bundle/nsis，独立程序输出到 apps/desktop/src-tauri/target/release/simple-copy.exe。当前构建使用 NSIS 的当前用户安装方式，安装包签名需要发布方提供证书。
+
+## 宣传网站
+
+~~~powershell
+pnpm dev                 # 等同 pnpm dev:website，http://127.0.0.1:5173
+pnpm build:website      # 输出 apps/website/dist
+pnpm preview:website    # http://127.0.0.1:4173
+~~~
+
+网站包含功能介绍、示例剪贴板的选择与置顶交互、本机存储说明、常见问题和获取入口，支持手机布局、键盘、减少动态效果与高对比度模式。演示只操作示例内容，不读取系统剪贴板。构建指南的「复制命令」按钮仅在点击时复制显示的命令。
+
+有正式下载地址时，将 apps/website/.env.example 复制为 apps/website/.env.local，设置 VITE_DOWNLOAD_URL 为 HTTPS 下载地址或网站根路径下的安装包地址；可选设置 VITE_SITE_URL 为正式 HTTPS 站点地址，用于 canonical 和 Open Graph URL。环境变量在构建时注入，修改后需重新构建。没有下载地址时，页面显示源码构建指南。
+
+如果需要一个自带真实安装包、可直接部署的静态网站：
+
+~~~powershell
+pnpm build:installer
+pnpm package:website
+pnpm preview:website
+~~~
+
+package:website 从当前版本的 NSIS 输出中选择安装包，将下载地址注入网站构建，复制安装包及 SHA-256 校验文件到 apps/website/dist/downloads。存在多个架构的安装包时，需显式指定：pnpm package:website "安装包完整路径"。
+
+将完整的 apps/website/dist 部署到任意支持静态文件的托管服务即可；无需 Node.js 服务端。宣传网站不会自动发布到外部托管。普通 pnpm build 或 pnpm build:website 会重新生成不含安装包的 dist，发布带下载的网站时应最后运行 pnpm package:website。
+
+修改品牌标识后，在桌面应用中重新生成原生图标：
+
+~~~powershell
+pnpm --filter @simple-copy/desktop tauri icon ../../packages/brand/assets/logo.svg --output src-tauri/icons
+~~~
 
 ## Windows 交互测试
 
 源码提供单独的交互测试，需在可交互的 Windows 桌面上显式运行。
 
 ~~~powershell
-cargo test --manifest-path src-tauri/Cargo.toml --lib interactive_clipboard_roundtrip_hotkey_and_paste -- --ignored --nocapture
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib interactive_clipboard_roundtrip_hotkey_and_paste -- --ignored --nocapture
 ~~~
 
 此测试临时使用系统剪贴板和一个原生编辑窗口，检查文字、HTML、RTF、PNG、文件及文件夹引用、剪贴板版本竞争、Win + V 拦截、原窗口粘贴和已关闭窗口。结束时恢复测试前能够读取的剪贴板内容。

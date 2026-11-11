@@ -64,7 +64,9 @@ components:
 
 The user-supplied Windows clipboard screenshot determines the composition, density, lavender surfaces, rounded cards and pin placement. The primary task is selecting recently copied content while working in another desktop application. The product uses Simplified Chinese copy and operating-system fonts.
 
-The runtime source of design tokens is src/index.css. Root variables feed Tailwind 4 through its theme adapter, then the shared shadcn/ui components. This document mirrors accepted values. Palette and radius changes must update both locations.
+The shared runtime source of brand colors and the body font is packages/brand/tokens.css. apps/desktop/src/index.css maps those variables into the existing desktop variables and Tailwind 4 theme adapter, then the shared shadcn/ui components. apps/website/src/styles.css imports the same tokens for the marketing surface. This document mirrors accepted values. Shared palette changes must update the token package and this document together. Desktop geometry and component radii remain owned by apps/desktop/src/index.css.
+
+The monorepo has two visual registers: the compact desktop product and a spacious Chinese marketing website. The website introduces the existing Windows app; its browser demonstration uses sample content and must never read the visitor's system clipboard. Product facts come from README.md and apps/desktop/src-tauri/src; marketing copy must preserve the actual defaults and platform limits.
 
 ## Colors
 
@@ -99,3 +101,17 @@ Arrow keys navigate history items, Enter selects and Escape dismisses the popup.
 - Keep the popup compact and preserve the reference card structure.
 - Keep action names consistent across the card, menu and settings.
 - Use accessible labels for every icon-only action.
+
+## Marketing website
+
+The website feels like a small, useful object on a lavender desktop. Its signature is an interactive, faithful clipboard panel paired with a slightly angled note that receives the selected sample. Keep the rest of the page quiet: no stock photos, invented usage statistics, testimonials, or decorative dashboards.
+
+The palette extends the shared plum (#793d91), ink (#261d2a), muted text (#716576), lavender surfaces and thin borders with a near-white page (#fdfcfe) and a lavender demo stage (#f0e8f5). Website-only color roles live in the root variables in apps/website/src/styles.css; they do not change desktop colors. Muted illustration colors are reserved for decorative samples, not essential controls or body text.
+
+Display type uses Segoe UI Variable Display with Segoe UI and Microsoft YaHei UI fallbacks; body type uses the shared operating-system stack. Commands use Cascadia Code and Consolas. No remote font requests or font-swap layout changes. Desktop headings reach 65px, mobile headings scale down to 36px. Section headings use 28–35px, body copy uses 13–15px, with compact supporting captions. Every meaningful text color, including demo captions, meets normal-text contrast against its actual surface.
+
+The website uses a maximum 1160px content width. The hero places the product statement beside the working demonstration; at 760px it stacks naturally with all controls retained. Five content formats, the actual three-step copy/paste sequence, pinning and optional restore, local persistence, FAQs, and acquisition each add distinct information. Only the real three-step workflow is numbered.
+
+Website controls use native buttons, anchors and details/summary. Pin state is expressed with aria-pressed; demonstration and command-copy results use stable live regions. The copy-command action writes only the displayed build commands after an explicit click, with an inline manual-copy error. Global scrollbars, visible focus, forced colors, and reduced motion apply to every owned scroll surface.
+
+Without an actual configured installer URL, acquisition shows an honest local-build guide. VITE_DOWNLOAD_URL supplies a published HTTPS or root-relative download URL. The package:website command builds a deployable static site with a real local NSIS installer included in dist/downloads. No placeholder release URLs or nonfunctional download controls.

@@ -1,0 +1,17 @@
+{
+  "name": "@simple-copy/brand",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./logo.svg": "./assets/logo.svg",
+    "./tokens.css": "./tokens.css"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.0"
+  }
+}

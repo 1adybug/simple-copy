@@ -1,0 +1,13 @@
+:root {
+  --sc-font-sans: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+  --sc-primary: #793d91;
+  --sc-background: #f8f5f9;
+  --sc-foreground: #261d2a;
+  --sc-card: #faf7fc;
+  --sc-popover: #fcf9fd;
+  --sc-secondary: #f0eaf3;
+  --sc-accent: #eee3f3;
+  --sc-muted: #716576;
+  --sc-border: #dfd5e4;
+  --sc-danger: #a4263b;
+}

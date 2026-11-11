@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@simple-copy/brand/tokens.css";
 
 @theme inline {
   --color-background: var(--background);
@@ -27,22 +28,22 @@
 }
 
 :root {
-  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
-  color: #261d2a;
+  font-family: var(--sc-font-sans);
+  color: var(--sc-foreground);
   font-size: 13px;
   line-height: 1.5;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --background: #f8f5f9;
-  --foreground: #261d2a;
-  --card: #faf7fc;
-  --popover: #fcf9fd;
-  --primary: #793d91;
-  --secondary: #f0eaf3;
-  --accent: #eee3f3;
-  --muted-foreground: #716576;
-  --border: #dfd5e4;
+  --background: var(--sc-background);
+  --foreground: var(--sc-foreground);
+  --card: var(--sc-card);
+  --popover: var(--sc-popover);
+  --primary: var(--sc-primary);
+  --secondary: var(--sc-secondary);
+  --accent: var(--sc-accent);
+  --muted-foreground: var(--sc-muted);
+  --border: var(--sc-border);
   --scrollbar: #a99aaf;
   --radius: 9px;
   background: transparent;

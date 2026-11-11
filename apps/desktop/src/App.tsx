@@ -1,4 +1,5 @@
 import { product } from '@simple-copy/brand'
+import logo from '@simple-copy/brand/logo.svg'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -103,7 +104,7 @@ function HistoryView({ state }: { state: ClipboardState }) {
     <main className="history-window">
       <header className="history-header">
         <div className="heading-row">
-          <div className="window-heading"><Clipboard size={18} strokeWidth={1.7} /><h1>剪贴板</h1></div>
+          <div className="window-heading"><img src={logo} width={24} height={24} alt="" /><h1>剪贴板</h1></div>
           <div className="header-actions">
             <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><Settings2 /></IconButton>
             <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><X /></IconButton>
@@ -285,7 +286,7 @@ function SettingsView({ state }: { state: ClipboardState }) {
 
   return (
     <main className="settings-window">
-      <header className="settings-header"><Clipboard size={20} /><div><h1>设置</h1><p>{product.name}</p></div></header>
+      <header className="settings-header"><img src={logo} width={32} height={32} alt="" /><div><h1>设置</h1><p>{product.name}</p></div></header>
       <form className="settings-form" noValidate onSubmit={submit}>
         <section className="settings-section">
           <h2>打开剪贴板</h2>

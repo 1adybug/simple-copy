@@ -73,7 +73,7 @@ kbd { font: inherit; }
 .history-header { flex-shrink: 0; padding: 9px 10px 7px 14px; }
 .heading-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .window-heading { display: flex; align-items: center; gap: 8px; }
-.window-heading > svg { color: var(--primary); }
+.window-heading > img { display: block; flex-shrink: 0; }
 .window-heading h1 { font-weight: 500; font-size: 14px; line-height: 24px; margin: 0; }
 .header-actions { display: flex; align-items: center; gap: 2px; }
 .header-actions > button { height: 25px; width: 25px; color: #51445b; }

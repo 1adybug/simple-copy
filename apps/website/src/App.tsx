@@ -57,7 +57,7 @@ function ClipboardDemo() {
   return <div className="demo-scene" id="demo" role="region" aria-labelledby="demo-title">
     <div className="scene-caption"><span className="little-star"><Sparkles size={15} /></span> 刚才复制的，都在这里。</div>
     <div className="demo-window">
-      <div className="demo-heading"><h2 id="demo-title"><Clipboard size={18} />剪贴板</h2><span className="demo-badge">交互演示</span></div>
+      <div className="demo-heading"><h2 id="demo-title"><img src={logo} width={24} height={24} alt="" />剪贴板</h2><span className="demo-badge">交互演示</span></div>
       <div className="demo-toolbar"><span>{clips.length} 条记录</span><button type="button" onClick={() => {
         setClips(initialClips)
         setPasted(null)

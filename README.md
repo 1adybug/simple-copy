@@ -87,11 +87,21 @@ package:website 从当前版本的 NSIS 输出中选择安装包，将下载地�
 
 将完整的 apps/website/dist 部署到任意支持静态文件的托管服务即可；无需 Node.js 服务端。宣传网站不会自动发布到外部托管。普通 pnpm build 或 pnpm build:website 会重新生成不含安装包的 dist，发布带下载的网站时应最后运行 pnpm package:website。
 
+共享 Logo 位于 packages/brand/assets/logo.svg，是用平滑曲线、椭圆和圆形重建的卡通鹦鹉，背景透明，不包含嵌入位图。需要调整或重新生成几何时，使用已安装的 image-to-geometric-svg Skill 工具目录：
+
+~~~powershell
+python scripts/generate-brand-logo.py --skill-dir "<image-to-geometric-svg skill directory>" --output packages/brand/assets/logo.svg --overwrite
+~~~
+
+生成器的 --flat 选项可输出纯色轮廓供检查。普通开发与构建直接使用已提交的 SVG，不依赖 Skill 的安装位置。
+
 修改品牌标识后，在桌面应用中重新生成原生图标：
 
 ~~~powershell
 pnpm --filter @simple-copy/desktop tauri icon ../../packages/brand/assets/logo.svg --output src-tauri/icons
 ~~~
+
+桌面构建会跟踪 PNG、ICO 和 ICNS 图标资源的变化，Windows 安装器与卸载器使用同一份 ICO。重新生成图标后执行 pnpm build:installer，再执行 pnpm package:website，让程序和网站下载包一起更新。
 
 ## Windows 交互测试
 

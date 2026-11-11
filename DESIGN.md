@@ -66,6 +66,8 @@ The user-supplied Windows clipboard screenshot determines the composition, densi
 
 The shared runtime source of brand colors and the body font is packages/brand/tokens.css. apps/desktop/src/index.css maps those variables into the existing desktop variables and Tailwind 4 theme adapter, then the shared shadcn/ui components. apps/website/src/styles.css imports the same tokens for the marketing surface. This document mirrors accepted values. Shared palette changes must update the token package and this document together. Desktop geometry and component radii remain owned by apps/desktop/src/index.css.
 
+The product mark is the round cartoon parrot reconstructed from the user-supplied reference in packages/brand/assets/logo.svg. Preserve its smooth organic silhouette, thick dark outline, bright green body, yellow-and-blue wing, pale face and beak, and transparent background. scripts/generate-brand-logo.py owns its editable geometry and subtle native SVG gradients. Website branding, favicon, desktop window headings and the website demonstration use this shared SVG. Native application, installer and tray icons are generated from the same source with the documented Tauri icon command; do not maintain a separate product mark for the desktop app.
+
 The monorepo has two visual registers: the compact desktop product and a spacious Chinese marketing website. The website introduces the existing Windows app; its browser demonstration uses sample content and must never read the visitor's system clipboard. Product facts come from README.md and apps/desktop/src-tauri/src; marketing copy must preserve the actual defaults and platform limits.
 
 ## Colors

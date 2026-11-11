@@ -22,6 +22,12 @@
     "category": "Productivity",
     "shortDescription": "本机剪贴板历史与常驻恢复",
     "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    },
     "macOS": { "minimumSystemVersion": "13.3" }
   }
 }

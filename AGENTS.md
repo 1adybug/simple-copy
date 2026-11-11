@@ -1,0 +1,7 @@
+# AGENTS.md
+
+- 修复问题时，应优先定位并修正原有逻辑中的根因，保证核心模型、状态流转和业务语义本身是正确的；而不是在错误结果已经产生之后，再叠加额外的补偿逻辑、后处理逻辑或展示层兜底来掩盖问题。
+
+- 在 Skill 设计中，Markdown 负责声明能力边界、适用场景、操作原则、决策标准、输入输出契约和失败处理；脚本负责实现可重复、可测试、可验证的确定性执行，包括计算、转换、生成、校验、文件操作、网络交互和系统集成。需要语境理解和判断的规则应写入 Markdown，需要稳定复现和承担副作用的动作应封装为脚本。
+
+- Git 提交消息必须采用 `<type>(<scope>): <description>` 格式，类型应匹配实际改动，描述使用英文。`scope` 可省略，省略时格式为 `<type>: <description>`。例如：`fix(skills): open skill editor on a dedicated page` 或 `fix: open skill editor on a dedicated page`。

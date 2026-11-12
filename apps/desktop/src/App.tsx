@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
   Clipboard, Copy, File, Image, Link, LoaderCircle, Minus,
-  Pin, Settings2, Square, Trash2, Type, X,
+  Pin, RotateCcw, Settings2, Square, Trash2, Type, X,
 } from 'lucide-react'
 import {
   useEffect, useRef, useState,
@@ -298,7 +298,7 @@ function SettingsView({ state }: { state: ClipboardState }) {
       <SettingsHeader />
       <form className="settings-form" noValidate onSubmit={(event) => event.preventDefault()}>
         <section className="settings-section">
-          <h2>打开剪贴板</h2>
+          <h2>快捷键</h2>
           <ShortcutInput value={settings.shortcut} onChange={(shortcut) => void save({ shortcut })} />
           {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
         </section>
@@ -335,9 +335,15 @@ function SettingsView({ state }: { state: ClipboardState }) {
           {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
         </section>
         <section className="settings-section">
-          <div className="restore-heading">
-            <div><h2><Label htmlFor="restore-enabled">常驻恢复</Label></h2><p>复制其他内容后，恢复为第一条置顶内容</p></div>
-            <Switch id="restore-enabled" checked={settings.restoreEnabled} disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => void save({ restoreEnabled: checked })} />
+          <h2>其他设置</h2>
+          <div className="setting-card">
+            <div className="setting-row">
+              <div className="format-icon"><RotateCcw /></div>
+              <Label htmlFor="restore-enabled" className="setting-copy">
+                <span>常驻回复</span><small>复制其他内容后，恢复为第一条置顶内容</small>
+              </Label>
+              <Switch id="restore-enabled" checked={settings.restoreEnabled} disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => void save({ restoreEnabled: checked })} />
+            </div>
           </div>
           <div className="delay-row">
             <Label htmlFor="restore-delay">每次变化后等待</Label>

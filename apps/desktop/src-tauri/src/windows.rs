@@ -103,7 +103,6 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 .expect("bundled application icon")
                 .clone(),
         )
-        .tooltip("Simple Copy")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {

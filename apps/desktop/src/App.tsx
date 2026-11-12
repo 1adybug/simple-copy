@@ -23,7 +23,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { desktop, errorText, shortcutLabel, useClipboard, type Clip, type Kind, type Retention } from './native'
 
 const kindLabels: Record<Kind, string> = {
@@ -40,12 +39,7 @@ export default function App() {
 
 function IconButton({ label, children, ...props }: ComponentProps<typeof Button> & { label: string }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label={label} {...props} onClick={props.onClick}>{children}</Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
+    <Button type="button" variant="ghost" size="icon-sm" aria-label={label} {...props} onClick={props.onClick}>{children}</Button>
   )
 }
 

@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { desktop, errorText, shortcutLabel, useClipboard, type Clip, type Kind, type Retention, type ThemeMode } from './native'
 import { useTheme } from './theme'
@@ -209,6 +209,12 @@ const formatOptions: { key: Kind; title: string; detail: string; icon: ReactNode
   { key: 'files', title: '文件与文件夹', detail: '保留原文件引用', icon: <File /> },
 ]
 
+const retentionOptions = [
+  ['session', '仅本次运行', '退出后移除全部历史'],
+  ['pinned', '只保留置顶', '常用内容在下次打开时仍可使用'],
+  ['all', '保留全部', '普通历史和置顶都加密保存在本机'],
+] as const
+
 function SettingsHeader() {
   const [maximized, setMaximized] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -306,19 +312,18 @@ function SettingsView({ state }: { state: ClipboardState }) {
         </section>
         <section className="settings-section">
           <h2 id="theme-mode-heading">主题模式</h2>
-          <RadioGroup value={settings.themeMode} onValueChange={(value) => void save({ themeMode: value as ThemeMode })}
-            className="setting-options" aria-labelledby="theme-mode-heading">
-            {([
-              ['system', '跟随系统'],
-              ['light', '浅色'],
-              ['dark', '深色'],
-            ] as const).map(([value, title]) => (
-              <Label key={value} className="setting-option" htmlFor={'theme-mode-' + value}>
-                <RadioGroupItem value={value} id={'theme-mode-' + value} />
-                <span>{title}</span>
-              </Label>
-            ))}
-          </RadioGroup>
+          <Select value={settings.themeMode} onValueChange={(value) => void save({ themeMode: value as ThemeMode })}>
+            <SelectTrigger className="setting-select" aria-labelledby="theme-mode-heading"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {([
+                ['system', '跟随系统'],
+                ['light', '浅色'],
+                ['dark', '深色'],
+              ] as const).map(([value, title]) => (
+                <SelectItem key={value} value={value}>{title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </section>
         <section className="settings-section">
           <h2>记录内容</h2>
@@ -336,20 +341,16 @@ function SettingsView({ state }: { state: ClipboardState }) {
           </div>
         </section>
         <section className="settings-section">
-          <h2>退出后保留</h2>
-          <RadioGroup value={settings.retention} onValueChange={(value) => updateRetention(value as Retention)}
-            className="setting-options" aria-label="历史保留方式">
-            {([
-              ['session', '仅本次运行', '退出后移除全部历史'],
-              ['pinned', '只保留置顶', '常用内容在下次打开时仍可使用'],
-              ['all', '保留全部', '普通历史和置顶都加密保存在本机'],
-            ] as const).map(([value, title, detail]) => (
-              <Label key={value} className="setting-option" htmlFor={'retention-' + value}>
-                <RadioGroupItem value={value} id={'retention-' + value} />
-                <span className="setting-copy"><span>{title}</span><small>{detail}</small></span>
-              </Label>
-            ))}
-          </RadioGroup>
+          <h2 id="retention-heading">退出后保留</h2>
+          <Select value={settings.retention} onValueChange={(value) => updateRetention(value as Retention)}>
+            <SelectTrigger className="setting-select" aria-labelledby="retention-heading" aria-describedby="retention-help"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {retentionOptions.map(([value, title, detail]) => (
+                <SelectItem key={value} value={value} description={detail}>{title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p id="retention-help" className="field-help">{retentionOptions.find(([value]) => value === settings.retention)?.[2]}</p>
           {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
         </section>
         <section className="settings-section">

@@ -152,12 +152,7 @@ kbd { font: inherit; }
 .setting-copy { display: flex; flex: 1; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 12px; line-height: 18px; font-weight: 500; cursor: pointer; }
 .setting-copy > span { flex-shrink: 0; }
 .setting-copy small { font-weight: 400; color: var(--muted-foreground); }
-.setting-options { gap: 4px; }
-.setting-option { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 9px; background: var(--card); cursor: pointer; font-size: 12px; font-weight: 500; }
-.setting-option:hover { background: var(--sc-hover); }
-.setting-option:has([data-state="checked"]) { background: var(--accent); }
-.setting-option:active { background: var(--secondary); }
-.setting-option span { line-height: 18px; }
+.setting-select { height: 34px; font-size: 12px; }
 .delay-row { display: flex; align-items: center; gap: 9px; margin-top: 3px; font-size: 12px; }
 .delay-row label { font-size: 12px; font-weight: 400; }
 .delay-row input { height: 31px; width: 90px; font-size: 12px; }
@@ -174,13 +169,18 @@ kbd { font: inherit; }
 @media (forced-colors: active) {
   .history-list { mask-image: none; }
   .history-scroll::before, .history-scroll::after { display: none; }
-  .clip-card, .app-window, .setting-row, .setting-option,
+  .clip-card, .app-window, .setting-row,
   [data-slot="button"], [data-slot="alert-dialog-action"], [data-slot="alert-dialog-cancel"],
   [data-slot="input"], [data-slot="switch"], [data-slot="radio-group-item"],
+  [data-slot="select-trigger"], [data-slot="select-content"],
   [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"],
   [data-slot="alert-dialog-content"], .feedback { border: 1px solid CanvasText; }
   [data-slot="radio-group-item"][data-state="checked"],
   [data-slot="switch"][data-state="checked"] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  [data-slot="select-item"][data-state="checked"],
+  [data-slot="select-item"][data-highlighted] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  [data-slot="select-item"][data-state="checked"] span,
+  [data-slot="select-item"][data-highlighted] span { color: inherit; }
   [data-slot="switch-thumb"] { background: ButtonText; }
   [data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] { background: HighlightText; }
   .pin-button[aria-pressed="true"] { outline: 1px solid Highlight; }

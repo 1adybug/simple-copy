@@ -1,15 +1,14 @@
-import { product } from '@simple-copy/brand'
 import logo from '@simple-copy/brand/logo.svg'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
-  Check, Clipboard, Copy, File, Image, Link, LoaderCircle, Minus, MoreHorizontal,
-  Pin, PinOff, Settings2, ShieldCheck, Square, Trash2, Type, X,
+  Clipboard, Copy, File, Image, Link, LoaderCircle, Minus, MoreHorizontal,
+  Pin, PinOff, Settings2, Square, Trash2, Type, X,
 } from 'lucide-react'
 import {
   useEffect, useRef, useState,
-  type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode,
+  type ComponentProps, type KeyboardEvent, type ReactNode,
 } from 'react'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -25,7 +24,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { desktop, errorText, shortcutLabel, useClipboard, type Clip, type Kind, type Retention, type Settings } from './native'
+import { desktop, errorText, shortcutLabel, useClipboard, type Clip, type Kind, type Retention } from './native'
 
 const kindLabels: Record<Kind, string> = {
   text: '纯文本', link: '链接', richText: '富文本', image: '图片', files: '文件与文件夹',
@@ -101,8 +100,8 @@ function HistoryView({ state }: { state: ClipboardState }) {
   }
 
   return (
-    <main className="history-window">
-      <header className="history-header">
+    <main className="app-window history-window">
+      <header className="window-header">
         <div className="heading-row">
           <div className="window-heading" data-tauri-drag-region><img src={logo} width={24} height={24} alt="" draggable={false} /><h1>剪贴板</h1></div>
           <div className="header-actions">
@@ -256,17 +255,18 @@ function SettingsHeader() {
   }
 
   return <>
-    <header className="settings-header">
-      <div className="settings-heading" data-tauri-drag-region>
-        <img src={logo} width={32} height={32} alt="" draggable={false} />
-        <div><h1>设置</h1><p>{product.name}</p></div>
-      </div>
-      <div className="settings-window-actions" role="group" aria-label="窗口操作">
-        <IconButton label="最小化" onClick={() => void control('minimize')}><Minus /></IconButton>
-        <IconButton label={maximized ? '还原窗口' : '最大化'} onClick={() => void control('toggleMaximize')}>
-          {maximized ? <Copy /> : <Square />}
-        </IconButton>
-        <IconButton label="关闭设置" className="window-close" onClick={() => void control('close')}><X /></IconButton>
+    <header className="window-header">
+      <div className="heading-row">
+        <div className="window-heading" data-tauri-drag-region>
+          <img src={logo} width={24} height={24} alt="" draggable={false} /><h1>设置</h1>
+        </div>
+        <div className="header-actions settings-window-actions" role="group" aria-label="窗口操作">
+          <IconButton label="最小化" onClick={() => void control('minimize')}><Minus /></IconButton>
+          <IconButton label={maximized ? '还原窗口' : '最大化'} onClick={() => void control('toggleMaximize')}>
+            {maximized ? <Copy /> : <Square />}
+          </IconButton>
+          <IconButton label="关闭设置" className="window-close" onClick={() => void control('close')}><X /></IconButton>
+        </div>
       </div>
     </header>
     {error && <div className="window-control-error"><Feedback error={error} onDismiss={() => setError(null)} /></div>}
@@ -274,68 +274,55 @@ function SettingsHeader() {
 }
 
 function SettingsView({ state }: { state: ClipboardState }) {
-  const { snapshot, busy } = state
-  const [draft, setDraft] = useState<Settings | null>(null)
-  const [delay, setDelay] = useState('5')
+  const { snapshot, settings, savingSettings, save, flushSettings } = state
+  const [delay, setDelay] = useState<string | null>(null)
   const [validation, setValidation] = useState<string | null>(null)
-  const [confirmSave, setConfirmSave] = useState(false)
-  const [confirmClose, setConfirmClose] = useState(false)
-  const discardClose = useRef(false)
-  const dirtyRef = useRef(false)
-  const delayInput = useRef<HTMLInputElement>(null)
-  const committed = snapshot ? JSON.stringify(snapshot.settings) : ''
-  useEffect(() => {
-    if (!committed) return
-    const current = JSON.parse(committed) as Settings
-    setDraft(current)
-    setDelay(String(current.restoreSeconds))
-  }, [committed])
-  const dirty = !!draft && (JSON.stringify(draft) !== committed || delay !== String(draft.restoreSeconds))
-  dirtyRef.current = dirty
+  const [confirmRetention, setConfirmRetention] = useState<Retention | null>(null)
+  const [closeError, setCloseError] = useState<string | null>(null)
+  const closing = useRef(false)
   useEffect(() => {
     if (!desktop) return
-    const stop = getCurrentWindow().onCloseRequested((event) => {
-      if (!discardClose.current && dirtyRef.current) {
-        event.preventDefault()
-        setConfirmClose(true)
-      }
+    const window = getCurrentWindow()
+    const stop = window.onCloseRequested((event) => {
+      event.preventDefault()
+      if (closing.current) return
+      closing.current = true
+      void flushSettings().then(async (saved) => {
+        if (saved) await window.destroy()
+      }).catch((reason: unknown) => setCloseError(errorText(reason)))
+        .finally(() => { closing.current = false })
     })
     return () => { void stop.then((unlisten) => unlisten()) }
-  }, [])
+  }, [flushSettings])
 
-  if (!draft || !snapshot) return <main className="settings-window">
+  if (!settings || !snapshot) return <main className="app-window settings-window">
     <SettingsHeader />
-    <div className="settings-loading"><LoaderCircle className="animate-spin" /><Feedback error={state.error} /></div>
+    <div className="settings-loading"><LoaderCircle className="animate-spin" /><Feedback error={closeError || state.error} /></div>
   </main>
 
-  function update<Key extends keyof Settings>(key: Key, value: Settings[Key]) {
-    setDraft((previous) => previous && { ...previous, [key]: value })
-    setValidation(null)
-  }
-  async function save() {
-    if (!draft) return
-    if (!/^\d+$/.test(delay) || Number(delay) < 1 || Number(delay) > 3600) {
+  function updateDelay(value: string) {
+    setDelay(value)
+    if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 3600) {
       setValidation('请输入 1–3600 之间的整数秒数。')
-      delayInput.current?.focus()
       return
     }
-    if (await state.save({ ...draft, restoreSeconds: Number(delay) })) setValidation(null)
+    setValidation(null)
+    void save({ restoreSeconds: Number(value) })
   }
-  function submit(event: FormEvent) {
-    event.preventDefault()
-    if ((snapshot?.settings.retention === 'all' && draft?.retention !== 'all')
-      || (snapshot?.settings.retention === 'pinned' && draft?.retention === 'session')) {
-      setConfirmSave(true)
-    } else void save()
+  function updateRetention(value: Retention) {
+    if ((settings?.retention === 'all' && value !== 'all')
+      || (settings?.retention === 'pinned' && value === 'session')) {
+      setConfirmRetention(value)
+    } else void save({ retention: value })
   }
 
   return (
-    <main className="settings-window">
+    <main className="app-window settings-window">
       <SettingsHeader />
-      <form className="settings-form" noValidate onSubmit={submit}>
+      <form className="settings-form" noValidate onSubmit={(event) => event.preventDefault()}>
         <section className="settings-section">
           <h2>打开剪贴板</h2>
-          <ShortcutInput value={draft.shortcut} onChange={(shortcut) => update('shortcut', shortcut)} />
+          <ShortcutInput value={settings.shortcut} onChange={(shortcut) => void save({ shortcut })} />
           {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
         </section>
         <section className="settings-section">
@@ -347,15 +334,15 @@ function SettingsView({ state }: { state: ClipboardState }) {
                 <Label htmlFor={'format-' + format.key} className="setting-copy">
                   <span>{format.title}</span><small>{format.detail}</small>
                 </Label>
-                <Switch id={'format-' + format.key} checked={draft.formats[format.key]}
-                  onCheckedChange={(checked) => update('formats', { ...draft.formats, [format.key]: checked })} />
+                <Switch id={'format-' + format.key} checked={settings.formats[format.key]}
+                  onCheckedChange={(checked) => void save({ formats: { [format.key]: checked } })} />
               </div>
             ))}
           </div>
         </section>
         <section className="settings-section">
           <h2>退出后保留</h2>
-          <RadioGroup value={draft.retention} onValueChange={(value) => update('retention', value as Retention)}
+          <RadioGroup value={settings.retention} onValueChange={(value) => updateRetention(value as Retention)}
             className="retention-options" aria-label="历史保留方式">
             {([
               ['session', '仅本次运行', '退出后移除全部历史'],
@@ -364,49 +351,41 @@ function SettingsView({ state }: { state: ClipboardState }) {
             ] as const).map(([value, title, detail]) => (
               <Label key={value} className="retention-option" htmlFor={'retention-' + value}>
                 <RadioGroupItem value={value} id={'retention-' + value} />
-                <span>{title}<small>{detail}</small></span>
+                <span className="setting-copy"><span>{title}</span><small>{detail}</small></span>
               </Label>
             ))}
           </RadioGroup>
-          <p className="privacy-note"><ShieldCheck size={14} />历史在本机处理，持久记录使用系统密钥库加密。</p>
           {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
         </section>
         <section className="settings-section">
           <div className="restore-heading">
             <div><h2><Label htmlFor="restore-enabled">常驻恢复</Label></h2><p>复制其他内容后，恢复为第一条置顶内容</p></div>
-            <Switch id="restore-enabled" checked={draft.restoreEnabled} disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => update('restoreEnabled', checked)} />
+            <Switch id="restore-enabled" checked={settings.restoreEnabled} disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => void save({ restoreEnabled: checked })} />
           </div>
           <div className="delay-row">
             <Label htmlFor="restore-delay">每次变化后等待</Label>
-            <Input ref={delayInput} id="restore-delay" type="number" inputMode="numeric" min="1" max="3600" step="1"
-              value={delay} onChange={(event) => { setDelay(event.target.value); setValidation(null) }}
-              aria-invalid={!!validation} aria-describedby={validation ? 'delay-error' : 'delay-help'} />
+            <Input id="restore-delay" type="number" inputMode="numeric" min="1" max="3600" step="1"
+              value={delay ?? String(settings.restoreSeconds)} onChange={(event) => updateDelay(event.target.value)}
+              onBlur={() => { if (!validation) setDelay(null) }}
+              aria-invalid={!!validation} aria-describedby={validation ? 'delay-help delay-error' : 'delay-help'} />
             <span>秒</span>
           </div>
           <p id="delay-help" className="field-help">连续复制会重新计时。最近置顶的内容排在第一条。</p>
           {validation && <p id="delay-error" role="alert" className="field-error">{validation}</p>}
         </section>
         {snapshot.capabilities.message && <Feedback message={snapshot.capabilities.message} />}
-        <div className="settings-save">
-          <Feedback error={state.error} message={state.message} onDismiss={state.clearMessage} />
-          <Button type="submit" disabled={!dirty || busy} className="save-button">
-            {busy ? <LoaderCircle className="animate-spin" /> : <Check />}保存设置
-          </Button>
+        <div className="settings-feedback">
+          <Feedback error={closeError || state.error} message={savingSettings ? '正在保存设置…' : state.message}
+            onDismiss={() => { setCloseError(null); state.clearMessage() }} />
         </div>
       </form>
-      <AlertDialog open={confirmSave} onOpenChange={setConfirmSave}>
+      <AlertDialog open={confirmRetention !== null} onOpenChange={(open) => { if (!open) setConfirmRetention(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>更新历史保留方式？</AlertDialogTitle>
-            <AlertDialogDescription>保存后会按新设置移除磁盘上的历史。本次运行中的记录可继续使用。</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction onClick={() => void save()}>保存设置</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>放弃尚未保存的设置？</AlertDialogTitle>
-            <AlertDialogDescription>本次修改还没有保存。</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>继续编辑</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { discardClose.current = true; void getCurrentWindow().close() }}>放弃修改</AlertDialogAction></AlertDialogFooter>
+            <AlertDialogDescription>更改后会按新设置移除磁盘上的历史。本次运行中的记录可继续使用。</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction onClick={() => {
+            if (confirmRetention) void save({ retention: confirmRetention })
+          }}>更改保留方式</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </main>

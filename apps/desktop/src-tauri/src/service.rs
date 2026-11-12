@@ -288,9 +288,7 @@ impl Service {
                     .settings_changed(&before, &settings, Instant::now());
                 self.settings = settings;
                 self.publish();
-                Ok(Reply::Operation(Operation {
-                    message: Some("设置已保存".into()),
-                }))
+                Ok(Reply::Snapshot(self.snapshot()))
             }
             Request::CaptureCurrent => {
                 self.capture_current(true)?;

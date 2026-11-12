@@ -49,6 +49,10 @@ impl PopupContext {
         std::mem::take(&mut self.passive)
     }
 
+    fn dismiss(&mut self) -> bool {
+        std::mem::take(&mut self.passive)
+    }
+
     #[cfg(any(windows, test))]
     fn can_dismiss(&self, token: u64) -> bool {
         self.passive && self.token == token
@@ -296,6 +300,14 @@ pub fn show_notice(app: &AppHandle) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Some(window) = handle.get_webview_window("history") {
+            handle
+                .state::<WindowState>()
+                .popup
+                .lock()
+                .expect("popup context lock")
+                .activate();
+            #[cfg(windows)]
+            platform::stop_watching_popup();
             let _ = window.show();
             let _ = window.set_focus();
         }
@@ -305,15 +317,33 @@ pub fn show_notice(app: &AppHandle) {
 pub fn hide(app: &AppHandle) -> Result<(), String> {
     #[cfg(windows)]
     platform::stop_watching_popup();
-    app.state::<WindowState>()
+    let passive = app
+        .state::<WindowState>()
         .popup
         .lock()
         .map_err(|error| error.to_string())?
-        .passive = false;
+        .dismiss();
     if let Some(window) = app.get_webview_window("history") {
-        window.hide().map_err(|error| error.to_string())?;
+        hide_history(&window, passive)?;
     }
     Ok(())
+}
+
+fn hide_history(window: &WebviewWindow, _passive: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    if _passive {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};
+
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?.0 as usize;
+        // Passive popups bypass Tauri's visibility flags when shown. Hide through the same
+        // native lifecycle until activation hands visibility back to Tauri.
+        return window
+            .run_on_main_thread(move || unsafe {
+                ShowWindow(hwnd as _, SW_HIDE);
+            })
+            .map_err(|error| error.to_string());
+    }
+    window.hide().map_err(|error| error.to_string())
 }
 
 pub fn hide_from_worker(app: &AppHandle) -> Result<(), String> {
@@ -462,5 +492,22 @@ mod tests {
 
         let token = popup.open(None, false);
         assert!(!popup.can_dismiss(token));
+    }
+
+    #[test]
+    fn dismissing_before_activation_uses_the_native_visibility_lifecycle() {
+        let mut popup = PopupContext::default();
+        let token = popup.open(None, true);
+
+        assert!(popup.dismiss());
+        assert!(!popup.can_dismiss(token));
+        assert!(!popup.activate());
+
+        popup.open(None, true);
+        assert!(popup.activate());
+        assert!(!popup.dismiss());
+
+        popup.open(None, false);
+        assert!(!popup.dismiss());
     }
 }

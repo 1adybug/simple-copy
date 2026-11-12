@@ -18,6 +18,15 @@ pub enum Retention {
     All,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ThemeMode {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Formats {
@@ -44,6 +53,7 @@ impl Default for Formats {
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
     pub shortcut: String,
+    pub theme_mode: ThemeMode,
     pub formats: Formats,
     pub retention: Retention,
     pub restore_enabled: bool,
@@ -59,6 +69,7 @@ impl Default for Settings {
                 "Super+V"
             }
             .into(),
+            theme_mode: ThemeMode::System,
             formats: Formats::default(),
             retention: Retention::Pinned,
             restore_enabled: false,

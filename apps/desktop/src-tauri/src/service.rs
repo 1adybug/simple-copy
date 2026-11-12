@@ -106,6 +106,7 @@ impl ServiceHandle {
                     store.status = Some(error);
                     (Settings::default(), History::default())
                 });
+                windows::apply_theme(&app, settings.theme_mode);
                 let backend = platform::create(app.clone());
                 let (backend, initial_error) = match backend {
                     Ok(backend) => (Some(backend), None),
@@ -286,6 +287,9 @@ impl Service {
                 }
                 self.restore
                     .settings_changed(&before, &settings, Instant::now());
+                if settings.theme_mode != before.theme_mode {
+                    windows::apply_theme(&self.app, settings.theme_mode);
+                }
                 self.settings = settings;
                 self.publish();
                 Ok(Reply::Snapshot(self.snapshot()))

@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type Kind = 'text' | 'link' | 'richText' | 'image' | 'files'
 export type Retention = 'session' | 'pinned' | 'all'
+export type ThemeMode = 'system' | 'light' | 'dark'
 
 export interface Settings {
   shortcut: string
+  themeMode: ThemeMode
   formats: Record<Kind, boolean>
   retention: Retention
   restoreEnabled: boolean

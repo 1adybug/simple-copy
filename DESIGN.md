@@ -66,7 +66,7 @@ components:
 
 ## Overview
 
-The user-supplied Windows clipboard screenshot determines the composition, density, lavender surfaces, rounded cards and pin placement. The user's flat-design direction determines boundaries: use solid background colors and spacing throughout the software, without decorative borders, gradients or shadows. The primary task is selecting recently copied content while working in another desktop application. The product uses Simplified Chinese copy and operating-system fonts.
+The user-supplied Windows clipboard screenshot determines the composition, density, lavender surfaces, rounded cards and pin placement. The user's flat-design direction determines boundaries: use solid background colors and spacing throughout the software, without decorative borders, gradients or shadows. The history list's explicitly requested blurred edge fades are the only surface exception. The primary task is selecting recently copied content while working in another desktop application. The product uses Simplified Chinese copy and operating-system fonts.
 
 The shared runtime source of brand colors and the body font is packages/brand/tokens.css. apps/desktop/src/index.css maps those variables into the existing desktop variables and Tailwind 4 theme adapter, then the shared shadcn/ui components. apps/website/src/styles.css imports the same tokens for the marketing surface. This document mirrors accepted values. Shared palette changes must update the token package and this document together. Desktop geometry and component radii remain owned by apps/desktop/src/index.css.
 
@@ -84,7 +84,7 @@ The Windows font stack matches the reference. History text uses 13px type with 1
 
 ## Layout
 
-The history window measures 360 by 400 logical pixels. Its header and footer keep stable heights while the history list owns scrolling. Cards have a minimum height of 78px with an 8px gap. Image previews preserve aspect ratio. Settings use document scrolling and narrow at 420px.
+The history window measures 360 by 400 logical pixels. Its single-row title bar contains clear-unpinned (a broom), settings and dismiss actions, in that order. There is no record-count toolbar or footer hint row. The history list owns scrolling and fills the remaining height. All four sides use 12px padding, owned by --history-list-padding in apps/desktop/src/index.css. The top and bottom padding contain static 3px blur fades; list content reaches zero opacity at both viewport edges and full opacity at the inner edge of the padding. These effects pass pointer events through and are disabled in forced-colors mode. Scroll padding keeps keyboard-focused cards inside the fully visible region. Cards have a minimum height of 78px with an 8px gap. Image previews preserve aspect ratio. Settings use document scrolling and narrow at 420px.
 
 All desktop scroll surfaces, including history, settings, feedback and menus, hide native scrollbars while retaining wheel, touchpad and keyboard scrolling. Scrollbar tracks reserve no layout space. The global rule in apps/desktop/src/index.css owns this behavior.
 

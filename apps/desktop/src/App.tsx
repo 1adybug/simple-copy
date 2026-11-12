@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
-  Check, Clipboard, Copy, File, Image, Link, LoaderCircle, Minus, MoreHorizontal,
+  Broom, Check, Clipboard, Copy, File, Image, Link, LoaderCircle, Minus, MoreHorizontal,
   Pin, PinOff, Settings2, ShieldCheck, Square, Trash2, Type, X,
 } from 'lucide-react'
 import {
@@ -106,45 +106,34 @@ function HistoryView({ state }: { state: ClipboardState }) {
         <div className="heading-row">
           <div className="window-heading" data-tauri-drag-region><img src={logo} width={24} height={24} alt="" draggable={false} /><h1>剪贴板</h1></div>
           <div className="header-actions">
+            <IconButton label="清除未置顶" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><Broom /></IconButton>
             <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><Settings2 /></IconButton>
             <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><X /></IconButton>
           </div>
         </div>
-        <div className="history-toolbar">
-          <span className="record-count">{items.length ? items.length + ' 条记录' : '最近复制的内容'}</span>
-          <Button variant="secondary" size="xs" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}>
-            清除未置顶
-          </Button>
-        </div>
       </header>
-      <div ref={list} className="history-list" role="list" aria-label="剪贴板历史" onKeyDown={navigate}>
-        {items.map((clip) => (
-          <ClipCard key={clip.id} clip={clip} busy={busy}
-            onPaste={() => void action({ type: 'paste', id: clip.id })}
-            onCopy={() => void action({ type: 'copy', id: clip.id })}
-            onPin={() => void action({ type: 'pin', id: clip.id, pinned: !clip.pinned })}
-            onDelete={() => setConfirmation(clip)}
-          />
-        ))}
-        {items.length === 0 && (
-          <div className="empty-state">
-            {snapshot || !desktop ? <Clipboard size={30} strokeWidth={1.25} /> : <LoaderCircle className="animate-spin" size={24} />}
-            <h2>{snapshot || !desktop ? '复制一点内容，从这里开始' : '正在连接剪贴板'}</h2>
-            <p>文字、图片和文件会出现在这里</p>
-            {snapshot && !snapshot.capabilities.background && (
-              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void state.capture()}>收录当前剪贴板</Button>
-            )}
-          </div>
-        )}
+      <div className="history-scroll">
+        <div ref={list} className="history-list" role="list" aria-label="剪贴板历史" onKeyDown={navigate}>
+          {items.map((clip) => (
+            <ClipCard key={clip.id} clip={clip} busy={busy}
+              onPaste={() => void action({ type: 'paste', id: clip.id })}
+              onCopy={() => void action({ type: 'copy', id: clip.id })}
+              onPin={() => void action({ type: 'pin', id: clip.id, pinned: !clip.pinned })}
+              onDelete={() => setConfirmation(clip)}
+            />
+          ))}
+          {items.length === 0 && (
+            <div className="empty-state">
+              {snapshot || !desktop ? <Clipboard size={30} strokeWidth={1.25} /> : <LoaderCircle className="animate-spin" size={24} />}
+              <h2>{snapshot || !desktop ? '复制一点内容，从这里开始' : '正在连接剪贴板'}</h2>
+              <p>文字、图片和文件会出现在这里</p>
+              {snapshot && !snapshot.capabilities.background && (
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => void state.capture()}>收录当前剪贴板</Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      <footer className="history-footer">
-        <span className={snapshot?.settings.restoreEnabled ? 'restore-state enabled' : 'restore-state'}>
-          {snapshot?.settings.restoreEnabled
-            ? <><span className="state-dot" />{snapshot.restorePending ? '等待恢复置顶内容' : '常驻恢复已开启'}</>
-            : <><kbd>{shortcutLabel(snapshot?.settings.shortcut ?? 'Super+V')}</kbd> 打开</>}
-        </span>
-        <span><kbd>Esc</kbd> 收起</span>
-      </footer>
       <div className="history-feedback">
         <Feedback error={navigationError || state.error || snapshot?.error || snapshot?.shortcutError}
           message={state.message} onDismiss={navigationError || state.error || state.message

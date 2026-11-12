@@ -90,22 +90,32 @@ kbd { font: inherit; }
 }
 .history-scroll::before { top: 0; mask-image: linear-gradient(to bottom, #000, transparent); }
 .history-scroll::after { bottom: 0; mask-image: linear-gradient(to top, #000, transparent); }
-.clip-card { position: relative; flex-shrink: 0; min-height: 78px; padding: 0; gap: 0; border-radius: 9px; background: var(--card); overflow: visible; }
+.clip-card {
+  --clip-text-size: 13px;
+  --clip-line-height: calc(var(--clip-text-size) * 1.65);
+  --clip-padding: 10px;
+  position: relative; flex-shrink: 0; min-height: 78px; padding: 0; gap: 0;
+  border-radius: 9px; background: var(--card); overflow: visible;
+}
 .clip-card:hover { background: var(--sc-hover); }
-.clip-main { display: flex; width: 100%; min-height: 77px; align-items: flex-start; text-align: left; padding: 10px 35px 24px 10px; border: 0; background: transparent; border-radius: 8px; color: inherit; }
+.clip-main {
+  display: flex; width: 100%; min-height: calc(3 * var(--clip-line-height) + 2 * var(--clip-padding));
+  align-items: flex-start; text-align: left; padding: var(--clip-padding) 35px var(--clip-padding) var(--clip-padding);
+  border: 0; background: transparent; border-radius: 8px; color: inherit;
+}
 .clip-main:active { background: var(--accent); }
 .clip-main:focus-visible { outline-offset: -2px; }
-.clip-text { min-width: 0; width: 100%; font-size: 13px; overflow-wrap: anywhere; }
-.clip-text-lines { white-space: pre-wrap; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; line-height: 1.65; }
-.clip-menu { position: absolute; top: 6px; right: 6px; }
-.clip-menu button { color: #4a3751; width: 22px; height: 22px; }
-.pin-button { position: absolute; bottom: 3px; right: 6px; width: 24px; height: 24px; color: #5c4268; }
+.clip-text { min-width: 0; width: 100%; font-size: var(--clip-text-size); overflow-wrap: anywhere; }
+.clip-text-lines { white-space: pre-wrap; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; line-height: var(--clip-line-height); }
+/* Text line boxes include leading, so the action rows need no additional gap. */
+.clip-actions { position: absolute; top: var(--clip-padding); right: 6px; display: flex; flex-direction: column; gap: 0; }
+.clip-actions > button { width: var(--clip-line-height); height: var(--clip-line-height); padding: 0; color: #5c4268; }
+.clip-card:not(:hover):not(:focus-within) .clip-action-reveal { opacity: 0; pointer-events: none; }
 .clip-card[data-pinned] .pin-button { color: #854199; }
+.clip-actions > .delete-button { color: var(--sc-danger); }
 .clip-image { width: 100%; max-height: 135px; min-height: 56px; object-fit: contain; object-position: left center; border-radius: 3px; }
 .image-placeholder { min-height: 65px; display: flex; align-items: center; gap: 8px; color: var(--muted-foreground); font-size: 11px; }
 .file-label { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; color: #80578d; font-size: 10px; }
-.clip-dropdown { min-width: 135px; font-size: 12px; }
-.delete-menu-item { color: #a4263b; }
 .empty-state { flex: 1; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 5px; color: #977e9f; gap: 10px; text-align: center; }
 .empty-state h2 { margin: 1px 0 -5px; color: #63496e; font-size: 13px; font-weight: 500; }
 .empty-state p { font-size: 11px; color: #715d7d; }

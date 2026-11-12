@@ -9,7 +9,7 @@ use std::{
 };
 
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
@@ -31,6 +31,25 @@ pub struct WindowState {
 struct PopupContext {
     token: u64,
     target: Option<Target>,
+    passive: bool,
+}
+
+impl PopupContext {
+    fn open(&mut self, target: Option<Target>, passive: bool) -> u64 {
+        self.token += 1;
+        self.target = target;
+        self.passive = passive;
+        self.token
+    }
+
+    fn activate(&mut self) -> bool {
+        std::mem::take(&mut self.passive)
+    }
+
+    #[cfg(any(windows, test))]
+    fn can_dismiss(&self, token: u64) -> bool {
+        self.passive && self.token == token
+    }
 }
 
 pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -45,6 +64,7 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .always_on_top(true)
         .skip_taskbar(true)
         .visible(false)
+        .focused(!cfg!(windows))
         .build()?;
     let handle = app.clone();
     history.on_window_event(move |event| match event {
@@ -52,10 +72,23 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             api.prevent_close();
             let _ = hide(&handle);
         }
-        tauri::WindowEvent::Focused(false) => {
-            if let Some(window) = handle.get_webview_window("history") {
-                let _ = window.hide();
+        tauri::WindowEvent::Focused(true) => {
+            let passive = {
+                let state = handle.state::<WindowState>();
+                let mut popup = state.popup.lock().expect("popup context lock");
+                popup.activate()
+            };
+            // Once the user activates the native popup, resume Tauri's visibility lifecycle.
+            if passive {
+                #[cfg(windows)]
+                platform::stop_watching_popup();
+                if let Some(window) = handle.get_webview_window("history") {
+                    let _ = window.show();
+                }
             }
+        }
+        tauri::WindowEvent::Focused(false) => {
+            let _ = hide(&handle);
         }
         _ => {}
     });
@@ -101,13 +134,18 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn toggle(app: &AppHandle) {
+    toggle_with_focus(app, true);
+}
+
+fn toggle_with_focus(app: &AppHandle, focus: bool) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         let Some(window) = handle.get_webview_window("history") else {
             return;
         };
-        if window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false) {
-            let _ = window.hide();
+        if window.is_visible().unwrap_or(false) && (!focus || window.is_focused().unwrap_or(false))
+        {
+            let _ = hide(&handle);
             return;
         }
         let target = platform::capture_target();
@@ -140,14 +178,67 @@ pub fn toggle(app: &AppHandle) {
         let token = {
             let state = handle.state::<WindowState>();
             let mut popup = state.popup.lock().expect("popup context lock");
-            popup.token += 1;
-            popup.target = target;
-            popup.token
+            popup.open(target, !focus)
         };
-        let _ = window.show();
-        let _ = window.set_focus();
-        let _ = window.emit("popup-opened", token);
+        if show_history(&window, focus, token).is_ok() {
+            let _ = window.emit("popup-opened", token);
+        }
     });
+}
+
+fn show_history(window: &WebviewWindow, focus: bool, _token: u64) -> Result<(), String> {
+    #[cfg(windows)]
+    if !focus {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SetWindowPos,
+        };
+
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        let app = window.app_handle().clone();
+        platform::watch_popup(
+            hwnd.0 as usize,
+            std::sync::Arc::new(move || {
+                let handle = app.clone();
+                let _ = app.run_on_main_thread(move || {
+                    let can_dismiss = handle
+                        .state::<WindowState>()
+                        .popup
+                        .lock()
+                        .expect("popup context lock")
+                        .can_dismiss(_token);
+                    if can_dismiss {
+                        let _ = hide(&handle);
+                    }
+                });
+            }),
+        );
+        // Tauri's show() activates the window. Keep this native popup passive until a user
+        // clicks it, then the Focused event resumes Tauri's visibility lifecycle.
+        if unsafe {
+            SetWindowPos(
+                hwnd.0,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+            )
+        } == 0
+        {
+            platform::stop_watching_popup();
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        return Ok(());
+    }
+
+    #[cfg(windows)]
+    platform::stop_watching_popup();
+    window.show().map_err(|error| error.to_string())?;
+    if focus {
+        window.set_focus().map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 pub fn popup_token(app: &AppHandle) -> u64 {
@@ -171,7 +262,11 @@ pub fn target_for(app: &AppHandle, token: u64) -> Option<Target> {
 pub fn popup_is_current(app: &AppHandle, token: u64) -> bool {
     popup_token(app) == token
         && app.get_webview_window("history").is_some_and(|window| {
-            window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false)
+            window.is_visible().unwrap_or(false)
+                && (window.is_focused().unwrap_or(false)
+                    || target_for(app, token)
+                        .as_ref()
+                        .is_some_and(platform::target_has_focus))
         })
 }
 
@@ -183,7 +278,7 @@ pub fn shortcut_triggered(app: &AppHandle, shortcut: &str) {
     {
         let _ = app.emit_to("settings", "shortcut-recorded", shortcut);
     } else {
-        toggle(app);
+        toggle_with_focus(app, !cfg!(windows));
     }
 }
 
@@ -198,6 +293,13 @@ pub fn show_notice(app: &AppHandle) {
 }
 
 pub fn hide(app: &AppHandle) -> Result<(), String> {
+    #[cfg(windows)]
+    platform::stop_watching_popup();
+    app.state::<WindowState>()
+        .popup
+        .lock()
+        .map_err(|error| error.to_string())?
+        .passive = false;
     if let Some(window) = app.get_webview_window("history") {
         window.hide().map_err(|error| error.to_string())?;
     }
@@ -320,4 +422,34 @@ pub fn apply_shortcut(app: &AppHandle, value: &str) -> Result<(), String> {
         .lock()
         .map_err(|error| error.to_string())? = None;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PopupContext;
+
+    #[test]
+    fn passive_dismissal_cannot_close_a_reopened_popup() {
+        let mut popup = PopupContext::default();
+        assert!(!popup.can_dismiss(0));
+
+        let first = popup.open(None, true);
+        assert!(popup.can_dismiss(first));
+
+        let second = popup.open(None, true);
+        assert!(!popup.can_dismiss(first));
+        assert!(popup.can_dismiss(second));
+    }
+
+    #[test]
+    fn activating_the_popup_cancels_pending_passive_dismissal() {
+        let mut popup = PopupContext::default();
+        let token = popup.open(None, true);
+        assert!(popup.activate());
+        assert!(!popup.can_dismiss(token));
+        assert!(!popup.activate());
+
+        let token = popup.open(None, false);
+        assert!(!popup.can_dismiss(token));
+    }
 }

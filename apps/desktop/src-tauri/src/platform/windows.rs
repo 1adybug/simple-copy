@@ -3,7 +3,7 @@ use std::{
     mem::{size_of, zeroed},
     ptr::{null, null_mut},
     sync::{
-        OnceLock,
+        Mutex, OnceLock,
         atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc,
     },
@@ -26,9 +26,10 @@ use windows_sys::Win32::{
         Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock},
     },
     UI::{
+        Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent},
         Input::KeyboardAndMouse::{
             GetAsyncKeyState, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
-            SendInput, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
+            SendInput, VK_CONTROL, VK_ESCAPE, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
         },
         WindowsAndMessaging::*,
     },
@@ -46,7 +47,39 @@ static WIN_V_ENABLED: AtomicBool = AtomicBool::new(false);
 static MESSAGE_WINDOW: AtomicUsize = AtomicUsize::new(0);
 static HOOK_READY: AtomicBool = AtomicBool::new(false);
 static CALLBACKS: OnceLock<(Wake, Wake)> = OnceLock::new();
-thread_local! { static V_CONSUMED: Cell<bool> = const { Cell::new(false) }; }
+static POPUP_WATCH: Mutex<Option<PopupWatch>> = Mutex::new(None);
+thread_local! {
+    static V_CONSUMED: Cell<bool> = const { Cell::new(false) };
+    static ESCAPE_CONSUMED: Cell<bool> = const { Cell::new(false) };
+}
+
+#[derive(Clone)]
+struct PopupWatch {
+    window: usize,
+    owner: usize,
+    dismiss: Wake,
+}
+
+pub fn watch_popup(window: usize, dismiss: Wake) {
+    *POPUP_WATCH.lock().expect("popup watch lock") = Some(PopupWatch {
+        window,
+        owner: unsafe { GetForegroundWindow() } as usize,
+        dismiss,
+    });
+}
+
+pub fn stop_watching_popup() {
+    POPUP_WATCH.lock().expect("popup watch lock").take();
+}
+
+fn watched_popup() -> Option<PopupWatch> {
+    POPUP_WATCH
+        .lock()
+        .ok()?
+        .as_ref()
+        .filter(|popup| unsafe { IsWindowVisible(popup.window as HWND) } != 0)
+        .cloned()
+}
 
 #[derive(Clone, Debug)]
 pub struct Target {
@@ -118,6 +151,16 @@ pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
                 }
                 MESSAGE_WINDOW.store(window as usize, Ordering::Release);
                 let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_proc), instance, 0);
+                let mouse_hook = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_proc), instance, 0);
+                let foreground_hook = SetWinEventHook(
+                    EVENT_SYSTEM_FOREGROUND,
+                    EVENT_SYSTEM_FOREGROUND,
+                    null_mut(),
+                    Some(foreground_proc),
+                    0,
+                    0,
+                    WINEVENT_OUTOFCONTEXT,
+                );
                 HOOK_READY.store(!hook.is_null(), Ordering::Release);
                 let _ = ready_tx.send(Ok(window as usize));
                 let mut message = zeroed();
@@ -131,6 +174,13 @@ pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
                 if !hook.is_null() {
                     UnhookWindowsHookEx(hook);
                 }
+                if !mouse_hook.is_null() {
+                    UnhookWindowsHookEx(mouse_hook);
+                }
+                if !foreground_hook.is_null() {
+                    UnhookWinEvent(foreground_hook);
+                }
+                stop_watching_popup();
                 RemoveClipboardFormatListener(window);
                 UnregisterClassW(name.as_ptr(), instance);
             }
@@ -192,6 +242,26 @@ unsafe extern "system" fn keyboard_proc(code: i32, message: WPARAM, lparam: LPAR
     if code >= 0 {
         // Windows owns this pointer for the duration of the hook callback.
         let key = unsafe { &*(lparam as *const KBDLLHOOKSTRUCT) };
+        if key.vkCode == u32::from(VK_ESCAPE) && key.dwExtraInfo != INJECTED_TAG {
+            let released = matches!(message as u32, WM_KEYUP | WM_SYSKEYUP);
+            if released && ESCAPE_CONSUMED.with(|consumed| consumed.replace(false)) {
+                return 1;
+            }
+            if !released && ESCAPE_CONSUMED.with(Cell::get) {
+                return 1;
+            }
+            if !released
+                && [VK_CONTROL, VK_SHIFT, VK_MENU, VK_LWIN, VK_RWIN]
+                    .into_iter()
+                    .all(|key| !pressed(key))
+                && let Some(popup) = watched_popup()
+                && unsafe { GetForegroundWindow() } as usize != popup.window
+            {
+                ESCAPE_CONSUMED.with(|consumed| consumed.set(true));
+                (popup.dismiss)();
+                return 1;
+            }
+        }
         if key.vkCode == u32::from(b'V') && key.dwExtraInfo != INJECTED_TAG {
             let released = matches!(message as u32, WM_KEYUP | WM_SYSKEYUP);
             if released && V_CONSUMED.with(|consumed| consumed.replace(false)) {
@@ -224,6 +294,41 @@ unsafe extern "system" fn keyboard_proc(code: i32, message: WPARAM, lparam: LPAR
         }
     }
     unsafe { CallNextHookEx(null_mut(), code, message, lparam) }
+}
+
+unsafe extern "system" fn mouse_proc(code: i32, message: WPARAM, lparam: LPARAM) -> LRESULT {
+    if code >= 0
+        && matches!(
+            message as u32,
+            WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN | WM_XBUTTONDOWN
+        )
+        && let Some(popup) = watched_popup()
+    {
+        let mouse = unsafe { &*(lparam as *const MSLLHOOKSTRUCT) };
+        let clicked = unsafe { GetAncestor(WindowFromPoint(mouse.pt), GA_ROOT) };
+        if clicked as usize != popup.window {
+            (popup.dismiss)();
+        }
+    }
+    unsafe { CallNextHookEx(null_mut(), code, message, lparam) }
+}
+
+unsafe extern "system" fn foreground_proc(
+    _hook: HWINEVENTHOOK,
+    _event: u32,
+    window: HWND,
+    _object: i32,
+    _child: i32,
+    _thread: u32,
+    _time: u32,
+) {
+    if !window.is_null()
+        && let Some(popup) = watched_popup()
+        && window as usize != popup.window
+        && window as usize != popup.owner
+    {
+        (popup.dismiss)();
+    }
 }
 
 pub fn capture_target() -> Option<Target> {
@@ -260,6 +365,25 @@ pub fn capture_target() -> Option<Target> {
             focus: info.hwndFocus as usize,
             anchor,
         })
+    }
+}
+
+pub fn target_has_focus(target: &Target) -> bool {
+    unsafe {
+        if GetForegroundWindow() as usize != target.window {
+            return false;
+        }
+        let mut process = 0;
+        let thread = GetWindowThreadProcessId(target.window as HWND, &mut process);
+        if thread == 0 || process != target.process {
+            return false;
+        }
+        let mut info = GUITHREADINFO {
+            cbSize: size_of::<GUITHREADINFO>() as u32,
+            ..zeroed()
+        };
+        target.focus == 0
+            || (GetGUIThreadInfo(thread, &mut info) != 0 && info.hwndFocus as usize == target.focus)
     }
 }
 

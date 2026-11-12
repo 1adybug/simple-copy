@@ -15,7 +15,10 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-use crate::platform::{self, Monitor, Target};
+use crate::{
+    model::ThemeMode,
+    platform::{self, Monitor, Target},
+};
 
 #[derive(Default)]
 pub struct WindowState {
@@ -50,6 +53,14 @@ impl PopupContext {
     fn can_dismiss(&self, token: u64) -> bool {
         self.passive && self.token == token
     }
+}
+
+pub fn apply_theme(app: &AppHandle, mode: ThemeMode) {
+    app.set_theme(match mode {
+        ThemeMode::System => None,
+        ThemeMode::Light => Some(tauri::Theme::Light),
+        ThemeMode::Dark => Some(tauri::Theme::Dark),
+    });
 }
 
 pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {

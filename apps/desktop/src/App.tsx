@@ -21,7 +21,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
-import { desktop, errorText, shortcutLabel, useClipboard, type Clip, type Kind, type Retention } from './native'
+import { desktop, errorText, shortcutLabel, useClipboard, type Clip, type Kind, type Retention, type ThemeMode } from './native'
+import { useTheme } from './theme'
 
 const kindLabels: Record<Kind, string> = {
   text: '纯文本', link: '链接', richText: '富文本', image: '图片', files: '文件与文件夹',
@@ -30,6 +31,7 @@ type ClipboardState = ReturnType<typeof useClipboard>
 
 export default function App() {
   const state = useClipboard()
+  useTheme(state.snapshot?.settings.themeMode ?? 'system')
   return new URLSearchParams(location.search).get('view') === 'settings'
     ? <SettingsView state={state} />
     : <HistoryView state={state} />
@@ -303,6 +305,22 @@ function SettingsView({ state }: { state: ClipboardState }) {
           {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
         </section>
         <section className="settings-section">
+          <h2 id="theme-mode-heading">主题模式</h2>
+          <RadioGroup value={settings.themeMode} onValueChange={(value) => void save({ themeMode: value as ThemeMode })}
+            className="setting-options" aria-labelledby="theme-mode-heading">
+            {([
+              ['system', '跟随系统'],
+              ['light', '浅色'],
+              ['dark', '深色'],
+            ] as const).map(([value, title]) => (
+              <Label key={value} className="setting-option" htmlFor={'theme-mode-' + value}>
+                <RadioGroupItem value={value} id={'theme-mode-' + value} />
+                <span>{title}</span>
+              </Label>
+            ))}
+          </RadioGroup>
+        </section>
+        <section className="settings-section">
           <h2>记录内容</h2>
           <div className="setting-card">
             {formatOptions.map((format) => (
@@ -320,13 +338,13 @@ function SettingsView({ state }: { state: ClipboardState }) {
         <section className="settings-section">
           <h2>退出后保留</h2>
           <RadioGroup value={settings.retention} onValueChange={(value) => updateRetention(value as Retention)}
-            className="retention-options" aria-label="历史保留方式">
+            className="setting-options" aria-label="历史保留方式">
             {([
               ['session', '仅本次运行', '退出后移除全部历史'],
               ['pinned', '只保留置顶', '常用内容在下次打开时仍可使用'],
               ['all', '保留全部', '普通历史和置顶都加密保存在本机'],
             ] as const).map(([value, title, detail]) => (
-              <Label key={value} className="retention-option" htmlFor={'retention-' + value}>
+              <Label key={value} className="setting-option" htmlFor={'retention-' + value}>
                 <RadioGroupItem value={value} id={'retention-' + value} />
                 <span className="setting-copy"><span>{title}</span><small>{detail}</small></span>
               </Label>

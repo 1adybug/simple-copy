@@ -78,6 +78,10 @@ The monorepo has two visual registers: the compact desktop product and a spaciou
 
 History and settings share lavender panel surfaces (#eae1f0) and white content cards (#ffffff), establishing boundaries through color. Secondary controls use a lavender fill, menus use the popover fill, and selected options use the accent fill. Hover uses a distinct light fill; pressed controls deepen their fill. Plum identifies active pins and primary actions. Errors and deletion confirmations use the danger color together with explicit text. Keyboard focus retains a visible outline. Forced-colors mode uses system colors and borders so that controls remain distinguishable when background colors are replaced.
 
+Desktop settings offer system, light and dark theme modes, with system as the default for new and existing settings. Rust Settings owns the persisted preference and applies it to the native application; the shared App theme hook resolves system changes and sets data-theme on the document for both history and settings. Both windows consume the same saved snapshot. Explicit light or dark mode stays fixed until the preference changes. The marketing website retains its light palette.
+
+packages/brand/tokens.css remains the canonical palette source. Its dark selector maps the same semantic roles to background #1d1721, panel #251d2b, card #302637, popover and secondary #3a2d42, foreground #f2eaf6, muted #c4b2cd, primary #d2a4e6 and danger #ffa5b6. Primary and danger controls use their paired foreground tokens so text and selection indicators remain legible in both modes. Desktop icons, empty states and feedback also consume paired theme tokens; changing themes preserves the existing light colors, geometry, flat surfaces and forced-colors behavior. The desktop Tailwind dark variant follows data-theme rather than a separate system preference.
+
 ## Typography
 
 The Windows font stack matches the reference. History text uses 13px type with 1.65 line height. Settings use 12px labels and 11px supporting copy. Preview text preserves source whitespace and wraps long lines.

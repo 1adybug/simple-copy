@@ -11,6 +11,7 @@ export interface Settings {
   themeMode: ThemeMode
   formats: Record<Kind, boolean>
   retention: Retention
+  maxHistoryItems: number
   restoreEnabled: boolean
   restoreSeconds: number
 }

@@ -88,7 +88,7 @@ The Windows font stack matches the reference. History text uses 13px type with 1
 
 ## Layout
 
-The history window measures 360 by 400 logical pixels. Its single-row title bar contains clear-unpinned (a broom), settings and dismiss actions, in that order. There is no record-count toolbar or footer hint row. The history list owns scrolling and fills the remaining height. All four sides use 12px padding, owned by --history-list-padding in apps/desktop/src/index.css. The top and bottom padding contain static 3px blur fades; list content reaches zero opacity at both viewport edges and full opacity at the inner edge of the padding. These effects pass pointer events through and are disabled in forced-colors mode. Scroll padding keeps keyboard-focused cards inside the fully visible region. Cards have a minimum height of 78px with an 8px gap. Image previews preserve aspect ratio. Settings keep the title bar visible while the form owns scrolling and narrow at 420px.
+The history window measures 360 by 400 logical pixels. Its single-row title bar contains clear-unpinned (a broom), settings and dismiss actions, in that order. There is no record-count toolbar or footer hint row. The history list owns scrolling and fills the remaining height. All four sides use 12px padding, owned by --history-list-padding in apps/desktop/src/index.css. The top and bottom padding contain static 3px blur fades; list content reaches zero opacity at both viewport edges and full opacity at the inner edge of the padding. These effects pass pointer events through and are disabled in forced-colors mode. Scroll padding keeps keyboard-focused cards inside the fully visible region. Cards reserve three 13px text lines at 1.65 line height plus 10px vertical padding on each side, with an 8px gap between cards. Image previews preserve aspect ratio. Settings keep the title bar visible while the form owns scrolling and narrow at 420px.
 
 All desktop scroll surfaces, including history, settings, feedback and menus, hide native scrollbars while retaining wheel, touchpad and keyboard scrolling. Scrollbar tracks reserve no layout space. The global rule in apps/desktop/src/index.css owns this behavior.
 
@@ -100,15 +100,17 @@ Native history and settings windows also disable system decorations and window s
 
 ## Shapes
 
-The popup and cards use 9px corners. Standard controls use 7px corners and small controls use 5px corners. Icons use Lucide with mostly 1.5–1.7px strokes.
+The popup and cards use 9px corners. Body-level clipping shares the popup radius so portal overlays remain inside the transparent native window's rounded boundary. Standard controls use 7px corners and small controls use 5px corners. Icons use Lucide with mostly 1.5–1.7px strokes; the clear-unpinned action uses the plumper hand-drawn BroomIcon.
 
 ## Components
 
-Shared shadcn/ui Button, Card, DropdownMenu, AlertDialog, Switch, RadioGroup, Label, Input and Tooltip own their respective interactions. History actions use sibling buttons to keep paste, pin and menu targets independent.
+Shared shadcn/ui Button, Card, DropdownMenu, AlertDialog, Switch, RadioGroup, Label and Input own their respective interactions. History actions use sibling buttons to keep paste, pin, copy and delete targets independent. Pin, copy and delete form a right-hand column aligned to the three text line boxes; pin remains visible, while copy and delete appear on card hover or keyboard focus. Every icon action retains its accessible label. Application and tray tooltips are intentionally absent.
 
 Button uses filled primary and secondary variants or a ghost variant. Input uses a secondary fill. Switch and RadioGroup use solid control fills, with thumb position and an inner dot identifying state as well as color. Settings rows and retention choices are independent color blocks separated by 4px gaps; the checked retention option uses the accent fill. Shared brand surface and control tokens in packages/brand/tokens.css map through apps/desktop/src/index.css into these primitives; website demonstrations consume the same tokens directly.
 
 Every enabled action has hover, pressed and visible keyboard-focus states. Busy actions are guarded against duplicate requests. Dialogs trap and restore focus. Settings save valid field changes automatically through the shared serialized settings queue, own numeric validation and error text, and confirm reductions in disk history retention. There is no manual save action or privacy note. A shared Feedback component announces action outcomes.
+
+Settings label the shortcut section 快捷键. The 其他设置 section presents 常驻回复 as the same icon, label, description and switch row used by recording-format settings. Shortcut and valid delay inputs use white card fills in light mode, mapped through the shared card token in dark mode; the numeric delay input hides native stepper arrows.
 
 Arrow keys navigate history items, Enter selects and Escape dismisses the popup. Clipboard HTML is stored as data and previewed as plain text. Image previews use bounded PNG thumbnails. Reduced-motion preferences shorten animation and transition durations.
 

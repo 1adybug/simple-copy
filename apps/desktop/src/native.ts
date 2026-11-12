@@ -13,6 +13,12 @@ export interface Settings {
   restoreSeconds: number
 }
 
+type SettingsPatch = Partial<Omit<Settings, 'formats'>> & { formats?: Partial<Settings['formats']> }
+
+function applySettingsPatch(settings: Settings, patch: SettingsPatch): Settings {
+  return { ...settings, ...patch, formats: { ...settings.formats, ...patch.formats } }
+}
+
 export interface Clip {
   id: number
   kind: Kind
@@ -59,12 +65,20 @@ export function useClipboard() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [settingsChanges, setSettingsChanges] = useState<SettingsPatch[]>([])
+  const currentSnapshot = useRef<Snapshot | null>(null)
+  const pendingSettings = useRef<SettingsPatch[]>([])
+  const settingsQueue = useRef(Promise.resolve(true))
+  const settingsFailures = useRef(0)
   const running = useRef(false)
   const popupToken = useRef(0)
 
   const update = useCallback((next: Snapshot) => {
     popupToken.current = Math.max(popupToken.current, next.popupToken)
-    setSnapshot((previous) => !previous || next.revision >= previous.revision ? next : previous)
+    if (!currentSnapshot.current || next.revision >= currentSnapshot.current.revision) {
+      currentSnapshot.current = next
+      setSnapshot(next)
+    }
   }, [])
 
   const refresh = useCallback(async () => {
@@ -113,11 +127,49 @@ export function useClipboard() {
     }
   }, [refresh, running])
 
+  const save = useCallback((patch: SettingsPatch) => {
+    pendingSettings.current = [...pendingSettings.current, patch]
+    setSettingsChanges(pendingSettings.current)
+    setError(null)
+    setMessage(null)
+    const result = settingsQueue.current.then(async () => {
+      try {
+        const settings = currentSnapshot.current?.settings
+        if (!settings) throw new Error('设置尚未载入，请稍后重试。')
+        update(await invoke<Snapshot>('save_settings', { settings: applySettingsPatch(settings, patch) }))
+        setMessage('设置已保存')
+        return true
+      } catch (reason) {
+        settingsFailures.current += 1
+        setError(errorText(reason))
+        await refresh().catch(() => {})
+        return false
+      } finally {
+        pendingSettings.current = pendingSettings.current.filter((change) => change !== patch)
+        setSettingsChanges(pendingSettings.current)
+      }
+    })
+    settingsQueue.current = result
+    return result
+  }, [refresh, update])
+
+  const flushSettings = useCallback(async () => {
+    const failures = settingsFailures.current
+    let queue: Promise<boolean>
+    do {
+      queue = settingsQueue.current
+      await queue
+    } while (queue !== settingsQueue.current)
+    return settingsFailures.current === failures
+  }, [])
+
   return {
     snapshot, error, busy, message,
+    settings: snapshot ? settingsChanges.reduce(applySettingsPatch, snapshot.settings) : null,
+    savingSettings: settingsChanges.length > 0,
+    save, flushSettings,
     clearMessage: useCallback(() => { setMessage(null); setError(null) }, []),
     action: (action: Action) => run('history_action', { action, popupToken: popupToken.current }),
-    save: (settings: Settings) => run('save_settings', { settings }),
     capture: () => run('capture_current'),
   }
 }

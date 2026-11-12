@@ -58,10 +58,10 @@ async fn save_settings(
     window: WebviewWindow,
     state: tauri::State<'_, ServiceHandle>,
     settings: model::Settings,
-) -> Result<service::Operation, String> {
+) -> Result<Snapshot, String> {
     check_window(&window)?;
     match state.request(Request::SaveSettings(settings)).await? {
-        Reply::Operation(result) => Ok(result),
+        Reply::Snapshot(snapshot) => Ok(snapshot),
         _ => unreachable!(),
     }
 }

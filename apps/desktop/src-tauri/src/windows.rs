@@ -241,6 +241,7 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
         .min_inner_size(400., 480.)
         .resizable(true)
         .decorations(false)
+        .transparent(cfg!(windows))
         .shadow(false)
         .build()
         .map_err(|error| error.to_string())?;

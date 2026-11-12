@@ -3,8 +3,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
-  Clipboard, Copy, File, Image, Link, LoaderCircle, Minus, MoreHorizontal,
-  Pin, PinOff, Settings2, Square, Trash2, Type, X,
+  Clipboard, Copy, File, Image, Link, LoaderCircle, Minus,
+  Pin, Settings2, Square, Trash2, Type, X,
 } from 'lucide-react'
 import {
   useEffect, useRef, useState,
@@ -17,9 +17,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -67,7 +64,7 @@ function HistoryView({ state }: { state: ClipboardState }) {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape' && !event.defaultPrevented
-        && !document.querySelector('[data-slot="alert-dialog-content"], [data-slot="dropdown-menu-content"]')) {
+        && !document.querySelector('[data-slot="alert-dialog-content"]')) {
         void invoke('hide_history').catch(() => {})
       }
     }
@@ -168,22 +165,18 @@ function ClipCard({ clip, busy, onPaste, onCopy, onPin, onDelete }: {
           </div>
         )}
       </button>
-      <div className="clip-menu">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-xs" disabled={busy} aria-label="更多操作"><MoreHorizontal /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={3} className="clip-dropdown">
-            <DropdownMenuItem onSelect={onCopy}><Copy />复制</DropdownMenuItem>
-            <DropdownMenuItem onSelect={onPin}>{clip.pinned ? <PinOff /> : <Pin />}{clip.pinned ? '取消置顶' : '置顶'}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={onDelete} className="delete-menu-item"><Trash2 />删除</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="clip-actions">
+        <IconButton label={clip.pinned ? '取消置顶' : '置顶'} disabled={busy} onClick={onPin}
+          aria-pressed={clip.pinned} className="pin-button">
+          <Pin strokeWidth={1.5} fill={clip.pinned ? 'currentColor' : 'none'} />
+        </IconButton>
+        <IconButton label="复制" disabled={busy} onClick={onCopy} className="clip-action-reveal">
+          <Copy strokeWidth={1.5} />
+        </IconButton>
+        <IconButton label="删除" disabled={busy} onClick={onDelete} className="clip-action-reveal delete-button">
+          <Trash2 strokeWidth={1.5} />
+        </IconButton>
       </div>
-      <IconButton label={clip.pinned ? '取消置顶' : '置顶'} disabled={busy} onClick={onPin}
-        aria-pressed={clip.pinned} className="pin-button">
-        <Pin size={15} strokeWidth={1.5} fill={clip.pinned ? 'currentColor' : 'none'} />
-      </IconButton>
     </Card>
   )
 }

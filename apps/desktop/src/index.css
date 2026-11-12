@@ -57,8 +57,9 @@ button:disabled { cursor: default; }
 button, input { font: inherit; }
 button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 button svg { flex-shrink: 0; }
-input::-webkit-inner-spin-button { opacity: 1; }
-input[type="number"] { font-variant-numeric: tabular-nums; }
+input[type="number"] { appearance: textfield; font-variant-numeric: tabular-nums; }
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 small { font-size: 11px; }
 kbd { font: inherit; }
 
@@ -125,7 +126,9 @@ kbd { font: inherit; }
 .settings-section { display: flex; flex-direction: column; gap: 10px; }
 .settings-section h2 { font-weight: 600; font-size: 12px; margin: 0; }
 .shortcut-setting { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.shortcut-recorder { min-width: 137px; font-size: 12px; font-weight: 500; height: 34px; }
+.shortcut-recorder { min-width: 137px; font-size: 12px; font-weight: 500; height: 34px; background: var(--card); }
+.shortcut-recorder:hover { background: var(--sc-hover); }
+.shortcut-recorder:active, .shortcut-recorder[aria-pressed="true"] { background: var(--accent); }
 .shortcut-recorder[aria-pressed="true"] { outline: 2px solid var(--primary); outline-offset: 2px; }
 .shortcut-setting small { color: var(--muted-foreground); }
 .setting-card { display: flex; flex-direction: column; gap: 4px; }
@@ -141,12 +144,11 @@ kbd { font: inherit; }
 .retention-option:has([data-state="checked"]) { background: var(--accent); }
 .retention-option:active { background: var(--secondary); }
 .retention-option span { line-height: 18px; }
-.restore-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.restore-heading h2 label { font-size: inherit; font-weight: inherit; }
-.restore-heading p { color: var(--muted-foreground); font-size: 11px; margin: 5px 0 0; }
 .delay-row { display: flex; align-items: center; gap: 9px; margin-top: 3px; font-size: 12px; }
 .delay-row label { font-size: 12px; font-weight: 400; }
 .delay-row input { height: 31px; width: 90px; font-size: 12px; }
+.delay-row input:not([aria-invalid="true"]) { background: var(--card); }
+.delay-row input:not([aria-invalid="true"]):hover { background: var(--sc-hover); }
 .field-help { font-size: 10px; color: var(--muted-foreground); margin: -3px 0 0; }
 .field-error { margin: 0; color: #a4263b; font-size: 11px; }
 .settings-feedback { min-height: 36px; }

@@ -3,13 +3,14 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import {
-  Broom, Clipboard, Copy, File, Image, Link, LoaderCircle, Minus, MoreHorizontal,
+  Clipboard, Copy, File, Image, Link, LoaderCircle, Minus, MoreHorizontal,
   Pin, PinOff, Settings2, Square, Trash2, Type, X,
 } from 'lucide-react'
 import {
   useEffect, useRef, useState,
   type ComponentProps, type KeyboardEvent, type ReactNode,
 } from 'react'
+import { BroomIcon } from '@/components/icons/broom-icon'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -105,7 +106,7 @@ function HistoryView({ state }: { state: ClipboardState }) {
         <div className="heading-row">
           <div className="window-heading" data-tauri-drag-region><img src={logo} width={24} height={24} alt="" draggable={false} /><h1>剪贴板</h1></div>
           <div className="header-actions">
-            <IconButton label="清除未置顶" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><Broom /></IconButton>
+            <IconButton label="清除未置顶" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><BroomIcon /></IconButton>
             <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><Settings2 /></IconButton>
             <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><X /></IconButton>
           </div>

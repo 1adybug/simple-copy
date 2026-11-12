@@ -341,6 +341,10 @@ function SettingsView({ state }: { state: ClipboardState }) {
           </div>
         </section>
         <section className="settings-section">
+          <h2>历史条数</h2>
+          <HistoryLimitInput value={settings.maxHistoryItems} onChange={(maxHistoryItems) => void save({ maxHistoryItems })} />
+        </section>
+        <section className="settings-section">
           <h2 id="retention-heading">退出后保留</h2>
           <Select value={settings.retention} onValueChange={(value) => updateRetention(value as Retention)}>
             <SelectTrigger className="setting-select" aria-labelledby="retention-heading" aria-describedby="retention-help"><SelectValue /></SelectTrigger>
@@ -364,7 +368,7 @@ function SettingsView({ state }: { state: ClipboardState }) {
               <Switch id="restore-enabled" checked={settings.restoreEnabled} disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => void save({ restoreEnabled: checked })} />
             </div>
           </div>
-          <div className="delay-row">
+          <div className="numeric-setting-row">
             <Label htmlFor="restore-delay">每次变化后等待</Label>
             <Input id="restore-delay" type="number" inputMode="numeric" min="1" max="3600" step="1"
               value={delay ?? String(settings.restoreSeconds)} onChange={(event) => updateDelay(event.target.value)}
@@ -392,6 +396,49 @@ function SettingsView({ state }: { state: ClipboardState }) {
       </AlertDialog>
     </main>
   )
+}
+
+function HistoryLimitInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const [confirmLimit, setConfirmLimit] = useState<number | null>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const invalid = draft !== null && (!/^\d+$/.test(draft) || Number(draft) > 4294967295)
+
+  function commit() {
+    if (draft === null || invalid) return
+    const next = Number(draft)
+    setDraft(null)
+    if (next === value) return
+    if (next > 0 && (value === 0 || next < value)) setConfirmLimit(next)
+    else onChange(next)
+  }
+
+  return <>
+    <div className="numeric-setting-row">
+      <Label htmlFor="max-history-items">最多保存条数</Label>
+      <Input ref={input} id="max-history-items" type="number" inputMode="numeric" min="0" max="4294967295" step="1"
+        value={draft ?? String(value)} onChange={(event) => setDraft(event.target.value)} onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+            event.preventDefault()
+            event.currentTarget.blur()
+          }
+        }}
+        aria-invalid={invalid} aria-describedby={invalid ? 'history-limit-help history-limit-error' : 'history-limit-help'} />
+      <span>条</span>
+    </div>
+    <p id="history-limit-help" className="field-help">0 表示不限制条数，置顶内容不计入上限。超出时移除最早的未置顶记录。</p>
+    {invalid && <p id="history-limit-error" role="alert" className="field-error">请输入 0–4294967295 之间的整数条数。</p>}
+    <AlertDialog open={confirmLimit !== null} onOpenChange={(open) => { if (!open) setConfirmLimit(null) }}>
+      <AlertDialogContent onCloseAutoFocus={(event) => { event.preventDefault(); input.current?.focus() }}>
+        <AlertDialogHeader><AlertDialogTitle>减少历史保存条数？</AlertDialogTitle>
+          <AlertDialogDescription>更改后最多保存 {confirmLimit} 条未置顶记录，超出的较早记录会立即从历史和磁盘中移除，无法恢复。置顶内容会保留。</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => {
+          if (confirmLimit !== null) onChange(confirmLimit)
+        }}>减少保存条数</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
 }
 
 function ShortcutInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {

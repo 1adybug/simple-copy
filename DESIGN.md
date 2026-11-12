@@ -112,6 +112,8 @@ Every enabled action has hover, pressed and visible keyboard-focus states. Busy 
 
 Settings label the shortcut section 快捷键. The 其他设置 section presents 常驻回复 as the same icon, label, description and switch row used by recording-format settings. Shortcut and valid delay inputs use white card fills in light mode, mapped through the shared card token in dark mode; the numeric delay input hides native stepper arrows.
 
+The 历史条数 section uses the same numeric setting row for 最多保存条数. Rust Settings owns the persisted count limit, which defaults to 100 for new and existing settings; 0 removes the count limit and pinned entries do not count toward it. The existing byte budget still applies. Count edits commit on blur or Enter so intermediate digits cannot prune history. Reducing the limit requires the shared confirmation dialog; saving the setting and pruning disk history happen together, and in-memory history changes only after storage succeeds.
+
 Arrow keys navigate history items, Enter selects and Escape dismisses the popup. Clipboard HTML is stored as data and previewed as plain text. Image previews use bounded PNG thumbnails. Reduced-motion preferences shorten animation and transition durations.
 
 ## Do's and Don'ts

@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::{ClipId, Kind, MAX_HISTORY_BYTES, Payload, Retention, Settings, thumbnail};
 
-const MAX_UNPINNED: usize = 100;
-
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Entry {
     pub id: ClipId,
@@ -47,15 +45,27 @@ pub struct Preview {
     pub file_count: usize,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct History {
     clips: Vec<Clip>,
     next_id: ClipId,
     order: u64,
+    max_items: u32,
+}
+
+impl Default for History {
+    fn default() -> Self {
+        Self {
+            clips: Vec::new(),
+            next_id: 0,
+            order: 0,
+            max_items: Settings::default().max_history_items,
+        }
+    }
 }
 
 impl History {
-    pub fn load(entries: Vec<Entry>, max_id: ClipId) -> Self {
+    pub fn load(entries: Vec<Entry>, max_id: ClipId, max_items: u32) -> Self {
         let order = entries
             .iter()
             .map(|entry| entry.recency.max(entry.pin_order.unwrap_or_default()))
@@ -65,6 +75,7 @@ impl History {
             clips: entries.into_iter().map(Clip::from_entry).collect(),
             next_id: max_id.saturating_add(1),
             order,
+            max_items,
         };
         history.trim();
         history
@@ -154,7 +165,13 @@ impl History {
         })
     }
 
+    pub fn set_max_items(&mut self, max_items: u32) {
+        self.max_items = max_items;
+        self.trim();
+    }
+
     fn trim(&mut self) {
+        let max_items = self.max_items as usize;
         let mut bytes: usize = self
             .clips
             .iter()
@@ -165,13 +182,13 @@ impl History {
             .iter()
             .filter(|clip| clip.entry.pin_order.is_none())
             .count();
-        if ordinary <= MAX_UNPINNED && bytes <= MAX_HISTORY_BYTES {
+        if (max_items == 0 || ordinary <= max_items) && bytes <= MAX_HISTORY_BYTES {
             return;
         }
         self.clips.sort_by_key(|clip| clip.entry.recency);
         self.clips.retain(|clip| {
             if clip.entry.pin_order.is_none()
-                && (ordinary > MAX_UNPINNED || bytes > MAX_HISTORY_BYTES)
+                && ((max_items != 0 && ordinary > max_items) || bytes > MAX_HISTORY_BYTES)
             {
                 ordinary -= 1;
                 bytes -= clip.entry.payload.size();
@@ -341,6 +358,60 @@ mod tests {
     }
 
     #[test]
+    fn changing_history_limit_keeps_recent_entries_and_protects_pins() {
+        let mut history = History::default();
+        let pinned = history.record(text("pinned")).unwrap();
+        history.pin(pinned, true);
+        let first = history.record(text("first")).unwrap();
+        let second = history.record(text("second")).unwrap();
+        let third = history.record(text("third")).unwrap();
+        assert_eq!(history.record(text("first")), Some(first));
+
+        history.set_max_items(2);
+        assert!(history.get(second).is_none());
+        assert_eq!(
+            history
+                .previews()
+                .iter()
+                .map(|clip| clip.id)
+                .collect::<Vec<_>>(),
+            [pinned, first, third]
+        );
+
+        let newest = history.record(text("newest")).unwrap();
+        assert!(history.get(third).is_none());
+        history.pin(pinned, false);
+        assert!(history.get(pinned).is_none());
+        assert_eq!(
+            history
+                .previews()
+                .iter()
+                .map(|clip| clip.id)
+                .collect::<Vec<_>>(),
+            [newest, first]
+        );
+        history.set_max_items(3);
+        history.record(text("another"));
+        assert_eq!(history.previews().len(), 3);
+    }
+
+    #[test]
+    fn zero_history_limit_removes_the_default_count_cap() {
+        let mut history = History::default();
+        history.set_max_items(0);
+        for index in 0..150 {
+            history.record(text(&format!("ordinary {index}")));
+        }
+        assert_eq!(history.previews().len(), 150);
+        history.set_max_items(1);
+        assert_eq!(history.previews()[0].text, "ordinary 149");
+        assert_eq!(history.previews().len(), 1);
+        history.set_max_items(0);
+        history.record(text("no longer limited"));
+        assert_eq!(history.previews().len(), 2);
+    }
+
+    #[test]
     fn ordinary_history_limits_keep_pinned_entries() {
         let mut history = History::default();
         let pinned = history.record(text("pinned")).unwrap();
@@ -348,10 +419,11 @@ mod tests {
         for index in 0..120 {
             history.record(text(&format!("ordinary {index}")));
         }
-        assert_eq!(history.previews().len(), MAX_UNPINNED + 1);
+        let max_items = Settings::default().max_history_items as usize;
+        assert_eq!(history.previews().len(), max_items + 1);
         assert_eq!(history.top_pin().unwrap().entry.id, pinned);
         assert_eq!(history.retained(Retention::Session).count(), 0);
         assert_eq!(history.retained(Retention::Pinned).count(), 1);
-        assert_eq!(history.retained(Retention::All).count(), MAX_UNPINNED + 1);
+        assert_eq!(history.retained(Retention::All).count(), max_items + 1);
     }
 }

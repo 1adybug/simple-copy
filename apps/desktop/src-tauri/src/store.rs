@@ -134,12 +134,14 @@ impl Store {
                         // Prevent later synchronization from pruning records we could not load.
                         self.cipher = None;
                         self.saved.clear();
-                        return Ok((settings, History::load(Vec::new(), max_id)));
+                        let history = History::load(Vec::new(), max_id, settings.max_history_items);
+                        return Ok((settings, history));
                     }
                 }
             }
         }
-        Ok((settings, History::load(entries, max_id)))
+        let history = History::load(entries, max_id, settings.max_history_items);
+        Ok((settings, history))
     }
 
     fn unlock(&mut self) {
@@ -311,6 +313,106 @@ mod tests {
         store.sync(&settings, &history).unwrap();
         assert_eq!(count(&store), 0);
         assert_eq!(history.previews().len(), 2);
+    }
+
+    #[test]
+    fn history_limit_survives_reload_and_prunes_persisted_entries() {
+        for max_history_items in [150, 0] {
+            let mut store =
+                Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
+            store.cipher = Some(Aes256Gcm::new_from_slice(&[7; 32]).unwrap());
+            let mut settings = Settings {
+                retention: Retention::All,
+                max_history_items,
+                ..Settings::default()
+            };
+            let mut history = History::default();
+            history.set_max_items(max_history_items);
+            let pinned = history
+                .record(Payload {
+                    text: Some("pinned".into()),
+                    ..Payload::default()
+                })
+                .unwrap();
+            history.pin(pinned, true);
+            for index in 0..180 {
+                history.record(Payload {
+                    text: Some(format!("ordinary {index}")),
+                    ..Payload::default()
+                });
+            }
+            store.sync(&settings, &history).unwrap();
+            let (loaded_settings, mut reopened) = store.load().unwrap();
+            assert_eq!(loaded_settings, settings);
+            assert_eq!(
+                reopened.previews().len(),
+                if max_history_items == 0 { 181 } else { 151 }
+            );
+            let newest = reopened
+                .record(Payload {
+                    text: Some("newest".into()),
+                    ..Payload::default()
+                })
+                .unwrap();
+            assert_eq!(
+                reopened.previews().len(),
+                if max_history_items == 0 { 182 } else { 151 }
+            );
+
+            settings.max_history_items = 1;
+            reopened.set_max_items(settings.max_history_items);
+            store.sync(&settings, &reopened).unwrap();
+            assert_eq!(count(&store), 2);
+            let (loaded_settings, reopened) = store.load().unwrap();
+            assert_eq!(loaded_settings.max_history_items, 1);
+            assert_eq!(
+                reopened
+                    .previews()
+                    .iter()
+                    .map(|clip| clip.id)
+                    .collect::<Vec<_>>(),
+                [pinned, newest]
+            );
+        }
+    }
+
+    #[test]
+    fn failed_limit_change_preserves_persisted_settings_and_history() {
+        let mut store =
+            Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
+        store.cipher = Some(Aes256Gcm::new_from_slice(&[7; 32]).unwrap());
+        let settings = Settings {
+            retention: Retention::All,
+            ..Settings::default()
+        };
+        let mut history = History::default();
+        for index in 0..3 {
+            history.record(Payload {
+                text: Some(format!("ordinary {index}")),
+                ..Payload::default()
+            });
+        }
+        store.sync(&settings, &history).unwrap();
+        store
+            .db
+            .execute_batch(
+                "CREATE TRIGGER reject_pruning BEFORE DELETE ON entries
+             BEGIN SELECT RAISE(ABORT, 'pruning failed'); END;",
+            )
+            .unwrap();
+
+        let reduced_settings = Settings {
+            max_history_items: 1,
+            ..settings.clone()
+        };
+        let mut reduced_history = history.clone();
+        reduced_history.set_max_items(reduced_settings.max_history_items);
+        assert!(store.sync(&reduced_settings, &reduced_history).is_err());
+        let (loaded_settings, reopened) = store.load().unwrap();
+        assert_eq!(loaded_settings, settings);
+        assert_eq!(count(&store), 3);
+        assert_eq!(reopened.previews().len(), 3);
+        assert_eq!(history.previews().len(), 3);
     }
 
     #[test]

@@ -153,11 +153,11 @@ kbd { font: inherit; }
 .setting-copy > span { flex-shrink: 0; }
 .setting-copy small { font-weight: 400; color: var(--muted-foreground); }
 .setting-select { height: 34px; font-size: 12px; }
-.delay-row { display: flex; align-items: center; gap: 9px; margin-top: 3px; font-size: 12px; }
-.delay-row label { font-size: 12px; font-weight: 400; }
-.delay-row input { height: 31px; width: 90px; font-size: 12px; }
-.delay-row input:not([aria-invalid="true"]) { background: var(--card); }
-.delay-row input:not([aria-invalid="true"]):hover { background: var(--sc-hover); }
+.numeric-setting-row { display: flex; align-items: center; gap: 9px; margin-top: 3px; font-size: 12px; }
+.numeric-setting-row label { font-size: 12px; font-weight: 400; }
+.numeric-setting-row input { height: 31px; width: 90px; font-size: 12px; }
+.numeric-setting-row input:not([aria-invalid="true"]) { background: var(--card); }
+.numeric-setting-row input:not([aria-invalid="true"]):hover { background: var(--sc-hover); }
 .field-help { font-size: 10px; color: var(--muted-foreground); margin: -3px 0 0; }
 .field-error { margin: 0; color: var(--sc-danger); font-size: 11px; }
 .settings-feedback { min-height: 36px; }

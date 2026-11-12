@@ -56,6 +56,7 @@ pub struct Settings {
     pub theme_mode: ThemeMode,
     pub formats: Formats,
     pub retention: Retention,
+    pub max_history_items: u32,
     pub restore_enabled: bool,
     pub restore_seconds: u32,
 }
@@ -72,6 +73,7 @@ impl Default for Settings {
             theme_mode: ThemeMode::System,
             formats: Formats::default(),
             retention: Retention::Pinned,
+            max_history_items: 100,
             restore_enabled: false,
             restore_seconds: 5,
         }
@@ -248,6 +250,25 @@ pub fn thumbnail(bytes: &[u8]) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn history_limit_defaults_for_existing_settings_and_preserves_zero() {
+        let settings: Settings = serde_json::from_str(r#"{"retention":"all"}"#).unwrap();
+        assert_eq!(settings.max_history_items, 100);
+        let settings = Settings {
+            max_history_items: 0,
+            ..settings
+        };
+        let reopened: Settings =
+            serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+        assert_eq!(reopened.max_history_items, 0);
+        for invalid in ["-1", "1.5", "4294967296"] {
+            assert!(
+                serde_json::from_str::<Settings>(&format!(r#"{{"maxHistoryItems":{invalid}}}"#))
+                    .is_err()
+            );
+        }
+    }
 
     #[test]
     fn filters_representations_without_changing_copy_semantics() {

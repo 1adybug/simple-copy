@@ -270,8 +270,10 @@ impl Service {
                     return Err("当前平台的常驻恢复集成待完成。".into());
                 }
                 let before = self.settings.clone();
+                let mut history = self.history.clone();
+                history.set_max_items(settings.max_history_items);
                 windows::apply_shortcut(&self.app, &settings.shortcut)?;
-                if let Err(error) = self.store.sync(&settings, &self.history) {
+                if let Err(error) = self.store.sync(&settings, &history) {
                     if windows::apply_shortcut(&self.app, &before.shortcut).is_err() {
                         self.settings.shortcut = settings.shortcut;
                         *self
@@ -290,6 +292,7 @@ impl Service {
                 if settings.theme_mode != before.theme_mode {
                     windows::apply_theme(&self.app, settings.theme_mode);
                 }
+                self.history = history;
                 self.settings = settings;
                 self.publish();
                 Ok(Reply::Snapshot(self.snapshot()))

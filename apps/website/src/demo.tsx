@@ -1,13 +1,14 @@
+import { resolveLocale, setLocale, t } from '@simple-copy/i18n'
 import { HistoryPanel, type HistoryAction } from '@simple-copy/ui'
 import '@simple-copy/ui/styles.css'
 import { StrictMode, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { demoClips, demoPasteMessage } from './demo-data'
+import { createDemoClips, demoPasteMessage } from './demo-data'
 
 function noWindowAction() {}
 
 function Demo() {
-  const [clips, setClips] = useState(demoClips)
+  const [clips, setClips] = useState(createDemoClips)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -22,7 +23,7 @@ function Demo() {
     setError(null)
     if (action.type === 'clearUnpinned') {
       setClips((previous) => previous.filter((clip) => clip.pinned))
-      setMessage('已清除未置顶记录。')
+      setMessage(t('native.cleared'))
       return
     }
     const clip = clips.find((item) => item.id === action.id)
@@ -30,7 +31,7 @@ function Demo() {
     switch (action.type) {
       case 'paste':
         window.parent.postMessage({ type: demoPasteMessage, text: clip.text }, location.origin)
-        setMessage('已粘贴到便笺。')
+        setMessage(t('site.pasted'))
         break
       case 'copy':
         copying.current = true
@@ -38,9 +39,9 @@ function Demo() {
         setMessage(null)
         try {
           await navigator.clipboard.writeText(clip.text)
-          setMessage('示例内容已复制。')
+          setMessage(t('site.sampleCopied'))
         } catch {
-          setError('无法复制，请重试。')
+          setError(t('site.sampleCopyError'))
         } finally {
           copying.current = false
           setBusy(false)
@@ -51,12 +52,12 @@ function Demo() {
         setClips((previous) => action.pinned
           ? [updated, ...previous.filter((item) => item.id !== clip.id)]
           : previous.map((item) => item.id === clip.id ? updated : item))
-        setMessage(action.pinned ? '已置顶。' : '已取消置顶。')
+        setMessage(action.pinned ? t('site.pinned') : t('site.unpinned'))
         break
       }
       case 'delete':
         setClips((previous) => previous.filter((item) => item.id !== clip.id))
-        setMessage('记录已删除。')
+        setMessage(t('native.deleted'))
         break
     }
   }
@@ -65,5 +66,8 @@ function Demo() {
     onOpenSettings={noWindowAction} onDismiss={noWindowAction}
     onClearMessage={() => { setMessage(null); setError(null) }} />
 }
+
+setLocale(resolveLocale(navigator.languages))
+document.title = `${t('site.demo')} · Simple Copy`
 
 createRoot(document.getElementById('root')!).render(<StrictMode><Demo /></StrictMode>)

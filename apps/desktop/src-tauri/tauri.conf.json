@@ -20,10 +20,12 @@
     "active": true,
     "targets": ["nsis", "dmg", "deb"],
     "category": "Productivity",
-    "shortDescription": "本机剪贴板历史与常驻恢复",
+    "shortDescription": "Local clipboard history and automatic restore",
     "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"],
     "windows": {
       "nsis": {
+        "languages": ["English", "SimpChinese", "TradChinese", "Japanese", "Korean", "German", "French", "Spanish", "PortugueseBR", "Russian"],
+        "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico"
       }

@@ -208,15 +208,16 @@ kbd { font: inherit; }
 .format-choice[data-checked] { background: var(--accent); }
 .format-choice:hover { background: var(--sc-hover); }
 .format-choice:active { background: var(--accent); }
-.format-title { font-size: 12px; line-height: 18px; font-weight: 500; }
+.format-title { min-width: 0; overflow-wrap: anywhere; font-size: 12px; line-height: 18px; font-weight: 500; }
 .format-icon { display: flex; color: var(--muted-foreground); }
 .format-icon svg { width: 16px; height: 16px; stroke-width: 1.6; }
 .format-choice[data-checked] .format-icon { color: var(--primary); }
 .format-detail { grid-column: 1 / -1; color: var(--muted-foreground); font-size: 11px; line-height: 16px; font-weight: 400; }
 .quantity-input { position: relative; width: 128px; flex-shrink: 0; }
-.quantity-input input { height: 34px; padding: 6px 30px 6px 10px; font-size: 12px; }
+.quantity-input input { height: 34px; padding: 6px 44px 6px 10px; font-size: 12px; }
 .quantity-input > span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--muted-foreground); pointer-events: none; }
 .restore-quantity { width: 96px; }
+.restore-quantity input { padding-right: 30px; }
 .retention-options { gap: 5px; }
 .retention-choice { padding: 10px 12px; gap: 10px; }
 .choice-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; font-size: 12px; line-height: 18px; font-weight: 500; }

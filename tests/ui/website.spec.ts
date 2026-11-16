@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { demoClips } from '../../apps/website/src/demo-data'
+import { createDemoClips } from '../../apps/website/src/demo-data'
+
+const demoClips = createDemoClips('zh-CN')
 import { checkAccessibility } from './accessibility'
 import { mockTauri } from './tauri-mock'
 

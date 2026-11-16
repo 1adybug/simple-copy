@@ -1,3 +1,4 @@
+import { t } from '@simple-copy/i18n'
 import { invoke } from '@tauri-apps/api/core'
 import { Image } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
@@ -36,7 +37,7 @@ export function ClipImage({ id, observe }: { id: number; observe: ObserveThumbna
   }, [observe])
 
   return <span ref={frame} className="clip-image-frame">
-    {visible ? <Thumbnail key={id} id={id} /> : <Placeholder message="图片预览" />}
+    {visible ? <Thumbnail key={id} id={id} /> : <Placeholder message={t('imagePreview')} />}
   </span>
 }
 
@@ -58,7 +59,7 @@ function Thumbnail({ id }: { id: number }) {
     return () => { disposed = true; if (objectUrl) URL.revokeObjectURL(objectUrl) }
   }, [id])
 
-  return failed ? <Placeholder message="图片预览暂不可用" />
-    : source ? <img className="clip-image" src={source} alt="剪贴板图片预览" draggable={false} decoding="async" onError={() => setFailed(true)} />
-      : <Placeholder message="正在读取图片" />
+  return failed ? <Placeholder message={t('imageUnavailable')} />
+    : source ? <img className="clip-image" src={source} alt={t('imageAlt')} draggable={false} decoding="async" onError={() => setFailed(true)} />
+      : <Placeholder message={t('imageLoading')} />
 }

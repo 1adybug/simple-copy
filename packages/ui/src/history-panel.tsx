@@ -1,3 +1,5 @@
+import { t } from '@simple-copy/i18n'
+import { useI18n } from '@simple-copy/i18n/react'
 import { Clipboard, File, LoaderCircle, Search, X } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import { Feedback, IconButton } from './app-controls'
@@ -14,7 +16,7 @@ import { Card } from './ui/card'
 import { Input } from './ui/input'
 import type { Clip, HistoryAction, Kind } from './types'
 
-function kindLabel(kind: Kind) { return ({ text: "纯文本", link: "链接", richText: "富文本", image: "图片", files: "文件与文件夹" })[kind] }
+function kindLabel(kind: Kind) { return t(`format.${kind}`) }
 
 export interface HistoryPanelProps {
   items: readonly Clip[]
@@ -36,6 +38,7 @@ export function HistoryPanel({
   items, busy = false, loading = false, error, message, resetKey, listRef,
   onAction, onOpenSettings, onDismiss, onCapture, onClearMessage, renderImage,
 }: HistoryPanelProps) {
+  useI18n()
   const [confirmation, setConfirmation] = useState<Clip | 'clear' | null>(null)
   const [searchValue, setSearchValue] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -82,16 +85,16 @@ export function HistoryPanel({
   }
 
   return (
-    <WindowFrame title={"剪贴板"} view="history" actions={<>
-      <IconButton label={"清除未置顶"} disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><BroomIcon /></IconButton>
-      <IconButton label={"设置"} onClick={onOpenSettings}><SettingsIcon /></IconButton>
-      <IconButton label={"收起"} onClick={onDismiss}><CloseIcon /></IconButton>
+    <WindowFrame title={t('clipboard')} view="history" actions={<>
+      <IconButton label={t('clearUnpinned')} disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><BroomIcon /></IconButton>
+      <IconButton label={t('settings')} onClick={onOpenSettings}><SettingsIcon /></IconButton>
+      <IconButton label={t('dismiss')} onClick={onDismiss}><CloseIcon /></IconButton>
     </>}>
-      <search className="history-search" aria-label={"搜索剪贴板"}>
-        <label htmlFor="history-query" className="sr-only">{"搜索剪贴板"}</label>
+      <search className="history-search" aria-label={t('search')}>
+        <label htmlFor="history-query" className="sr-only">{t('search')}</label>
         <Search className="history-search-icon" size={15} aria-hidden="true" />
         <Input ref={search} id="history-query" className="history-search-input" type="search"
-          placeholder={"搜索剪贴板"} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+          placeholder={t('search')} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
           aria-controls="clipboard-history" value={searchValue}
           onChange={(event) => {
             setSearchValue(event.target.value)
@@ -111,16 +114,16 @@ export function HistoryPanel({
             first.focus({ preventScroll: true })
             first.closest('.clip-card')?.scrollIntoView({ block: 'nearest' })
           }} />
-        {searchValue && <IconButton label={"清空搜索"} className="history-search-clear" onClick={() => {
+        {searchValue && <IconButton label={t('clearSearch')} className="history-search-clear" onClick={() => {
           composing.current = false
           setSearchValue('')
           setSearchQuery('')
           search.current?.focus()
         }}><X size={14} /></IconButton>}
       </search>
-      <span className="sr-only" role="status">{query && ("找到 " + (filteredItems.length) + " 条记录")}</span>
+      <span className="sr-only" role="status">{query && t('searchResults', { count: filteredItems.length })}</span>
       <div className="history-scroll">
-        <div ref={list} id="clipboard-history" className="history-list" role="list" aria-label={"剪贴板历史"} onKeyDown={navigate}>
+        <div ref={list} id="clipboard-history" className="history-list" role="list" aria-label={t('history')} onKeyDown={navigate}>
           {filteredItems.map((clip) => (
             <ClipCard key={clip.id} clip={clip} busy={busy} renderImage={renderImage}
               onPaste={() => onAction({ type: 'paste', id: clip.id })}
@@ -132,16 +135,16 @@ export function HistoryPanel({
           {items.length === 0 && (
             <div className="empty-state" role="listitem">
               {loading
-                ? <LoaderCircle className="animate-spin" size={24} role="status" aria-label={"正在连接剪贴板"} />
-                : <Clipboard size={30} strokeWidth={1.25} role="img" aria-label={"剪贴板为空"} />}
-              {onCapture && <Button variant="secondary" size="sm" disabled={busy} onClick={onCapture}>{"收录当前剪贴板"}</Button>}
+                ? <LoaderCircle className="animate-spin" size={24} role="status" aria-label={t('connecting')} />
+                : <Clipboard size={30} strokeWidth={1.25} role="img" aria-label={t('empty')} />}
+              {onCapture && <Button variant="secondary" size="sm" disabled={busy} onClick={onCapture}>{t('capture')}</Button>}
             </div>
           )}
           {items.length > 0 && filteredItems.length === 0 && (
             <div className="empty-state" role="listitem">
               <Search size={30} strokeWidth={1.25} aria-hidden="true" />
-              <h2>{"没有匹配的记录"}</h2>
-              <p>{"换个关键词，或清空搜索试试"}</p>
+              <h2>{t('noResults')}</h2>
+              <p>{t('noResultsHelp')}</p>
             </div>
           )}
         </div>
@@ -152,17 +155,17 @@ export function HistoryPanel({
       <AlertDialog open={confirmation !== null} onOpenChange={(open) => { if (!open) setConfirmation(null) }}>
         <AlertDialogContent className="confirm-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirmation === 'clear' ? "清除未置顶记录？" : "删除这条记录？"}</AlertDialogTitle>
+            <AlertDialogTitle>{confirmation === 'clear' ? t('confirmClear') : t('confirmDelete')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmation === 'clear' ? ("将移除 " + (ordinaryCount) + " 条未置顶记录。置顶内容可继续使用。") : "这条内容会从历史中移除。"}
+              {confirmation === 'clear' ? t('clearDescription', { count: ordinaryCount }) : t('deleteDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{"取消"}</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction className="danger-button" onClick={() => {
               if (confirmation === 'clear') onAction({ type: 'clearUnpinned' })
               else if (confirmation) onAction({ type: 'delete', id: confirmation.id })
-            }}>{confirmation === 'clear' ? "清除记录" : "删除记录"}</AlertDialogAction>
+            }}>{confirmation === 'clear' ? t('clearRecords') : t('deleteRecord')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -177,21 +180,21 @@ function ClipCard({ clip, busy, onPaste, onCopy, onPin, onDelete, renderImage }:
   return (
     <Card className="clip-card" role="listitem" data-pinned={clip.pinned || undefined} data-kind={clip.kind} data-thumbnail={clip.hasThumbnail || undefined}>
       <button className="clip-main" type="button" disabled={busy} onClick={onPaste}
-        aria-label={('粘贴' + kindLabel(clip.kind) + (clip.text ? '，' + clip.text.slice(0, 60) : ''))}>
+        aria-label={t('pasteLabel', { kind: kindLabel(clip.kind), text: clip.text.slice(0, 60) })}>
         {clip.hasThumbnail && renderImage ? renderImage(clip) : (
           <div className="clip-text">
-            {clip.kind === 'files' && <div className="file-label"><File size={15} />{("" + (clip.fileCount) + " 个文件或文件夹")}</div>}
+            {clip.kind === 'files' && <div className="file-label"><File size={15} />{t('fileCount', { count: clip.fileCount })}</div>}
             <span className="clip-text-lines">{clip.text || kindLabel(clip.kind)}</span>
           </div>
         )}
       </button>
       <div className="clip-actions">
-        <IconButton label={clip.pinned ? "取消置顶" : "置顶"} disabled={busy} onClick={onPin}
+        <IconButton label={clip.pinned ? t('unpin') : t('pin')} disabled={busy} onClick={onPin}
           aria-pressed={clip.pinned} className="pin-button">
           <PinIcon pinned={clip.pinned} />
         </IconButton>
-        <IconButton label={"复制"} disabled={busy} onClick={onCopy} className="clip-action-reveal"><CopyIcon /></IconButton>
-        <IconButton label={"删除"} disabled={busy} onClick={onDelete} className="clip-action-reveal delete-button"><DeleteIcon /></IconButton>
+        <IconButton label={t('copy')} disabled={busy} onClick={onCopy} className="clip-action-reveal"><CopyIcon /></IconButton>
+        <IconButton label={t('delete')} disabled={busy} onClick={onDelete} className="clip-action-reveal delete-button"><DeleteIcon /></IconButton>
       </div>
     </Card>
   )

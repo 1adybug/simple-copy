@@ -106,9 +106,27 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         _ => {}
     });
 
-    let show = MenuItem::with_id(app, "show", "打开剪贴板", true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "退出 Simple Copy", true, None::<&str>)?;
+    let show = MenuItem::with_id(
+        app,
+        "show",
+        crate::i18n::t("native.show"),
+        true,
+        None::<&str>,
+    )?;
+    let settings = MenuItem::with_id(
+        app,
+        "settings",
+        crate::i18n::t("settings"),
+        true,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(
+        app,
+        "quit",
+        crate::i18n::t("native.quit"),
+        true,
+        None::<&str>,
+    )?;
     let menu = Menu::with_items(app, &[&show, &settings, &quit])?;
     TrayIconBuilder::new()
         .icon(
@@ -352,7 +370,7 @@ pub fn hide_from_worker(app: &AppHandle) -> Result<(), String> {
     })
     .map_err(|error| error.to_string())?;
     rx.recv_timeout(Duration::from_secs(2))
-        .map_err(|_| "收起面板超时，请重试。".to_string())?
+        .map_err(|_| crate::i18n::t("native.hideTimeout").to_string())?
 }
 
 pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
@@ -376,7 +394,7 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
             "settings",
             WebviewUrl::App("index.html?view=settings".into()),
         )
-        .title("Simple Copy · 设置")
+        .title(format!("Simple Copy · {}", crate::i18n::t("settings")))
         .inner_size(480., 640.)
         .min_inner_size(400., 480.)
         .resizable(true)
@@ -407,10 +425,10 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn validate_shortcut(value: &str) -> Result<Shortcut, String> {
-    let shortcut =
-        Shortcut::from_str(value).map_err(|_| "快捷键格式无效，请重新录入。".to_string())?;
+    let shortcut = Shortcut::from_str(value)
+        .map_err(|_| crate::i18n::t("native.shortcutInvalid").to_string())?;
     if shortcut.mods.is_empty() {
-        return Err("快捷键需要包含 Ctrl、Alt、Shift 或 Win / Command。".into());
+        return Err(crate::i18n::t("native.shortcutModifier").into());
     }
     let paste_modifier = if cfg!(target_os = "macos") {
         Modifiers::SUPER
@@ -420,7 +438,7 @@ pub fn validate_shortcut(value: &str) -> Result<Shortcut, String> {
     if matches!(shortcut.key, Code::KeyC | Code::KeyV | Code::KeyX)
         && shortcut.mods == paste_modifier
     {
-        return Err("请选择一个带额外修饰键的组合，以便正常复制和粘贴。".into());
+        return Err(crate::i18n::t("native.shortcutReserved").into());
     }
     Ok(shortcut)
 }
@@ -443,7 +461,7 @@ pub fn apply_shortcut(app: &AppHandle, value: &str) -> Result<(), String> {
                     shortcut_triggered(app, &label);
                 }
             })
-            .map_err(|_| "该快捷键被系统或其他应用占用，请更换组合。".to_string())?;
+            .map_err(|_| crate::i18n::t("native.shortcutOccupied").to_string())?;
         platform::enable_win_v(false)?;
     }
     if let Some(old) = *previous
@@ -455,7 +473,7 @@ pub fn apply_shortcut(app: &AppHandle, value: &str) -> Result<(), String> {
         } else {
             let _ = app.global_shortcut().unregister(shortcut);
         }
-        return Err(format!("无法切换快捷键：{error}"));
+        return Err(crate::i18n::with_error("native.shortcutSwitch", error));
     }
     *previous = Some(shortcut);
     *state

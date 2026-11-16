@@ -1,8 +1,11 @@
 import type { Page } from '@playwright/test'
 import type { Snapshot } from '../../apps/desktop/src/native'
 import type { SystemAppearance } from '../../apps/desktop/src/theme'
+import type { Locale } from '../../packages/i18n/src/index'
 
 interface MockOptions {
+  systemLocale?: Locale
+  systemLocaleFailure?: boolean
   items?: Snapshot['items']
   imageCount?: number
   thumbnailFailure?: boolean
@@ -89,6 +92,10 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
           }
           if (command === 'plugin:event|unlisten') { listeners.delete(args.eventId as number); return }
           calls.push({ command, args })
+          if (command === 'system_locale') {
+            if (options.systemLocaleFailure) throw new Error('System locale unavailable')
+            return options.systemLocale ?? 'zh-CN'
+          }
           if (command === 'system_appearance') {
             inspection.pendingAppearance++
             const result = structuredClone(appearance)

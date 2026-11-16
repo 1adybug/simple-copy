@@ -1,3 +1,5 @@
+import { t } from '@simple-copy/i18n'
+
 export function errorText(error: unknown): string {
-  return typeof error === 'string' ? error : error instanceof Error ? error.message : '操作未完成，请重试。'
+  return typeof error === 'string' ? error : error instanceof Error ? error.message : t('operationError')
 }

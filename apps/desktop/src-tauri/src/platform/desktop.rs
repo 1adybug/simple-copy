@@ -70,7 +70,7 @@ impl Native {
         if std::env::var_os("WAYLAND_DISPLAY").is_some()
             && std::env::var("GDK_BACKEND").as_deref() != Ok("x11")
         {
-            return Err("Wayland 系统集成待完成；当前交付以 Windows 为验收目标。".into());
+            return Err(crate::i18n::t("native.wayland").into());
         }
         Ok(Self {
             ctx: ClipboardContext::new().map_err(|error| error.to_string())?,
@@ -90,7 +90,7 @@ impl ClipboardBackend for Native {
             automatic_paste: false,
             restore_available: false,
             can_authorize: false,
-            message: Some("此平台的原窗口自动粘贴集成待完成，选择后可手动粘贴。".into()),
+            message: Some(crate::i18n::t("native.manualPastePlatform").into()),
         }
     }
 
@@ -102,7 +102,7 @@ impl ClipboardBackend for Native {
         let revision = self.revision()?;
         let (payload, origin) = read_payload(&self.ctx, formats)?;
         if revision != self.revision()? {
-            return Err("剪贴板已变化，请重试。".into());
+            return Err(crate::i18n::t("native.clipboardChanged").into());
         }
         Ok(Capture {
             revision,

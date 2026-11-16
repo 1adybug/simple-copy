@@ -186,8 +186,9 @@ impl ServiceHandle {
         let (tx, rx) = oneshot::channel();
         self.0
             .send(Message::Request(request, tx))
-            .map_err(|_| "剪贴板服务已退出。".to_string())?;
-        rx.await.map_err(|_| "剪贴板服务未响应。".to_string())?
+            .map_err(|_| crate::i18n::t("native.serviceStopped").to_string())?;
+        rx.await
+            .map_err(|_| crate::i18n::t("native.serviceNoResponse").to_string())?
     }
 }
 
@@ -222,7 +223,7 @@ impl Service {
                     automatic_paste: false,
                     restore_available: false,
                     can_authorize: false,
-                    message: Some("系统剪贴板服务不可用，请重新打开软件。".into()),
+                    message: Some(crate::i18n::t("native.serviceUnavailable").into()),
                 }),
             storage_status: self.store.status.clone(),
             shortcut_error: self
@@ -251,7 +252,7 @@ impl Service {
                 .history
                 .image(id)
                 .map(|bytes| Reply::Image(bytes.to_vec()))
-                .ok_or_else(|| "图片已从历史中移除。".into()),
+                .ok_or_else(|| crate::i18n::t("native.imageRemoved").into()),
             Request::Action {
                 action,
                 target,
@@ -267,7 +268,7 @@ impl Service {
                         .as_ref()
                         .is_some_and(|backend| backend.capabilities().restore_available)
                 {
-                    return Err("当前平台的常驻恢复集成待完成。".into());
+                    return Err(crate::i18n::t("native.restoreUnsupported").into());
                 }
                 let before = self.settings.clone();
                 let mut history = self.history.clone();
@@ -282,7 +283,7 @@ impl Service {
                             .shortcut_error
                             .lock()
                             .expect("shortcut error lock") =
-                            Some("设置未保存，原快捷键已被占用；本次运行继续使用新快捷键。".into());
+                            Some(crate::i18n::t("native.shortcutRollback").into());
                         self.publish();
                     }
                     return Err(error);
@@ -300,7 +301,7 @@ impl Service {
             Request::CaptureCurrent => {
                 self.capture_current(true)?;
                 Ok(Reply::Operation(Operation {
-                    message: Some("已收录当前剪贴板".into()),
+                    message: Some(crate::i18n::t("native.captured").into()),
                 }))
             }
         }
@@ -317,17 +318,17 @@ impl Service {
             Action::Copy { id } | Action::Paste { id } => {
                 let paste = matches!(action, Action::Paste { .. });
                 if paste && !windows::popup_is_current(&self.app, popup_token) {
-                    return Err("剪贴板面板已关闭或重新打开，请重新选择。".into());
+                    return Err(crate::i18n::t("native.popupChanged").into());
                 }
                 let clip = self
                     .history
                     .get(id)
-                    .ok_or_else(|| "这条记录已被移除。".to_string())?
+                    .ok_or_else(|| crate::i18n::t("native.recordRemoved").to_string())?
                     .entry
                     .clone();
                 let revision = self
                     .write(&clip.payload, None, WriteReason::Choice)?
-                    .ok_or_else(|| "剪贴板已变化，请重试。".to_string())?;
+                    .ok_or_else(|| crate::i18n::t("native.clipboardChanged").to_string())?;
                 self.history.record(clip.payload.clone());
                 if let Err(error) = self.store.sync(&self.settings, &self.history) {
                     self.store.status = Some(error);
@@ -346,14 +347,14 @@ impl Service {
                 if paste {
                     if !windows::popup_is_current(&self.app, popup_token) {
                         return Ok(Operation {
-                            message: Some("已复制，本次自动粘贴已取消。".into()),
+                            message: Some(crate::i18n::t("native.pasteCancelled").into()),
                         });
                     }
                     if let Some(target) = target {
                         match self
                             .backend
                             .as_ref()
-                            .ok_or("剪贴板服务不可用。")?
+                            .ok_or(crate::i18n::t("native.serviceUnavailable"))?
                             .paste(&target, revision)
                         {
                             Ok(true) => {
@@ -368,17 +369,17 @@ impl Service {
                         }
                     }
                     return Ok(Operation {
-                        message: Some("已复制，请回到原应用按粘贴快捷键。".into()),
+                        message: Some(crate::i18n::t("native.manualPaste").into()),
                     });
                 }
                 Ok(Operation {
-                    message: Some("已复制".into()),
+                    message: Some(crate::i18n::t("native.copied").into()),
                 })
             }
             Action::Pin { id, pinned } => {
                 let before = self.history.clone();
                 if !self.history.pin(id, pinned) {
-                    return Err("这条记录已被移除。".into());
+                    return Err(crate::i18n::t("native.recordRemoved").into());
                 }
                 self.commit_history(before)?;
                 if self.history.top_pin().is_none() {
@@ -390,7 +391,7 @@ impl Service {
             Action::Delete { id } => {
                 let before = self.history.clone();
                 if !self.history.delete(id) {
-                    return Err("这条记录已被移除。".into());
+                    return Err(crate::i18n::t("native.recordRemoved").into());
                 }
                 self.commit_history(before)?;
                 if self.history.top_pin().is_none() {
@@ -398,7 +399,7 @@ impl Service {
                 }
                 self.publish();
                 Ok(Operation {
-                    message: Some("记录已删除".into()),
+                    message: Some(crate::i18n::t("native.deleted").into()),
                 })
             }
             Action::ClearUnpinned => {
@@ -407,7 +408,7 @@ impl Service {
                 self.commit_history(before)?;
                 self.publish();
                 Ok(Operation {
-                    message: Some("未置顶记录已清除".into()),
+                    message: Some(crate::i18n::t("native.cleared").into()),
                 })
             }
         }
@@ -432,7 +433,7 @@ impl Service {
         let result = self
             .backend
             .as_ref()
-            .ok_or("剪贴板服务不可用。")?
+            .ok_or(crate::i18n::t("native.serviceUnavailable"))?
             .write(payload, expected, id)?;
         match result {
             Written::Superseded => Ok(None),
@@ -490,7 +491,7 @@ impl Service {
         let capture = self
             .backend
             .as_ref()
-            .ok_or("剪贴板服务不可用。")?
+            .ok_or(crate::i18n::t("native.serviceUnavailable"))?
             .read(&self.settings.formats)?;
         self.last_revision = Some(capture.revision);
         self.needs_capture = false;
@@ -509,11 +510,11 @@ impl Service {
             return Ok(());
         }
         if capture.payload.size() > crate::model::MAX_ITEM_BYTES {
-            return Err("这条内容超过 32 MiB，已跳过记录。".into());
+            return Err(crate::i18n::t("native.contentTooLarge").into());
         }
         if let Some(payload) = capture.payload.filtered(&self.settings.formats) {
             if self.history.record(payload).is_none() {
-                self.error = Some("历史空间已由置顶内容占满，请取消部分置顶后重试。".into());
+                self.error = Some(crate::i18n::t("native.historyFull").into());
             }
             if let Err(error) = self.store.sync(&self.settings, &self.history) {
                 self.store.status = Some(error);

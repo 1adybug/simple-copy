@@ -109,7 +109,7 @@ impl Drop for Monitor {
 pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
     CALLBACKS
         .set((changed, shortcut))
-        .map_err(|_| "系统监听已启动。".to_string())?;
+        .map_err(|_| crate::i18n::t("native.monitorStarted").to_string())?;
     let (ready_tx, ready_rx) = mpsc::sync_channel(1);
     let join = thread::Builder::new()
         .name("clipboard-windows-events".into())
@@ -125,7 +125,7 @@ pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
                     ..zeroed()
                 };
                 if RegisterClassW(&class) == 0 {
-                    let _ = ready_tx.send(Err("无法注册剪贴板监听窗口。".to_string()));
+                    let _ = ready_tx.send(Err(crate::i18n::t("native.monitorWindow").to_string()));
                     return;
                 }
                 let window = CreateWindowExW(
@@ -146,7 +146,7 @@ pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
                     if !window.is_null() {
                         DestroyWindow(window);
                     }
-                    let _ = ready_tx.send(Err("无法启动系统剪贴板监听。".to_string()));
+                    let _ = ready_tx.send(Err(crate::i18n::t("native.monitorStart").to_string()));
                     return;
                 }
                 MESSAGE_WINDOW.store(window as usize, Ordering::Release);
@@ -188,7 +188,7 @@ pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
         .map_err(|error| error.to_string())?;
     let window = ready_rx
         .recv_timeout(Duration::from_secs(5))
-        .map_err(|_| "启动系统监听超时。".to_string())??;
+        .map_err(|_| crate::i18n::t("native.monitorTimeout").to_string())??;
     Ok(Monitor {
         window,
         join: Some(join),
@@ -197,7 +197,7 @@ pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
 
 pub fn enable_win_v(enabled: bool) -> Result<(), String> {
     if enabled && !HOOK_READY.load(Ordering::Acquire) {
-        return Err("无法接管 Win+V，请在设置中更换快捷键。".into());
+        return Err(crate::i18n::t("native.winV").into());
     }
     WIN_V_ENABLED.store(enabled, Ordering::Release);
     Ok(())
@@ -420,7 +420,7 @@ impl ClipboardBackend for Native {
         let (payload, origin) = read_payload(&self.ctx, formats)?;
         let revision = self.revision()?;
         if before != revision {
-            return Err("剪贴板内容已变化，正在重新读取。".into());
+            return Err(crate::i18n::t("native.clipboardReread").into());
         }
         Ok(Capture {
             revision,
@@ -446,11 +446,11 @@ impl ClipboardBackend for Native {
             return Ok(Written::Superseded);
         }
         if unsafe { EmptyClipboard() } == 0 {
-            return Err("无法更新系统剪贴板。".into());
+            return Err(crate::i18n::t("native.clipboardWrite").into());
         }
         for (format, mut block) in blocks {
             if unsafe { SetClipboardData(format, block.0) }.is_null() {
-                return Err("系统未能写入全部剪贴板格式，请重试。".into());
+                return Err(crate::i18n::t("native.clipboardFormats").into());
             }
             // SetClipboardData transfers ownership only after a successful call.
             block.0 = null_mut();
@@ -464,7 +464,7 @@ impl ClipboardBackend for Native {
         }
         let pointer = unsafe { GlobalLock(marker) };
         if pointer.is_null() {
-            return Err("无法确认剪贴板写入结果。".into());
+            return Err(crate::i18n::t("native.clipboardVerify").into());
         }
         let matches =
             unsafe { std::slice::from_raw_parts(pointer.cast::<u8>(), origin.len()) == origin };
@@ -493,7 +493,7 @@ impl ClipboardBackend for Native {
         let deadline = Instant::now() + Duration::from_millis(500);
         while Instant::now() < deadline {
             if self.revision()? != expected {
-                return Err("剪贴板已被其他应用更新，粘贴已取消。".into());
+                return Err(crate::i18n::t("native.clipboardUpdated").into());
             }
             let modifiers_down = [VK_CONTROL, VK_SHIFT, VK_MENU, VK_LWIN, VK_RWIN]
                 .into_iter()
@@ -537,7 +537,7 @@ impl ClipboardLock {
             }
             thread::sleep(Duration::from_millis(10));
         }
-        Err("系统剪贴板正被其他应用占用，请重试。".into())
+        Err(crate::i18n::t("native.clipboardBusy").into())
     }
 }
 
@@ -556,12 +556,12 @@ impl MemoryBlock {
         unsafe {
             let memory = GlobalAlloc(GMEM_MOVEABLE, bytes.len());
             if memory.is_null() {
-                return Err("无法分配剪贴板内存。".into());
+                return Err(crate::i18n::t("native.clipboardAllocate").into());
             }
             let block = Self(memory);
             let pointer = GlobalLock(memory);
             if pointer.is_null() {
-                return Err("无法访问剪贴板内存。".into());
+                return Err(crate::i18n::t("native.clipboardAccess").into());
             }
             std::ptr::copy_nonoverlapping(bytes.as_ptr(), pointer.cast::<u8>(), bytes.len());
             GlobalUnlock(memory);
@@ -640,7 +640,7 @@ fn prepare_formats(payload: &Payload, origin: WriteId) -> Result<Vec<(u32, Vec<u
             let path = url::Url::parse(uri)
                 .ok()
                 .and_then(|url| url.to_file_path().ok())
-                .ok_or_else(|| "无效的本机文件引用。".to_string())?;
+                .ok_or_else(|| crate::i18n::t("native.fileReference").to_string())?;
             for unit in path.as_os_str().to_string_lossy().encode_utf16().chain([0]) {
                 files.extend(unit.to_le_bytes());
             }
@@ -653,7 +653,7 @@ fn prepare_formats(payload: &Payload, origin: WriteId) -> Result<Vec<(u32, Vec<u
         ));
     }
     if formats.is_empty() {
-        return Err("这条记录没有可写入的内容。".into());
+        return Err(crate::i18n::t("native.emptyRecord").into());
     }
     formats.insert(0, (format_id(ORIGIN_FORMAT)?, origin.to_vec()));
     Ok(formats)
@@ -662,7 +662,7 @@ fn prepare_formats(payload: &Payload, origin: WriteId) -> Result<Vec<(u32, Vec<u
 fn format_id(name: &str) -> Result<u32, String> {
     let id = unsafe { RegisterClipboardFormatW(wide(name).as_ptr()) };
     if id == 0 {
-        Err("无法注册系统剪贴板格式。".into())
+        Err(crate::i18n::t("native.clipboardRegister").into())
     } else {
         Ok(id)
     }

@@ -1,7 +1,7 @@
 {
   "profile": "product-admin",
-  "sourceRoots": ["apps/desktop/src", "apps/website/src", "packages/brand/src", "packages/ui/src"],
-  "locale": "zh-CN",
+  "sourceRoots": ["apps/desktop/src", "apps/website/src", "packages/brand/src", "packages/ui/src", "packages/i18n/src"],
+  "locale": "system",
   "canonicalMap": "DESIGN.md",
   "requiredCapabilities": ["Form", "Scrollbar", "Toast"],
   "requiredCommands": ["typecheck", "build", "ui"],

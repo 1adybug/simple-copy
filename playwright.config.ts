@@ -10,6 +10,7 @@ export default defineConfig({
   outputDir: '.artifacts/ui-tests',
   use: {
     browserName: 'chromium',
+    locale: 'zh-CN',
     headless: true,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

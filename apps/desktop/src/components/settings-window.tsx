@@ -1,3 +1,4 @@
+import { t } from '@simple-copy/i18n'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useState, type ReactNode } from 'react'
 import { Feedback, IconButton } from '@simple-copy/ui/app-controls'
@@ -16,8 +17,8 @@ export function SettingsWindow({ children }: { children: ReactNode }) {
   }
 
   return (
-    <WindowFrame title={"设置"} view="settings" actions={
-      <IconButton label={"关闭设置"} onClick={() => void close()}><CloseIcon /></IconButton>
+    <WindowFrame title={t('settings')} view="settings" actions={
+      <IconButton label={t('closeSettings')} onClick={() => void close()}><CloseIcon /></IconButton>
     }>
       {children}
       {error && <div className="window-feedback"><Feedback error={error} onDismiss={() => setError(null)} /></div>}

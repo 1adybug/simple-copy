@@ -1,3 +1,4 @@
+import { t } from '@simple-copy/i18n'
 import { Feedback } from '@simple-copy/ui/app-controls'
 import { Button } from '@simple-copy/ui/ui/button'
 import { LoaderCircle } from 'lucide-react'
@@ -13,11 +14,11 @@ export default function App() {
   const state = useClipboard()
   const settingsWindow = new URLSearchParams(location.search).get('view') === 'settings'
   useTheme(state.snapshot?.settings.themeMode ?? 'system')
-  useEffect(() => { document.title = `${(settingsWindow ? "设置" : "剪贴板")} · Simple Copy` }, [settingsWindow])
+  useEffect(() => { document.title = `${t(settingsWindow ? 'settings' : 'clipboard')} · Simple Copy` }, [settingsWindow])
   return settingsWindow
     ? <SettingsWindow>
       <SettingsBoundary>
-        <Suspense fallback={<div className="settings-loading" role="status"><LoaderCircle className="animate-spin" aria-hidden="true" />{"正在载入设置"}</div>}>
+        <Suspense fallback={<div className="settings-loading" role="status"><LoaderCircle className="animate-spin" aria-hidden="true" />{t('loadingSettings')}</div>}>
           <SettingsView state={state} />
         </Suspense>
       </SettingsBoundary>
@@ -31,8 +32,8 @@ class SettingsBoundary extends Component<{ children: ReactNode }, { failed: bool
   render() {
     return this.state.failed
       ? <div className="settings-loading">
-        <Feedback error={"设置页面未能载入，请重新载入。"} />
-        <Button variant="secondary" onClick={() => location.reload()}>{"重新载入"}</Button>
+        <Feedback error={t('settingsLoadError')} />
+        <Button variant="secondary" onClick={() => location.reload()}>{t('reload')}</Button>
       </div>
       : this.props.children
   }

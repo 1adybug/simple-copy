@@ -1,5 +1,6 @@
 mod appearance;
 mod history;
+mod i18n;
 mod model;
 mod platform;
 mod service;
@@ -11,11 +12,16 @@ use tauri::{Manager, WebviewWindow};
 use service::{Action, Reply, Request, ServiceHandle, Snapshot};
 use windows::WindowState;
 
+#[tauri::command]
+fn system_locale() -> &'static str {
+    i18n::locale()
+}
+
 fn check_window(window: &WebviewWindow) -> Result<(), String> {
     if matches!(window.label(), "history" | "settings") {
         Ok(())
     } else {
-        Err("此窗口没有剪贴板操作权限。".into())
+        Err(crate::i18n::t("native.windowPermission").into())
     }
 }
 
@@ -117,7 +123,7 @@ fn record_shortcut(
     recording: bool,
 ) -> Result<(), String> {
     if window.label() != "settings" {
-        return Err("请在设置窗口录入快捷键。".into());
+        return Err(crate::i18n::t("native.recordInSettings").into());
     }
     state
         .recording_shortcut
@@ -133,6 +139,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(WindowState::default())
         .invoke_handler(tauri::generate_handler![
+            system_locale,
             system_appearance,
             clipboard_snapshot,
             history_action,

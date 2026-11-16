@@ -70,7 +70,7 @@ pub fn read_payload(
 ) -> Result<(Payload, Option<WriteId>), String> {
     let offered = ctx
         .available_formats()
-        .map_err(|_| "剪贴板正忙，请稍后重试。".to_string())?;
+        .map_err(|_| crate::i18n::t("native.clipboardBusy").to_string())?;
     let origin = ctx
         .get_buffer(ORIGIN_FORMAT)
         .ok()
@@ -93,7 +93,7 @@ pub fn read_payload(
     if ctx.has(ContentFormat::Files) {
         let files = ctx
             .get_files()
-            .map_err(|_| "无法读取剪贴板文件引用。".to_string())?
+            .map_err(|_| crate::i18n::t("native.fileRead").to_string())?
             .iter()
             .filter_map(|file| file_uri(file))
             .collect();
@@ -109,14 +109,14 @@ pub fn read_payload(
     if (formats.text || formats.link) && ctx.has(ContentFormat::Text) {
         payload.text = Some(
             ctx.get_text()
-                .map_err(|_| "无法读取剪贴板文字。".to_string())?,
+                .map_err(|_| crate::i18n::t("native.textRead").to_string())?,
         );
     }
     if formats.rich_text {
         if ctx.has(ContentFormat::Html) {
             payload.html = Some(
                 ctx.get_html()
-                    .map_err(|_| "无法读取剪贴板 HTML。".to_string())?,
+                    .map_err(|_| crate::i18n::t("native.htmlRead").to_string())?,
             );
         }
         if ctx.has(ContentFormat::Rtf) {
@@ -128,22 +128,22 @@ pub fn read_payload(
             let rtf_type = "text/rtf";
             payload.rtf = Some(
                 ctx.get_buffer(rtf_type)
-                    .map_err(|_| "无法读取剪贴板 RTF。".to_string())?,
+                    .map_err(|_| crate::i18n::t("native.rtfRead").to_string())?,
             );
         }
     }
     if formats.image && ctx.has(ContentFormat::Image) {
         let image = ctx
             .get_image()
-            .map_err(|_| "无法读取剪贴板图片。".to_string())?;
+            .map_err(|_| crate::i18n::t("native.imageRead").to_string())?;
         let (width, height) = image.get_size();
         if width > 12_000 || height > 12_000 {
-            return Err("图片尺寸超过 12000 × 12000。".into());
+            return Err(crate::i18n::t("native.imageDimensions").into());
         }
         payload.png = Some(
             image
                 .to_png()
-                .map_err(|_| "无法转换剪贴板图片。".to_string())?
+                .map_err(|_| crate::i18n::t("native.imageConvert").to_string())?
                 .get_bytes()
                 .to_vec(),
         );
@@ -156,9 +156,12 @@ pub fn validate_files(payload: &Payload) -> Result<(), String> {
         let path = url::Url::parse(uri)
             .ok()
             .and_then(|url| url.to_file_path().ok())
-            .ok_or_else(|| "文件引用格式无效。".to_string())?;
+            .ok_or_else(|| crate::i18n::t("native.fileReference").to_string())?;
         if !path.exists() {
-            return Err(format!("原文件已移动或删除：{}", path.display()));
+            return Err(crate::i18n::with_error(
+                "native.fileMissing",
+                path.display(),
+            ));
         }
     }
     Ok(())

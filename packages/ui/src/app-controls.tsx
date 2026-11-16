@@ -1,3 +1,4 @@
+import { t } from '@simple-copy/i18n'
 import { X } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import { Button } from './ui/button'
@@ -15,7 +16,7 @@ export function Feedback({ error, message, onDismiss }: {
   return (
     <div className={error ? 'feedback feedback-error' : 'feedback'} role={error ? 'alert' : 'status'}>
       <span>{error || message}</span>
-      {onDismiss && <button type="button" aria-label="关闭提示" onClick={onDismiss}><X size={13} /></button>}
+      {onDismiss && <button type="button" aria-label={t('closeFeedback')} onClick={onDismiss}><X size={13} /></button>}
     </div>
   )
 }

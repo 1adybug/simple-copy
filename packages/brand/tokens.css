@@ -32,6 +32,18 @@
   --sc-error-foreground: #8e2439;
 }
 
+:root:lang(zh-TW) {
+  --sc-font-sans: "Microsoft JhengHei UI", "Microsoft JhengHei", system-ui, sans-serif;
+}
+
+:root:lang(ja) {
+  --sc-font-sans: "Yu Gothic UI", "Meiryo UI", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+}
+
+:root:lang(ko) {
+  --sc-font-sans: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+
 :root[data-theme="light"] {
   color-scheme: light;
 }

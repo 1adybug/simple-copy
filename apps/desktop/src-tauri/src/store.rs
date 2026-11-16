@@ -22,9 +22,11 @@ pub struct Store {
 impl Store {
     pub fn open(path: &Path) -> Result<Self, String> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|error| format!("无法创建数据目录：{error}"))?;
+            fs::create_dir_all(parent)
+                .map_err(|error| crate::i18n::with_error("native.createDirectory", error))?;
         }
-        let db = Connection::open(path).map_err(|error| format!("无法打开历史数据库：{error}"))?;
+        let db = Connection::open(path)
+            .map_err(|error| crate::i18n::with_error("native.openDatabase", error))?;
         Self::initialize(db, false, None)
     }
 
@@ -48,7 +50,7 @@ impl Store {
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(db_error)?;
         if version > 1 {
-            return Err("历史数据库来自较新版本，请使用较新版本打开。".into());
+            return Err(crate::i18n::t("native.newerDatabase").into());
         }
         db.execute_batch(
             "PRAGMA secure_delete = ON;
@@ -81,7 +83,7 @@ impl Store {
         let settings = serialized
             .map(|json| {
                 serde_json::from_str::<Settings>(&json)
-                    .map_err(|_| "设置文件无法读取。".to_string())
+                    .map_err(|_| crate::i18n::t("native.readSettings").to_string())
             })
             .transpose()?
             .unwrap_or_default();
@@ -121,7 +123,7 @@ impl Store {
                     if entry.id == id && entry.payload.size() <= crate::model::MAX_ITEM_BYTES {
                         Ok(entry)
                     } else {
-                        Err("历史条目校验失败。".into())
+                        Err(crate::i18n::t("native.invalidEntry").into())
                     }
                 });
                 match entry {
@@ -130,7 +132,7 @@ impl Store {
                         entries.push(entry);
                     }
                     Err(_) => {
-                        self.status = Some("部分历史无法解密，已保留原始加密数据。".into());
+                        self.status = Some(crate::i18n::t("native.partialDecrypt").into());
                         // Prevent later synchronization from pruning records we could not load.
                         self.cipher = None;
                         self.saved.clear();
@@ -159,7 +161,7 @@ impl Store {
                         .query_row("SELECT COUNT(*) FROM entries", [], |row| row.get(0))
                         .map_err(db_error)?;
                     if count > 0 {
-                        return Err("原历史密钥缺失".into());
+                        return Err(crate::i18n::t("native.missingKey").into());
                     }
                     let mut key = vec![0; 32];
                     OsRng.fill_bytes(&mut key);
@@ -168,7 +170,7 @@ impl Store {
                 }
                 Err(error) => return Err(error.to_string()),
             };
-            Aes256Gcm::new_from_slice(&key).map_err(|_| "历史密钥格式错误".into())
+            Aes256Gcm::new_from_slice(&key).map_err(|_| crate::i18n::t("native.invalidKey").into())
         })();
         match result {
             Ok(cipher) => {
@@ -176,8 +178,7 @@ impl Store {
                 self.status = None;
             }
             Err(_) => {
-                self.status =
-                    Some("系统密钥库不可用，新增历史暂存于本次运行。重新打开软件可重试。".into());
+                self.status = Some(crate::i18n::t("native.keyringUnavailable").into());
             }
         }
     }
@@ -252,22 +253,22 @@ fn seal(cipher: &Aes256Gcm, entry: &Entry) -> Result<Vec<u8>, String> {
     let plaintext = bincode::serialize(entry).map_err(|error| error.to_string())?;
     let ciphertext = cipher
         .encrypt(Nonce::from_slice(&nonce), plaintext.as_ref())
-        .map_err(|_| "历史加密失败。".to_string())?;
+        .map_err(|_| crate::i18n::t("native.encrypt").to_string())?;
     Ok([nonce.as_slice(), ciphertext.as_slice()].concat())
 }
 
 fn unseal(cipher: &Aes256Gcm, sealed: &[u8]) -> Result<Entry, String> {
     if sealed.len() < 28 {
-        return Err("加密条目不完整。".into());
+        return Err(crate::i18n::t("native.incompleteEntry").into());
     }
     let plain = cipher
         .decrypt(Nonce::from_slice(&sealed[..12]), &sealed[12..])
-        .map_err(|_| "无法解密历史。".to_string())?;
-    bincode::deserialize(&plain).map_err(|_| "无法读取历史格式。".into())
+        .map_err(|_| crate::i18n::t("native.decrypt").to_string())?;
+    bincode::deserialize(&plain).map_err(|_| crate::i18n::t("native.historyFormat").into())
 }
 
 fn db_error(error: rusqlite::Error) -> String {
-    format!("无法保存本机历史：{error}")
+    crate::i18n::with_error("native.saveHistory", error)
 }
 
 #[cfg(test)]

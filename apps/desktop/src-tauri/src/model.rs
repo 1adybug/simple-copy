@@ -83,7 +83,7 @@ impl Default for Settings {
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
         if !(1..=3600).contains(&self.restore_seconds) {
-            return Err("恢复时间应为 1–3600 秒。".into());
+            return Err(crate::i18n::t("native.restoreRange").into());
         }
         crate::windows::validate_shortcut(&self.shortcut).map(|_| ())
     }
@@ -250,24 +250,26 @@ pub fn file_uri(value: &str) -> Option<String> {
 
 pub fn decode_image(bytes: &[u8]) -> Result<DynamicImage, String> {
     if bytes.len() > MAX_ITEM_BYTES {
-        return Err("图片超过单条记录的大小上限。".into());
+        return Err(crate::i18n::t("native.imageTooLarge").into());
     }
     let mut reader = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
-        .map_err(|_| "无法识别图片。".to_string())?;
+        .map_err(|_| crate::i18n::t("native.imageUnknown").to_string())?;
     let mut limits = Limits::default();
     limits.max_image_width = Some(12_000);
     limits.max_image_height = Some(12_000);
     limits.max_alloc = Some(160 * 1024 * 1024);
     reader.limits(limits);
-    reader.decode().map_err(|_| "无法读取图片。".into())
+    reader
+        .decode()
+        .map_err(|_| crate::i18n::t("native.imageRead").into())
 }
 
 pub fn png_bytes(image: &DynamicImage) -> Result<Vec<u8>, String> {
     let mut bytes = Cursor::new(Vec::new());
     image
         .write_to(&mut bytes, ImageFormat::Png)
-        .map_err(|_| "无法转换图片。".to_string())?;
+        .map_err(|_| crate::i18n::t("native.imageConvert").to_string())?;
     Ok(bytes.into_inner())
 }
 

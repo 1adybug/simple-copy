@@ -24,6 +24,9 @@
   scrollbar-color: var(--site-scrollbar) var(--site-scrollbar-track);
 }
 
+:root:is(:lang(zh-TW), :lang(ja), :lang(ko)) { --site-display: var(--sc-font-sans); }
+:root:lang(ja) :is(.hero h1, .features-section h2, .download-section h2) { letter-spacing: normal; line-break: strict; }
+
 * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--site-scrollbar) var(--site-scrollbar-track); }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track { background: var(--site-scrollbar-track); }
@@ -59,7 +62,7 @@ h1, h2, h3 { text-wrap: balance; }
 .hero h1 { font-family: var(--site-display); font-size: clamp(44px, 4.5vw, 65px); line-height: 1.35; letter-spacing: -.065em; font-weight: 650; margin-bottom: 24px; }
 .hero h1 span { color: var(--sc-primary); }
 .hero-description { color: var(--site-muted); line-height: 1.95; font-size: 15px; }
-.hero-actions { display: flex; align-items: center; gap: 15px; margin-top: 30px; }
+.hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; margin-top: 30px; }
 .button { display: inline-flex; min-height: 49px; align-items: center; justify-content: center; gap: 11px; padding: 12px 21px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: background .18s; }
 .button > svg:first-child { width: 16px; height: 16px; }
 .button-primary { background: var(--sc-primary); color: #fff; }

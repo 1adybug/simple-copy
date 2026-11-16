@@ -1,3 +1,4 @@
+import { t } from '@simple-copy/i18n'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -65,7 +66,7 @@ export function useClipboard() {
 
   useEffect(() => {
     if (!desktop) {
-      setError("请通过 pnpm tauri dev 打开桌面应用。")
+      setError(t('desktopOnly'))
       return
     }
     let disposed = false
@@ -113,9 +114,9 @@ export function useClipboard() {
     const result = settingsQueue.current.then(async () => {
       try {
         const settings = currentSnapshot.current?.settings
-        if (!settings) throw new Error("设置尚未载入，请稍后重试。")
+        if (!settings) throw new Error(t('settingsNotLoaded'))
         update(await invoke<Snapshot>('save_settings', { settings: applySettingsPatch(settings, patch) }))
-        setMessage("设置已保存")
+        setMessage(t('saved'))
         return true
       } catch (reason) {
         settingsFailures.current += 1

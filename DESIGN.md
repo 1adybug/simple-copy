@@ -114,7 +114,18 @@ Settings label the shortcut section 快捷键. The 其他设置 section presents
 
 The 历史条数 section uses the same numeric setting row for 最多保存条数. Rust Settings owns the persisted count limit, which defaults to 100 for new and existing settings; 0 removes the count limit and pinned entries do not count toward it. The existing byte budget still applies. Count edits commit on blur or Enter so intermediate digits cannot prune history. Reducing the limit requires the shared confirmation dialog; saving the setting and pruning disk history happen together, and in-memory history changes only after storage succeeds.
 
-Arrow keys navigate history items, Enter selects and Escape dismisses the popup. Clipboard HTML is stored as data and previewed as plain text. Image previews use bounded PNG thumbnails. Reduced-motion preferences shorten animation and transition durations.
+Arrow keys navigate history items, Enter selects and Escape dismisses the popup. Modified keys and IME composition retain their native behavior. Clipboard HTML is stored as data and previewed as plain text. Image previews use bounded PNG thumbnails in a stable 135px frame, preserving aspect ratio through object-fit. One observer per history list requests previews only within the viewport and a 160px margin; leaving that region releases the image object URL, and late responses cannot revive removed previews. Cards progressively use content-visibility with content-derived intrinsic heights; unsupported engines render the full list. All records remain in the DOM for keyboard navigation and assistive technology. Reduced-motion preferences shorten animation and transition durations.
+
+The history entry loads independently of the settings form and its Select/Switch dependencies. The settings title bar stays available while the form module or settings snapshot loads, and a module failure provides an explicit reload action. Both windows retain the shared serialized settings queue in apps/desktop/src/native.ts.
+
+### Canonical UI Map
+
+| Capability | Canonical owner | Source of truth | Allowed variants | Verification |
+|---|---|---|---|---|
+| Select/Listbox | apps/desktop/src/components/ui/select.tsx | Settings fields in this document | Authored Radix Select | tests/ui/desktop.spec.ts popup, keyboard and theme checks |
+| Form | apps/desktop/src/SettingsView.tsx and native.ts settings queue | Settings and retention rules in README.md | Automatic save; numeric commit on blur or Enter | Typecheck and existing Rust settings tests |
+| Scrollbar | apps/desktop/src/index.css and apps/website/src/styles.css | Layout rules in this document | Hidden desktop scrollbars; visible website scrollbars | Browser layout and keyboard checks |
+| Toast | apps/desktop/src/components/app-controls.tsx Feedback | Shared feedback rules in this document | Error and status; website inline live regions | tests/ui accessibility and command-copy checks |
 
 ## Do's and Don'ts
 
@@ -128,12 +139,14 @@ Arrow keys navigate history items, Enter selects and Escape dismisses the popup.
 
 The website feels like a small, useful object on a lavender desktop. Its signature is an interactive, faithful clipboard panel paired with a slightly angled note that receives the selected sample. Keep the rest of the page quiet: no stock photos, invented usage statistics, testimonials, or decorative dashboards.
 
-The palette extends the shared plum (#793d91), ink (#261d2a), muted text (#716576) and flat lavender surfaces with a near-white page (#fdfcfe) and a lavender demo stage (#e0d1e9). Color blocks and whitespace replace borders and shadows throughout the website, including its product demonstrations, keyboard hints, FAQ and build guide. Website-only color roles live in the root variables in apps/website/src/styles.css; they do not change desktop colors. Muted illustration colors are reserved for decorative samples, not essential controls or body text.
+The palette extends the shared plum (#793d91), ink (#261d2a), muted text (#716576) and flat lavender surfaces with a near-white page (#fdfcfe) and a lavender demo stage (#e0d1e9). Color blocks and whitespace replace borders and shadows throughout the website, including its product demonstrations, keyboard hints, FAQ and build guide. Website-only color roles live in the root variables in apps/website/src/styles.css; they do not change desktop colors. Format sample text uses plum #715080, blue #526b8d, warm brown #865c51 and olive #79653f against its matching light surface. Muted illustration colors are reserved for shapes; all visible text, including illustration samples and demo feedback, meets normal-text contrast.
 
 Display type uses Segoe UI Variable Display with Segoe UI and Microsoft YaHei UI fallbacks; body type uses the shared operating-system stack. Commands use Cascadia Code and Consolas. No remote font requests or font-swap layout changes. Desktop headings reach 65px, mobile headings scale down to 36px. Section headings use 28–35px, body copy uses 13–15px, with compact supporting captions. Every meaningful text color, including demo captions, meets normal-text contrast against its actual surface.
 
 The website uses a maximum 1160px content width. The hero places the product statement beside the working demonstration; at 760px it stacks naturally with all controls retained. Five content formats, the actual three-step copy/paste sequence, pinning and optional restore, local persistence, FAQs, and acquisition each add distinct information. Only the real three-step workflow is numbered.
 
 Website controls use native buttons, anchors and details/summary. Pin state is expressed with aria-pressed; demonstration and command-copy results use stable live regions. The copy-command action writes only the displayed build commands after an explicit click, with an inline manual-copy error. Global scrollbars, visible focus, forced colors, and reduced motion apply to every owned scroll surface.
+
+The skip link moves focus to the hero heading without adding a stop to sequential Tab navigation. Coarse-pointer controls have a minimum 44px target; demo text reserves space for the larger pin button. Desktop history reveals copy and delete actions without hover on touch input. Busy command copying is announced and guards duplicate writes.
 
 Without an actual configured installer URL, acquisition shows an honest local-build guide. VITE_DOWNLOAD_URL supplies a published HTTPS or root-relative download URL. The package:website command builds a deployable static site with a real local NSIS installer included in dist/downloads. No placeholder release URLs or nonfunctional download controls.

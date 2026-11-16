@@ -12,7 +12,8 @@
     "dev": "pnpm dev:website",
     "dev:desktop": "pnpm --filter @simple-copy/desktop tauri dev",
     "dev:website": "pnpm --filter @simple-copy/website dev",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && pnpm typecheck:ui",
+    "typecheck:ui": "tsc --noEmit -p tsconfig.ui.json",
     "build": "pnpm -r --if-present build",
     "build:desktop": "pnpm --filter @simple-copy/desktop build",
     "build:website": "pnpm --filter @simple-copy/website build",
@@ -21,6 +22,13 @@
     "preview:website": "pnpm --filter @simple-copy/website preview",
     "check:rust": "cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all --check && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings",
     "test": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib",
+    "test:ui": "playwright test",
     "tauri": "pnpm --filter @simple-copy/desktop tauri"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "1.61.1",
+    "@types/node": "24.19.2",
+    "typescript": "~6.0.0"
   }
 }

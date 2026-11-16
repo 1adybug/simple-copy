@@ -1,0 +1,18 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["apps/desktop/src", "apps/website/src", "packages/brand/src"],
+  "locale": "zh-CN",
+  "canonicalMap": "DESIGN.md",
+  "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast"],
+  "ownership": { "Select/Listbox": "authored" },
+  "requiredCommands": ["typecheck", "build", "ui"],
+  "commands": {
+    "typecheck": "pnpm typecheck",
+    "build": "pnpm build",
+    "ui": "pnpm test:ui"
+  },
+  "evidence": {
+    "failurePaths": "tests/ui/desktop.spec.ts",
+    "accessibility": "tests/ui/website.spec.ts"
+  }
+}

@@ -57,12 +57,16 @@ pnpm dev:desktop
 pnpm build
 pnpm check:rust
 pnpm test
+pnpm exec playwright install chromium
+pnpm test:ui
 pnpm build:installer
 ~~~
 
 pnpm typecheck 检查所有工作区，pnpm build 构建两个应用的前端；原生程序需另外执行 pnpm build:installer。也可以分别运行 pnpm build:desktop 和 pnpm build:website。
 
 安装包输出到 apps/desktop/src-tauri/target/release/bundle/nsis，独立程序输出到 apps/desktop/src-tauri/target/release/simple-copy.exe。当前构建使用 NSIS 的当前用户安装方式，安装包签名需要发布方提供证书。
+
+`pnpm test:ui` 检查已构建的两个前端，运行前先执行 `pnpm build`。浏览器测试使用隔离的 Tauri IPC 和剪贴板模拟，覆盖长图片历史的按需加载与资源释放、设置选择器、网站键盘与触屏操作，以及自动化无障碍检查；不会操作系统剪贴板。测试产物位于 `.artifacts/ui-tests`，这类检查不代替 Windows 原生交互验收。
 
 ## 宣传网站
 

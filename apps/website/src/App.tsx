@@ -5,7 +5,7 @@ import {
   Copy, FileText, Folder, Image, Keyboard, Link, LockKeyhole, Pin,
   RotateCcw, ShieldCheck, Sparkles, Type,
 } from 'lucide-react'
-import { useState, type KeyboardEvent } from 'react'
+import { useRef, useState, type KeyboardEvent } from 'react'
 
 const downloadUrl = import.meta.env.VITE_DOWNLOAD_URL?.trim()
 const buildCommand = 'pnpm install --frozen-lockfile\npnpm build:installer'
@@ -43,13 +43,15 @@ function ClipboardDemo() {
   }
 
   function navigate(event: KeyboardEvent<HTMLUListElement>) {
-    if (event.nativeEvent.isComposing || !(event.target instanceof HTMLButtonElement)
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+      || !(event.target instanceof HTMLButtonElement)
       || !event.target.classList.contains('demo-paste')) return
     if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
     const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('.demo-paste'))
     const current = buttons.indexOf(event.target)
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
       : Math.max(0, Math.min(buttons.length - 1, current + (event.key === 'ArrowDown' ? 1 : -1)))
+    if (current < 0 || next === current) return
     event.preventDefault()
     buttons[next]?.focus()
   }
@@ -68,7 +70,8 @@ function ClipboardDemo() {
           <button className="demo-paste" type="button" onClick={() => {
             setPasted(clip.text)
             setFeedback('已粘贴到下方便笺，可以再选一条。')
-          }} aria-label={'将' + clip.text + '粘贴到示例便笺'}>
+          }}>
+            <span className="sr-only">粘贴到示例便笺：</span>
             <span className="clip-kind">{clip.kind === '链接' ? <Link size={12} /> : <Type size={12} />}{clip.kind}{clip.pinned && <span className="pinned-label">已置顶</span>}</span>
             <span className="clip-copy">{clip.text}</span>
           </button>
@@ -106,15 +109,19 @@ const questions = [
 
 function GetApp() {
   const [copyState, setCopyState] = useState<'idle' | 'busy' | 'copied' | 'error'>('idle')
+  const copying = useRef(false)
 
   async function copyCommand() {
-    if (copyState === 'busy') return
+    if (copying.current) return
+    copying.current = true
     setCopyState('busy')
     try {
       await navigator.clipboard.writeText(buildCommand)
       setCopyState('copied')
     } catch {
       setCopyState('error')
+    } finally {
+      copying.current = false
     }
   }
 
@@ -127,8 +134,8 @@ function GetApp() {
       <a className="button button-primary" href={downloadUrl}><WindowsMark />下载 Windows 版<ArrowDownToLine size={17} /></a>
       <p className="download-meta">Windows 桌面应用 · 安装后按 Win + V 开始使用</p>
     </> : <div className="build-guide">
-      <div className="build-guide-heading"><span><WindowsMark />从源码构建 Windows 版</span><button className="copy-command" type="button" disabled={copyState === 'busy'} onClick={() => void copyCommand()}>
-        {copyState === 'copied' ? <Check size={14} /> : <Copy size={14} />}{copyState === 'copied' ? '已复制' : '复制命令'}
+      <div className="build-guide-heading"><span><WindowsMark />从源码构建 Windows 版</span><button className="copy-command" type="button" disabled={copyState === 'busy'} aria-busy={copyState === 'busy'} onClick={() => void copyCommand()}>
+        {copyState === 'copied' ? <Check size={14} /> : <Copy size={14} />}{copyState === 'copied' ? '已复制' : copyState === 'busy' ? '正在复制' : '复制命令'}
       </button></div>
       <p>在项目源码目录执行以下命令，生成 Windows 安装包。</p>
       <pre><code>{buildCommand}</code></pre>
@@ -140,7 +147,7 @@ function GetApp() {
 
 export default function App() {
   return <>
-    <a className="skip-link" href="#main">跳到主要内容</a>
+    <a className="skip-link" href="#hero-title">跳到主要内容</a>
     <header className="site-header section-shell" id="top">
       <Brand />
       <nav aria-label="主要导航"><a href="#features">功能</a><a href="#privacy">本机与隐私</a><a href="#faq">常见问题</a></nav>
@@ -151,7 +158,7 @@ export default function App() {
       <section className="hero section-shell" aria-labelledby="hero-title">
         <div className="hero-copy">
           <p className="platform-label"><WindowsMark />为 Windows 工作日常而生</p>
-          <h1 id="hero-title">把复制过的，<br /><span>留在手边。</span></h1>
+          <h1 id="hero-title" tabIndex={-1}>把复制过的，<br /><span>留在手边。</span></h1>
           <p className="hero-description">刚复制的链接、顺手记的灵感、常用的那段话。<br className="desktop-break" />一个快捷键，就能找回来，接着用。</p>
           <div className="hero-actions"><a className="button button-primary" href="#download"><WindowsMark />获取 Windows 版<ArrowDownToLine size={17} /></a><a className="button button-text" href="#demo">先试一试<ArrowRight size={17} /></a></div>
           <p className="hero-reassurance"><span><Check size={13} />本机保存</span><span><Check size={13} />无需账号</span><span><Check size={13} />按习惯保留</span></p>

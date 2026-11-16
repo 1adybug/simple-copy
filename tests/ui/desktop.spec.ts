@@ -153,7 +153,7 @@ test('late thumbnail responses cannot recreate deleted previews', async ({ page 
     window.inspection.snapshot.items = []
     window.inspection.publish()
   })
-  await expect(page.getByRole('heading', { name: '复制一点内容，从这里开始' })).toBeVisible()
+  await expect(page.getByRole('img', { name: '剪贴板为空' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.inspection.pendingThumbnails)).toBe(0)
   expect(await page.evaluate(() => window.inspection.activeUrls.size)).toBe(0)
 })
@@ -174,7 +174,7 @@ test('settings remain operable while loading and expose keyboard-accessible them
   await mockTauri(page, { snapshotDelay: 400 })
   await page.goto(`${desktopUrl}/?view=settings`)
   await expect(page.getByRole('button', { name: '关闭设置' })).toBeVisible()
-  const theme = page.getByRole('radiogroup', { name: '主题模式' })
+  const theme = page.getByRole('radiogroup', { name: '明暗模式' })
   await expect(theme).toBeVisible()
   await theme.getByRole('radio', { name: '浅色', exact: true }).focus()
   // Radix moves focus asynchronously; model a physical keypress through that focus event.
@@ -201,7 +201,7 @@ test('settings code stays deferred in history and module failures can be retried
   await expect(page.getByRole('button', { name: '重新载入' })).toBeVisible()
   await page.unroute('**/assets/SettingsView-*.js')
   await page.getByRole('button', { name: '重新载入' }).click()
-  await expect(page.getByRole('radiogroup', { name: '主题模式' })).toBeVisible()
+  await expect(page.getByRole('radiogroup', { name: '明暗模式' })).toBeVisible()
 })
 
 test('history accessibility is preserved with offscreen rendering enabled', async ({ page }) => {

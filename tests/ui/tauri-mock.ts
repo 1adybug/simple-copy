@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import type { Snapshot } from '../../apps/desktop/src/native'
+import type { SystemAppearance } from '../../apps/desktop/src/theme'
 
 interface MockOptions {
   items?: Snapshot['items']
@@ -11,10 +12,14 @@ interface MockOptions {
   capabilities?: Partial<Snapshot['capabilities']>
   saveDelay?: number
   saveFailures?: number
+  appearance?: Partial<SystemAppearance>
+  appearanceDelay?: number
+  appearanceFailure?: boolean
 }
 
 export async function mockTauri(page: Page, options: MockOptions = {}) {
   await page.addInitScript((options: MockOptions) => {
+    const appearance: SystemAppearance = { revision: 1, accentColor: null, transparency: false, ...options.appearance }
     const snapshot: Snapshot = {
       revision: 1,
       popupToken: 1,
@@ -60,9 +65,10 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
       }
     }
     const inspection = {
-      snapshot, calls, activeUrls, pendingThumbnails: 0,
+      snapshot, appearance, calls, activeUrls, pendingThumbnails: 0, pendingAppearance: 0,
       emit,
       publish: () => { snapshot.revision++; emit('clipboard-state', structuredClone(snapshot)) },
+      publishAppearance: () => { appearance.revision++; emit('system-appearance-changed', structuredClone(appearance)) },
       reopen: () => { snapshot.popupToken++; emit('popup-opened', snapshot.popupToken) },
     }
     let saveFailures = options.saveFailures ?? 0
@@ -83,6 +89,15 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
           }
           if (command === 'plugin:event|unlisten') { listeners.delete(args.eventId as number); return }
           calls.push({ command, args })
+          if (command === 'system_appearance') {
+            inspection.pendingAppearance++
+            const result = structuredClone(appearance)
+            try {
+              if (options.appearanceDelay) await new Promise((resolve) => setTimeout(resolve, options.appearanceDelay))
+              if (options.appearanceFailure) throw new Error('System appearance unavailable')
+              return result
+            } finally { inspection.pendingAppearance-- }
+          }
           if (command === 'clipboard_snapshot') {
             if (options.snapshotDelay) await new Promise((resolve) => setTimeout(resolve, options.snapshotDelay))
             return structuredClone(snapshot)
@@ -118,11 +133,14 @@ declare global {
   interface Window {
     inspection: {
       snapshot: Snapshot
+      appearance: SystemAppearance
       calls: { command: string; args: Record<string, unknown> }[]
       activeUrls: Set<string>
       pendingThumbnails: number
+      pendingAppearance: number
       emit: (event: string, payload: unknown) => void
       publish: () => void
+      publishAppearance: () => void
       reopen: () => void
     }
   }

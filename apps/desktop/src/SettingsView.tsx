@@ -83,8 +83,8 @@ export default function SettingsView({ state }: { state: ClipboardState }) {
           <ShortcutInput value={settings.shortcut} onChange={(shortcut) => void save({ shortcut })} />
           {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
           <fieldset className="settings-field">
-            <legend id="theme-mode-heading">主题模式</legend>
-            <RadioGroup className="theme-options" orientation="horizontal" aria-labelledby="theme-mode-heading" value={settings.themeMode}
+            <legend id="theme-mode-heading">明暗模式</legend>
+            <RadioGroup className="theme-options" orientation="horizontal" aria-labelledby="theme-mode-heading" aria-describedby="theme-mode-help" value={settings.themeMode}
               onValueChange={(value) => void save({ themeMode: value as ThemeMode })}>
               {([
                 ['system', '跟随系统', <Monitor />],
@@ -96,6 +96,7 @@ export default function SettingsView({ state }: { state: ClipboardState }) {
                 </RadioGroupItem>
               ))}
             </RadioGroup>
+            <p id="theme-mode-help" className="field-help">强调色和透明效果始终跟随 Windows，明暗模式可单独选择。</p>
           </fieldset>
         </SettingsSection>
         <SettingsSection id="recording-heading" title="记录与保存" icon={<Clipboard />}>

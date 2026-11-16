@@ -1,3 +1,4 @@
+mod appearance;
 mod history;
 mod model;
 mod platform;
@@ -16,6 +17,12 @@ fn check_window(window: &WebviewWindow) -> Result<(), String> {
     } else {
         Err("此窗口没有剪贴板操作权限。".into())
     }
+}
+
+#[tauri::command]
+fn system_appearance(window: WebviewWindow) -> Result<appearance::Appearance, String> {
+    check_window(&window)?;
+    Ok(appearance::snapshot(&window))
 }
 
 #[tauri::command]
@@ -126,6 +133,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(WindowState::default())
         .invoke_handler(tauri::generate_handler![
+            system_appearance,
             clipboard_snapshot,
             history_action,
             save_settings,
@@ -137,6 +145,7 @@ pub fn run() {
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+            appearance::initialize(&handle);
             windows::build(&handle)?;
             let data = std::env::var_os("SIMPLE_COPY_DATA_DIR")
                 .map(std::path::PathBuf::from)
@@ -169,6 +178,7 @@ pub fn run() {
         .expect("Simple Copy startup");
     app.run(|app, event| {
         if matches!(event, tauri::RunEvent::Exit) {
+            appearance::stop(app);
             app.state::<ServiceHandle>().stop();
             if let Ok(mut monitor) = app.state::<WindowState>().monitor.lock() {
                 monitor.take();

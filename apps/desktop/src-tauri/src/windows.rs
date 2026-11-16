@@ -16,6 +16,7 @@ use tauri::{
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use crate::{
+    appearance,
     model::ThemeMode,
     platform::{self, Monitor, Target},
 };
@@ -60,11 +61,7 @@ impl PopupContext {
 }
 
 pub fn apply_theme(app: &AppHandle, mode: ThemeMode) {
-    app.set_theme(match mode {
-        ThemeMode::System => None,
-        ThemeMode::Light => Some(tauri::Theme::Light),
-        ThemeMode::Dark => Some(tauri::Theme::Dark),
-    });
+    appearance::apply_theme(app, mode);
 }
 
 pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -81,6 +78,7 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .visible(false)
         .focused(!cfg!(windows))
         .build()?;
+    appearance::refresh(app);
     let handle = app.clone();
     history.on_window_event(move |event| match event {
         tauri::WindowEvent::CloseRequested { api, .. } => {
@@ -387,9 +385,11 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
         .shadow(false)
         .build()
         .map_err(|error| error.to_string())?;
+        appearance::refresh(&handle);
         let owner = handle.clone();
         window.on_window_event(move |event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
+                appearance::forget_window(&owner, "settings");
                 owner
                     .state::<WindowState>()
                     .recording_shortcut

@@ -69,24 +69,10 @@ h1, h2, h3 { text-wrap: balance; }
 .button-text:hover { background: var(--sc-secondary); color: var(--sc-primary); }
 
 .demo-scene { position: relative; border-radius: 26px; background: var(--site-stage); padding: 23px 36px 17px; scroll-margin-top: 24px; }
-.demo-window { max-width: 354px; margin: auto; padding: 14px; border-radius: 12px; background: var(--sc-panel); }
-.demo-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-inline: 2px; }
-.demo-heading h2 { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
-.demo-heading h2 img { display: block; flex-shrink: 0; }
-.demo-toolbar { flex-shrink: 0; }
-.demo-toolbar button { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 4px; background: var(--sc-card); color: #6d507b; padding: 4px 7px; font-size: 10px; }
-.demo-toolbar button:hover { background: var(--sc-accent); }
-.demo-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 7px; }
-.demo-clip { position: relative; background: var(--sc-card); border-radius: 7px; }
-.demo-paste { display: flex; flex-direction: column; gap: 8px; width: 100%; min-height: 82px; padding: 10px 28px 14px 11px; text-align: left; color: #47334e; border: 0; border-radius: inherit; background: transparent; }
-.demo-paste:hover { background: var(--sc-hover); }
-.demo-paste:active { background: var(--sc-accent); }
-.demo-paste:focus-visible { outline-offset: -3px; }
-.clip-kind { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #715080; }
-.clip-copy { font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
-.demo-pin { position: absolute; bottom: 5px; right: 5px; display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 4px; color: #8d7897; background: transparent; }
-.demo-pin[aria-pressed="true"] { color: var(--sc-primary); }
-.demo-pin:hover { background: var(--sc-accent); }
+.demo-window { display: block; width: 100%; max-width: 360px; height: 400px; margin: auto; border: 0; border-radius: 9px; background: var(--sc-panel); }
+.demo-controls { display: flex; justify-content: flex-end; max-width: 360px; margin: 8px auto 0; }
+.demo-controls button { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 4px; background: var(--sc-card); color: #6d507b; padding: 4px 7px; font-size: 10px; }
+.demo-controls button:hover { background: var(--sc-accent); }
 .demo-note { position: relative; width: calc(100% - 20px); max-width: 336px; margin: 16px auto 0; padding: 12px 15px; background: var(--sc-card); border-radius: 6px; transform: rotate(-2deg); }
 .note-label { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #786082; }
 .note-text { margin-top: 8px; min-height: 42px; font-size: 12px; color: #7d6688; line-height: 1.6; overflow-wrap: anywhere; }
@@ -152,9 +138,6 @@ h1, h2, h3 { text-wrap: balance; }
   .hero-description { font-size: 14px; max-width: 430px; margin: auto; line-height: 1.95; }
   .hero-actions { justify-content: center; margin-top: 25px; gap: 12px; }
   .demo-scene { width: 100%; max-width: 470px; margin: auto; padding: 21px 25px 17px; border-radius: 20px; }
-  .demo-paste { min-height: 83px; }
-  .clip-copy { font-size: 12px; }
-  .demo-pin { min-width: 34px; min-height: 34px; bottom: 3px; right: 3px; }
   .demo-status { font-size: 10px; }
   .demo-disclaimer { font-size: 10px; }
   .workflow { gap: 12px; padding: 18px 12px; }
@@ -188,10 +171,8 @@ h1, h2, h3 { text-wrap: balance; }
 }
 
 @media (pointer: coarse) {
-  .header-download, .demo-toolbar button, .copy-command,
+  .header-download, .demo-controls button, .copy-command,
   .site-footer > a:last-child { min-height: 44px; min-width: 44px; }
-  .demo-pin { width: 44px; height: 44px; right: 3px; bottom: 3px; }
-  .demo-paste { padding-right: 52px; }
 }
 
 @media (forced-colors: active) {
@@ -199,7 +180,6 @@ h1, h2, h3 { text-wrap: balance; }
   *::-webkit-scrollbar-thumb { background: ButtonText; border-color: Canvas; }
   *::-webkit-scrollbar-track { background: Canvas; }
   a:focus-visible, button:focus-visible, pre:focus-visible { outline-color: Highlight; }
-  .button-primary, .header-download, .demo-pin, .copy-command { border: 1px solid ButtonText; }
-  .demo-clip, .demo-window, .demo-note, .build-guide, .formats-grid li { border: 1px solid CanvasText; }
-  .demo-pin[aria-pressed="true"] { outline: 1px solid Highlight; }
+  .button-primary, .header-download, .copy-command { border: 1px solid ButtonText; }
+  .demo-window, .demo-note, .build-guide, .formats-grid li { border: 1px solid CanvasText; }
 }

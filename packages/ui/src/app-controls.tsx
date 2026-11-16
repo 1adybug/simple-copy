@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import type { ComponentProps } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from './ui/button'
 
 export function IconButton({ label, children, ...props }: ComponentProps<typeof Button> & { label: string }) {
   return (

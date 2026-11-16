@@ -5,7 +5,7 @@ export function WindowFrame({ title, view, actions, children }: {
   title: string; view: 'history' | 'settings'; actions: ReactNode; children: ReactNode
 }) {
   return (
-    <main className={`app-window ${view}-window`}>
+    <main className={`app-window ${view}-window`} aria-label={title}>
       <header className="window-header">
         <div className="heading-row">
           <div className="window-heading" data-tauri-drag-region>

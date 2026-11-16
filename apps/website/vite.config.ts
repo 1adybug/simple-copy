@@ -1,3 +1,5 @@
+import { fileURLToPath, URL } from 'node:url'
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
@@ -16,6 +18,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
+      tailwindcss(),
       {
         name: 'simple-copy-site-metadata',
         transformIndexHtml() {
@@ -30,6 +33,14 @@ export default defineConfig(({ mode }) => {
     ],
     server: { port: 5173 },
     preview: { port: 4173 },
-    build: { target: ['chrome111', 'safari16.4'] },
+    build: {
+      target: ['chrome111', 'safari16.4'],
+      rolldownOptions: {
+        input: {
+          main: fileURLToPath(new URL('./index.html', import.meta.url)),
+          demo: fileURLToPath(new URL('./demo.html', import.meta.url)),
+        },
+      },
+    },
   }
 })

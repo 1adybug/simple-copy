@@ -1,6 +1,6 @@
 {
   "profile": "product-admin",
-  "sourceRoots": ["apps/desktop/src", "apps/website/src", "packages/brand/src"],
+  "sourceRoots": ["apps/desktop/src", "apps/website/src", "packages/brand/src", "packages/ui/src"],
   "locale": "zh-CN",
   "canonicalMap": "DESIGN.md",
   "requiredCapabilities": ["Form", "Scrollbar", "Toast"],

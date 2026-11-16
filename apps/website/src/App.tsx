@@ -4,16 +4,12 @@ import {
   ArrowDownToLine, ArrowRight, Check, Copy, FileText, Folder, Image,
   Link, Pin, RotateCcw, Type,
 } from 'lucide-react'
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { demoPasteMessage } from './demo-data'
 
 const downloadUrl = import.meta.env.VITE_DOWNLOAD_URL?.trim()
 const buildCommand = 'pnpm install --frozen-lockfile\npnpm build:installer'
 
-const initialClips = [
-  { id: 'idea', kind: '文字', text: '留一点空间，给下一个好想法。', pinned: true },
-  { id: 'note', kind: '文字', text: '周五下午三点，带上新提案见面。', pinned: false },
-  { id: 'link', kind: '链接', text: 'https://example.com/a-little-inspiration', pinned: false },
-]
 
 function WindowsMark({ className = '' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M1 3.5 8.5 2.4v7H1zm8.5-1.3L19 1v8.4H9.5zM1 10.5h7.5v7L1 16.4zm8.5 0H19V19l-9.5-1.3z" /></svg>
@@ -27,57 +23,30 @@ function Brand({ footer = false }: { footer?: boolean }) {
 }
 
 function ClipboardDemo() {
-  const [clips, setClips] = useState(initialClips)
+  const [generation, setGeneration] = useState(0)
   const [pasted, setPasted] = useState<string | null>(null)
   const [feedback, setFeedback] = useState('')
-  const ordered = [...clips.filter((clip) => clip.pinned), ...clips.filter((clip) => !clip.pinned)]
+  const frame = useRef<HTMLIFrameElement>(null)
 
-  function pin(id: string) {
-    const clip = clips.find((item) => item.id === id)!
-    const updated = { ...clip, pinned: !clip.pinned }
-    setClips((previous) => updated.pinned
-      ? [updated, ...previous.filter((item) => item.id !== id)]
-      : previous.map((item) => item.id === id ? updated : item))
-    setFeedback(updated.pinned ? '已置顶。' : '已取消置顶。')
-  }
+  useEffect(() => {
+    const receivePaste = (event: MessageEvent) => {
+      if (event.origin !== location.origin || event.source !== frame.current?.contentWindow
+        || event.data?.type !== demoPasteMessage || typeof event.data.text !== 'string') return
+      setPasted(event.data.text)
+      setFeedback('')
+    }
+    window.addEventListener('message', receivePaste)
+    return () => window.removeEventListener('message', receivePaste)
+  }, [])
 
-  function navigate(event: KeyboardEvent<HTMLUListElement>) {
-    if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
-      || !(event.target instanceof HTMLButtonElement)
-      || !event.target.classList.contains('demo-paste')) return
-    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
-    const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('.demo-paste'))
-    const current = buttons.indexOf(event.target)
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
-      : Math.max(0, Math.min(buttons.length - 1, current + (event.key === 'ArrowDown' ? 1 : -1)))
-    if (current < 0 || next === current) return
-    event.preventDefault()
-    buttons[next]?.focus()
-  }
-
-  return <div className="demo-scene" id="demo" role="region" aria-labelledby="demo-title">
-    <div className="demo-window">
-      <div className="demo-heading"><h2 id="demo-title"><img src={logo} width={24} height={24} alt="" />剪贴板演示</h2><div className="demo-toolbar"><button type="button" onClick={() => {
-        setClips(initialClips)
-        setPasted(null)
-        setFeedback('演示已重置。')
-      }}><RotateCcw size={12} />重置演示</button></div></div>
-      <ul className="demo-list" onKeyDown={navigate}>
-        {ordered.map((clip) => <li className="demo-clip" key={clip.id} data-pinned={clip.pinned}>
-          <button className="demo-paste" type="button" onClick={() => {
-            setPasted(clip.text)
-            setFeedback('已粘贴到便笺。')
-          }}>
-            <span className="sr-only">粘贴到示例便笺：</span>
-            <span className="clip-kind">{clip.kind === '链接' ? <Link size={12} /> : <Type size={12} />}{clip.kind}</span>
-            <span className="clip-copy">{clip.text}</span>
-          </button>
-          <button className="demo-pin" type="button" aria-pressed={clip.pinned} aria-label={(clip.pinned ? '取消置顶：' : '置顶：') + clip.text} onClick={() => pin(clip.id)}>
-            <Pin size={14} fill={clip.pinned ? 'currentColor' : 'none'} />
-          </button>
-        </li>)}
-      </ul>
-    </div>
+  return <div className="demo-scene" id="demo" role="region" aria-label="剪贴板演示">
+    <iframe ref={frame} key={generation} className="demo-window" src="./demo.html"
+      title="Simple Copy 剪贴板演示" width={360} height={400} />
+    <div className="demo-controls"><button type="button" onClick={() => {
+      setGeneration((previous) => previous + 1)
+      setPasted(null)
+      setFeedback('演示已重置。')
+    }}><RotateCcw size={12} aria-hidden="true" />重置演示</button></div>
     <div className="demo-note">
       <div className="note-label"><FileText size={13} />示例便笺</div>
       <p className={pasted ? 'note-text has-content' : 'note-text'}>{pasted ?? '点击记录，粘贴到这里。'}</p>

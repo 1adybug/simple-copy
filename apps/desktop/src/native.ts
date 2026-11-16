@@ -1,34 +1,15 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Clip, HistoryAction, Settings, SettingsPatch } from '@simple-copy/ui/types'
+import { errorText } from '@simple-copy/ui/errors'
 
-export type Kind = 'text' | 'link' | 'richText' | 'image' | 'files'
-export type Retention = 'session' | 'pinned' | 'all'
-export type ThemeMode = 'system' | 'light' | 'dark'
-
-export interface Settings {
-  shortcut: string
-  themeMode: ThemeMode
-  formats: Record<Kind, boolean>
-  retention: Retention
-  maxHistoryItems: number
-  restoreEnabled: boolean
-  restoreSeconds: number
-}
-
-type SettingsPatch = Partial<Omit<Settings, 'formats'>> & { formats?: Partial<Settings['formats']> }
+export type { Clip, Kind, Retention, ThemeMode, Settings } from '@simple-copy/ui/types'
+export { errorText } from '@simple-copy/ui/errors'
+export { shortcutLabel } from '@simple-copy/ui/shortcuts'
 
 function applySettingsPatch(settings: Settings, patch: SettingsPatch): Settings {
   return { ...settings, ...patch, formats: { ...settings.formats, ...patch.formats } }
-}
-
-export interface Clip {
-  id: number
-  kind: Kind
-  pinned: boolean
-  text: string
-  hasThumbnail: boolean
-  fileCount: number
 }
 
 export interface Snapshot {
@@ -50,18 +31,12 @@ export interface Snapshot {
   restorePending: boolean
 }
 
-export type Action =
-  | { type: 'copy' | 'paste' | 'delete'; id: number }
-  | { type: 'pin'; id: number; pinned: boolean }
-  | { type: 'clearUnpinned' }
+export type Action = HistoryAction
 
 interface Operation { message: string | null }
 
 export const desktop = isTauri()
 
-export function errorText(error: unknown): string {
-  return typeof error === 'string' ? error : error instanceof Error ? error.message : '操作未完成，请重试。'
-}
 
 export function useClipboard() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
@@ -90,7 +65,7 @@ export function useClipboard() {
 
   useEffect(() => {
     if (!desktop) {
-      setError('请通过 pnpm tauri dev 打开桌面应用。')
+      setError("请通过 pnpm tauri dev 打开桌面应用。")
       return
     }
     let disposed = false
@@ -138,9 +113,9 @@ export function useClipboard() {
     const result = settingsQueue.current.then(async () => {
       try {
         const settings = currentSnapshot.current?.settings
-        if (!settings) throw new Error('设置尚未载入，请稍后重试。')
+        if (!settings) throw new Error("设置尚未载入，请稍后重试。")
         update(await invoke<Snapshot>('save_settings', { settings: applySettingsPatch(settings, patch) }))
-        setMessage('设置已保存')
+        setMessage("设置已保存")
         return true
       } catch (reason) {
         settingsFailures.current += 1
@@ -175,15 +150,4 @@ export function useClipboard() {
     action: (action: Action) => run('history_action', { action, popupToken: popupToken.current }),
     capture: () => run('capture_current'),
   }
-}
-
-export function shortcutLabel(value: string): string {
-  const mac = navigator.userAgent.includes('Mac')
-  const labels: Record<string, string> = {
-    Super: mac ? '⌘' : 'Win',
-    Control: mac ? '⌃' : 'Ctrl',
-    Alt: mac ? '⌥' : 'Alt',
-    Shift: mac ? '⇧' : 'Shift',
-  }
-  return value.split('+').map((key) => labels[key] ?? key.replace(/^Key/, '').replace(/^Digit/, '')).join(mac ? ' ' : ' + ')
 }

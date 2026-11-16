@@ -12,12 +12,15 @@ apps/
   website/              # 中文宣传网站，可独立构建、静态部署
 packages/
   brand/                # 共享产品名称、SVG 标识、基础配色和字体
+  ui/                   # 共享历史面板、设置表单、窗口外壳、控件、图标、类型和产品样式
 scripts/
   package-website.mjs    # 将真实 Windows 安装包与宣传网站一起打包
 tsconfig.base.json      # 共享 TypeScript 严格检查配置
 ~~~
 
-桌面原生接口和交互组件保留在 desktop 内，网站不依赖 Tauri。共享包以 workspace:* 引用，直接消费源码和 CSS，无需独立编译。
+桌面原生接口保留在 desktop 内。桌面端与网站演示共同使用 @simple-copy/ui 的历史面板和样式，网站通过独立的 demo.html 隔离宣传页样式，只接入示例数据，不依赖 Tauri。共享包以 workspace:* 引用，直接消费源码和 CSS，无需独立编译。
+
+设置表单也由共享包的 @simple-copy/ui/settings-panel 提供，包含字段校验、保留方式与条数确认、快捷键录入界面和保存反馈。桌面端 SettingsView 只负责接入原生快捷键录入与关闭前等待保存，持久设置仍由 native.ts 的自动保存队列和 Rust 管理。
 
 ## 使用
 
@@ -78,7 +81,7 @@ pnpm build:website      # 输出 apps/website/dist
 pnpm preview:website    # http://127.0.0.1:4173
 ~~~
 
-网站保留产品演示、简短使用步骤、格式与核心功能介绍和获取入口，支持手机布局、键盘、减少动态效果与高对比度模式。演示只操作示例内容，不读取系统剪贴板。构建指南的「复制命令」按钮仅在点击时复制显示的命令。
+网站保留产品演示、简短使用步骤、格式与核心功能介绍和获取入口，支持手机布局、键盘、减少动态效果与高对比度模式。演示复用实际软件的标题栏、搜索、卡片和操作按钮；设置与收起按钮可点击，但不执行操作，重置演示放在软件面板外。粘贴、置顶、删除与清除只操作示例内容，不读取系统剪贴板；「复制」仅在点击时写入所选示例文字，并在失败时提示。构建指南的「复制命令」按钮仅在点击时复制显示的命令。
 
 有正式下载地址时，将 apps/website/.env.example 复制为 apps/website/.env.local，设置 VITE_DOWNLOAD_URL 为 HTTPS 下载地址或网站根路径下的安装包地址；可选设置 VITE_SITE_URL 为正式 HTTPS 站点地址，用于 canonical 和 Open Graph URL。环境变量在构建时注入，修改后需重新构建。没有下载地址时，页面显示源码构建指南。
 

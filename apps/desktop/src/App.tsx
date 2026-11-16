@@ -16,7 +16,7 @@ export default function App() {
   const state = useClipboard()
   const settingsWindow = new URLSearchParams(location.search).get('view') === 'settings'
   useTheme(state.snapshot?.settings.themeMode ?? 'system')
-  useEffect(() => { document.title = `${t(settingsWindow ? 'settings' : 'clipboard')} · Simple Copy` }, [settingsWindow, locale])
+  useEffect(() => { document.title = settingsWindow ? `${t('settings')} · ${t('appName')}` : t('appName') }, [settingsWindow, locale])
   return settingsWindow
     ? <SettingsWindow>
       <SettingsBoundary>

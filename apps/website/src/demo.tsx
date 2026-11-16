@@ -67,7 +67,11 @@ function Demo() {
     onClearMessage={() => { setMessage(null); setError(null) }} />
 }
 
-setLocale(resolveLocale(navigator.languages))
-document.title = `${t('site.demo')} · Simple Copy`
+const followLanguage = () => {
+  setLocale(resolveLocale(navigator.languages))
+  document.title = `${t('site.demo')} · ${t('appName')}`
+}
+followLanguage()
+window.addEventListener('languagechange', followLanguage)
 
 createRoot(document.getElementById('root')!).render(<StrictMode><Demo /></StrictMode>)

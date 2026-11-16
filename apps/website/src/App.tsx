@@ -1,6 +1,5 @@
 import { t } from '@simple-copy/i18n'
 import { useI18n } from '@simple-copy/i18n/react'
-import { product } from '@simple-copy/brand'
 import logo from '@simple-copy/brand/logo.svg'
 import {
   ArrowDownToLine, ArrowRight, Check, Copy, FileText, Pin, RotateCcw,
@@ -18,9 +17,9 @@ function WindowsMark({ className = '' }: { className?: string }) {
 }
 
 function Brand({ footer = false }: { footer?: boolean }) {
-  return <a className="brand" href="#top" aria-label={product.name + ' · ' + t('site.backToTop')}>
+  return <a className="brand" href="#top" aria-label={t('appName') + ' · ' + t('site.backToTop')}>
     <img src={logo} width={footer ? 34 : 38} height={footer ? 34 : 38} alt="" />
-    <span>{product.name}</span>
+    <span>{t('appName')}</span>
   </a>
 }
 
@@ -44,7 +43,7 @@ function ClipboardDemo() {
 
   return <div className="demo-scene" id="demo" role="region" aria-label={t('site.demo')}>
     <iframe ref={frame} key={`${locale}-${generation}`} className="demo-window" src="./demo.html"
-      title={`Simple Copy · ${t('site.demo')}`} width={360} height={400} />
+      title={`${t('appName')} · ${t('site.demo')}`} width={360} height={400} />
     <div className="demo-controls"><button type="button" onClick={() => {
       setGeneration((previous) => previous + 1)
       setPasted(null)
@@ -109,6 +108,7 @@ export default function App() {
     document.querySelector('meta[name="description"]')?.setAttribute('content', t('site.description'))
     document.querySelector('meta[property="og:title"]')?.setAttribute('content', t('site.title'))
     document.querySelector('meta[property="og:description"]')?.setAttribute('content', t('site.ogDescription'))
+    document.querySelector('meta[property="og:site_name"]')?.setAttribute('content', t('appName'))
     const ogLocales = { en: 'en_US', 'zh-CN': 'zh_CN', 'zh-TW': 'zh_TW', ja: 'ja_JP', ko: 'ko_KR', de: 'de_DE', fr: 'fr_FR', es: 'es_ES', pt: 'pt_BR', ru: 'ru_RU' }
     document.querySelector('meta[property="og:locale"]')?.setAttribute('content', ogLocales[locale])
   }, [locale])

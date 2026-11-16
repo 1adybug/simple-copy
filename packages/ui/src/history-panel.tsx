@@ -86,7 +86,7 @@ export function HistoryPanel({
   }
 
   return (
-    <WindowFrame title={t('clipboard')} view="history" actions={<>
+    <WindowFrame title={t('appName')} view="history" actions={<>
       <IconButton label={t('clearUnpinned')} disabled={ordinaryCount === 0 || busy} onClick={(event) => {
         confirmationFocus.current = event.currentTarget
         setConfirmation('clear')

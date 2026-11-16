@@ -79,8 +79,15 @@ pub fn refresh_language(app: &AppHandle) {
         {
             let _ = item.set_text(crate::i18n::t(key));
         }
+        if let Some(window) = handle.get_webview_window("history") {
+            let _ = window.set_title(crate::i18n::t("appName"));
+        }
         if let Some(window) = handle.get_webview_window("settings") {
-            let _ = window.set_title(&format!("Simple Copy · {}", crate::i18n::t("settings")));
+            let _ = window.set_title(&format!(
+                "{} · {}",
+                crate::i18n::t("appName"),
+                crate::i18n::t("settings")
+            ));
         }
     });
 }
@@ -147,7 +154,7 @@ fn sync_window_shape(window: &WebviewWindow) {
 
 pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let history = WebviewWindowBuilder::new(app, "history", WebviewUrl::App("index.html".into()))
-        .title("Simple Copy")
+        .title(crate::i18n::t("appName"))
         .inner_size(360., 400.)
         .resizable(false)
         .decorations(false)
@@ -489,7 +496,11 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
             "settings",
             WebviewUrl::App("index.html?view=settings".into()),
         )
-        .title(format!("Simple Copy · {}", crate::i18n::t("settings")))
+        .title(format!(
+            "{} · {}",
+            crate::i18n::t("appName"),
+            crate::i18n::t("settings")
+        ))
         .inner_size(480., 640.)
         .min_inner_size(400., 480.)
         .resizable(true)

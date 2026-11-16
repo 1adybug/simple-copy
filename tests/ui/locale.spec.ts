@@ -5,6 +5,8 @@ import { checkAccessibility } from './accessibility'
 import { mockTauri } from './tauri-mock'
 
 test('language matching and complete messages follow the shared native contract', () => {
+  expect(translate('zh-CN', 'appName')).toBe('简单复制')
+  expect(translate('zh-TW', 'appName')).toBe('簡單複製')
   for (const { languages, expected } of localeCases) expect(resolveLocale(languages), languages.join(', ')).toBe(expected)
   const placeholders = (value: string) => [...value.matchAll(/\{\w+\}/g)].map(([match]) => match).sort()
   for (const [locale, messages] of Object.entries(catalogs)) {
@@ -13,6 +15,9 @@ test('language matching and complete messages follow the shared native contract'
       expect(messages[key].trim(), `${locale}: ${key}`).not.toBe('')
       expect(placeholders(messages[key]), `${locale}: ${key}`).toEqual(placeholders(catalogs.en[key]))
     }
+    expect(messages['native.quit'], locale).toContain(messages.appName)
+    expect(messages['site.title'], locale).toContain(messages.appName)
+    expect(messages['site.description'], locale).toContain(messages.appName)
   }
   // Content with placeholder-like text is inserted once and remains unchanged.
   expect(translate('en', 'pasteLabel', { kind: 'Plain text', text: '<b>{kind}</b>' })).toBe('Paste Plain text: <b>{kind}</b>')
@@ -24,7 +29,7 @@ for (const locale of supportedLocales) {
     await mockTauri(page, { systemLocale: locale })
     await page.goto('http://127.0.0.1:1421/?view=settings')
     await expect(page.locator('html')).toHaveAttribute('lang', locale)
-    await expect(page).toHaveTitle(`${translate(locale, 'settings')} · Simple Copy`)
+    await expect(page).toHaveTitle(`${translate(locale, 'settings')} · ${translate(locale, 'appName')}`)
     await expect(page.getByRole('region', { name: translate(locale, 'preferences'), exact: true })).toBeVisible()
     await page.getByRole('checkbox', { name: translate(locale, 'format.link'), exact: true }).uncheck()
     await expect(page.getByRole('status', { name: translate(locale, 'saveStatus') })).toContainText(translate(locale, 'saved'))
@@ -45,6 +50,9 @@ for (const locale of supportedLocales) {
       await page.getByRole('region', { name: translate(locale, 'preferences'), exact: true }).scrollIntoViewIfNeeded()
       await page.screenshot({ path: `.artifacts/i18n-settings-${locale}.png` })
     }
+    await page.goto('http://127.0.0.1:1421')
+    await expect(page).toHaveTitle(translate(locale, 'appName'))
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(translate(locale, 'appName'))
   })
 
   test(`website ${locale} and its shared demo use the same language`, async ({ page }) => {
@@ -56,9 +64,13 @@ for (const locale of supportedLocales) {
     await expect(page.locator('html')).toHaveAttribute('lang', locale)
     await expect(page).toHaveTitle(translate(locale, 'site.title'))
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', translate(locale, 'site.description'))
+    await expect(page.locator('.brand span')).toHaveText([translate(locale, 'appName'), translate(locale, 'appName')])
+    await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', translate(locale, 'appName'))
+    await expect(page.locator('.demo-window')).toHaveAttribute('title', `${translate(locale, 'appName')} · ${translate(locale, 'site.demo')}`)
     const demo = page.frameLocator('.demo-window')
     await expect(demo.locator('html')).toHaveAttribute('lang', locale)
-    await expect(demo.getByRole('heading', { level: 1 })).toHaveText(translate(locale, 'clipboard'))
+    await expect(demo.getByRole('heading', { level: 1 })).toHaveText(translate(locale, 'appName'))
+    await expect(demo.locator('head title')).toHaveJSProperty('textContent', `${translate(locale, 'site.demo')} · ${translate(locale, 'appName')}`)
     await demo.locator('.clip-main').nth(1).click()
     await expect(page.locator('.note-text')).toHaveText(translate(locale, 'site.sampleNote'))
     await demo.getByRole('button', { name: translate(locale, 'settings'), exact: true }).click()
@@ -82,6 +94,8 @@ test('unsupported website languages fall back to English and preferences update 
   })
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
   await expect(page).toHaveTitle(translate('fr', 'site.title'))
+  await expect(page.locator('.brand span')).toHaveText([translate('fr', 'appName'), translate('fr', 'appName')])
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', translate('fr', 'appName'))
   await expect(page.getByRole('link', { name: translate('fr', 'site.skip') })).toHaveCount(1)
 })
 
@@ -123,7 +137,7 @@ test('language selection persists, returns to system and follows only current na
     window.inspection.snapshot.settings.language = 'de'
     window.inspection.publish()
   })
-  await expect(page).toHaveTitle(`${translate('de', 'settings')} · Simple Copy`)
+  await expect(page).toHaveTitle(`${translate('de', 'settings')} · ${translate('de', 'appName')}`)
   await expect(page.getByRole('heading', { name: translate('de', 'settings'), exact: true })).toBeVisible()
   await page.evaluate((snapshot) => window.inspection.emit('clipboard-state', snapshot), stale)
   await expect(page.locator('html')).toHaveAttribute('lang', 'de')
@@ -150,7 +164,8 @@ test('native locale lookup failures use English even when the browser language i
   await mockTauri(page, { systemLocaleFailure: true })
   await page.goto('http://127.0.0.1:1421')
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-  await expect(page.getByRole('heading', { name: 'Clipboard', exact: true })).toBeVisible()
+  await expect(page).toHaveTitle('Simple Copy')
+  await expect(page.getByRole('heading', { name: 'Simple Copy', exact: true })).toBeVisible()
   const search = page.getByRole('searchbox', { name: 'Search clipboard' })
   await search.fill('PLAIN TEXT')
   await expect(page.locator('.clip-card')).toHaveCount(1)

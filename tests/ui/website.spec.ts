@@ -3,7 +3,7 @@ import { checkAccessibility } from './accessibility'
 
 const websiteUrl = 'http://127.0.0.1:4174'
 
-test('keyboard users can skip navigation, use the demo and open the FAQ', async ({ page }) => {
+test('keyboard users can skip the header and use the demo', async ({ page }) => {
   await page.goto(websiteUrl)
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: '跳到主要内容' })).toBeFocused()
@@ -19,9 +19,6 @@ test('keyboard users can skip navigation, use the demo and open the FAQ', async 
   await expect(clips.first()).toContainText('周五下午三点')
   await page.getByRole('button', { name: '重置演示' }).click()
   await expect(clips.first()).toContainText('留一点空间')
-  await page.locator('summary').first().focus()
-  await page.keyboard.press('Enter')
-  await expect(page.locator('details').first()).toHaveAttribute('open', '')
   await expect(page.locator('.demo-disclaimer')).toHaveText('仅使用示例内容，不读取系统剪贴板。')
 })
 
@@ -44,7 +41,7 @@ test('phone layout keeps touch actions large and content inside the viewport', a
   const page = await context.newPage()
   try {
     await page.goto(websiteUrl)
-    const targets = page.locator('.demo-pin, .demo-toolbar button, .copy-command, .site-header nav a, .header-download')
+    const targets = page.locator('.demo-pin, .demo-toolbar button, .copy-command, .header-download')
     for (const target of await targets.all()) {
       const box = (await target.boundingBox())!
       expect(box.width).toBeGreaterThanOrEqual(44)

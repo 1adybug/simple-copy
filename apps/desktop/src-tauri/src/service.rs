@@ -11,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::oneshot;
 
 use crate::{
-    history::{History, Preview, Restore},
+    history::{History, Preview, Restore, now_millis},
     model::{ClipId, Payload, Settings, WriteId},
     platform::{self, Capabilities, ClipboardBackend, Written},
     store::Store,
@@ -166,6 +166,7 @@ impl ServiceHandle {
                         }
                         Ok(Message::Wake) | Err(mpsc::RecvTimeoutError::Timeout) => {}
                     }
+                    service.expire_history();
                     service.observe();
                     service.restore_if_due();
                 }
@@ -250,6 +251,7 @@ impl Service {
     }
 
     fn request(&mut self, request: Request) -> Result<Reply, String> {
+        self.expire_history();
         match request {
             Request::Snapshot => Ok(Reply::Snapshot(Box::new(self.snapshot()))),
             Request::Image(id) => self
@@ -276,6 +278,7 @@ impl Service {
                 }
                 let before = self.settings.clone();
                 let mut history = self.history.clone();
+                history.set_expiry_seconds(settings.expiry_seconds);
                 history.set_max_items(settings.max_history_items);
                 windows::apply_shortcut(&self.app, &settings.shortcut)?;
                 if let Err(error) = self.store.sync(&settings, &history) {
@@ -428,6 +431,15 @@ impl Service {
             return Err(error);
         }
         Ok(())
+    }
+
+    fn expire_history(&mut self) {
+        if self.history.expire(now_millis()) {
+            if let Err(error) = self.store.sync(&self.settings, &self.history) {
+                self.store.status = Some(error);
+            }
+            self.publish();
+        }
     }
 
     fn write(

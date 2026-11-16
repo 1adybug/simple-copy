@@ -7,14 +7,14 @@ use aes_gcm::{
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::{
-    history::{Entry, History},
+    history::{Entry, History, now_millis},
     model::{ClipId, Retention, Settings},
 };
 
 pub struct Store {
     db: Connection,
     cipher: Option<Aes256Gcm>,
-    saved: HashMap<ClipId, (u64, Option<u64>)>,
+    saved: HashMap<ClipId, (u64, Option<u64>, u64)>,
     pub status: Option<String>,
     memory_only: bool,
 }
@@ -40,7 +40,7 @@ impl Store {
     }
 
     fn initialize(
-        db: Connection,
+        mut db: Connection,
         memory_only: bool,
         status: Option<String>,
     ) -> Result<Self, String> {
@@ -49,20 +49,33 @@ impl Store {
         let version: u32 = db
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(db_error)?;
-        if version > 1 {
+        if version > 2 {
             return Err(crate::i18n::t("native.newerDatabase").into());
         }
-        db.execute_batch(
+        let tx = db.transaction().map_err(db_error)?;
+        tx.execute_batch(
             "PRAGMA secure_delete = ON;
              CREATE TABLE IF NOT EXISTS settings (
                  id INTEGER PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL
              );
              CREATE TABLE IF NOT EXISTS entries (
-                 id INTEGER PRIMARY KEY, pinned INTEGER NOT NULL, sealed BLOB NOT NULL
-             );
-             PRAGMA user_version = 1;",
+                 id INTEGER PRIMARY KEY, pinned INTEGER NOT NULL, sealed BLOB NOT NULL,
+                 copied_at INTEGER NOT NULL
+             );",
         )
         .map_err(db_error)?;
+        if version == 1 {
+            tx.execute_batch(
+                "ALTER TABLE entries ADD COLUMN copied_at INTEGER NOT NULL DEFAULT 0;",
+            )
+            .map_err(db_error)?;
+            // Older versions only stored ordering. Give those records one full lifetime.
+            tx.execute("UPDATE entries SET copied_at = ?1", [now_millis()])
+                .map_err(db_error)?;
+        }
+        tx.pragma_update(None, "user_version", 2)
+            .map_err(db_error)?;
+        tx.commit().map_err(db_error)?;
         Ok(Self {
             db,
             cipher: None,
@@ -110,17 +123,22 @@ impl Store {
         if let Some(cipher) = self.cipher.clone() {
             let mut query = self
                 .db
-                .prepare("SELECT id, sealed FROM entries ORDER BY id")
+                .prepare("SELECT id, sealed, copied_at FROM entries ORDER BY id")
                 .map_err(db_error)?;
             let rows = query
                 .query_map([], |row| {
-                    Ok((row.get::<_, u64>(0)?, row.get::<_, Vec<u8>>(1)?))
+                    Ok((
+                        row.get::<_, u64>(0)?,
+                        row.get::<_, Vec<u8>>(1)?,
+                        row.get::<_, u64>(2)?,
+                    ))
                 })
                 .map_err(db_error)?;
             for row in rows {
-                let (id, sealed) = row.map_err(db_error)?;
-                let entry = unseal(&cipher, &sealed).and_then(|entry| {
+                let (id, sealed, copied_at) = row.map_err(db_error)?;
+                let entry = unseal(&cipher, &sealed).and_then(|mut entry| {
                     if entry.id == id && entry.payload.size() <= crate::model::MAX_ITEM_BYTES {
+                        entry.copied_at = copied_at;
                         Ok(entry)
                     } else {
                         Err(crate::i18n::t("native.invalidEntry").into())
@@ -128,7 +146,8 @@ impl Store {
                 });
                 match entry {
                     Ok(entry) => {
-                        self.saved.insert(id, (entry.recency, entry.pin_order));
+                        self.saved
+                            .insert(id, (entry.recency, entry.pin_order, entry.copied_at));
                         entries.push(entry);
                     }
                     Err(_) => {
@@ -136,13 +155,27 @@ impl Store {
                         // Prevent later synchronization from pruning records we could not load.
                         self.cipher = None;
                         self.saved.clear();
-                        let history = History::load(Vec::new(), max_id, settings.max_history_items);
+                        let history = History::load(
+                            Vec::new(),
+                            max_id,
+                            settings.max_history_items,
+                            settings.expiry_seconds,
+                        );
                         return Ok((settings, history));
                     }
                 }
             }
         }
-        let history = History::load(entries, max_id, settings.max_history_items);
+        let history = History::load(
+            entries,
+            max_id,
+            settings.max_history_items,
+            settings.expiry_seconds,
+        );
+        // Apply startup expiration to disk as well as the in-memory model.
+        if self.cipher.is_some() {
+            self.sync(&settings, &history)?;
+        }
         Ok((settings, history))
     }
 
@@ -194,9 +227,14 @@ impl Store {
         let mut retained = HashMap::new();
         if let Some(cipher) = &self.cipher {
             for entry in history.retained(settings.retention) {
-                let stamp = (entry.recency, entry.pin_order);
+                let stamp = (entry.recency, entry.pin_order, entry.copied_at);
                 if self.saved.get(&entry.id) != Some(&stamp) {
-                    changed.push((entry.id, entry.pin_order.is_some(), seal(cipher, entry)?));
+                    changed.push((
+                        entry.id,
+                        entry.pin_order.is_some(),
+                        seal(cipher, entry)?,
+                        entry.copied_at,
+                    ));
                 }
                 retained.insert(entry.id, stamp);
             }
@@ -232,11 +270,12 @@ impl Store {
                         .map_err(db_error)?;
                 }
             }
-            for (id, pinned, sealed) in changed {
+            for (id, pinned, sealed, copied_at) in changed {
                 tx.execute(
-                    "INSERT INTO entries(id, pinned, sealed) VALUES(?1, ?2, ?3)
-                     ON CONFLICT(id) DO UPDATE SET pinned = excluded.pinned, sealed = excluded.sealed",
-                    params![id, pinned, sealed],
+                    "INSERT INTO entries(id, pinned, sealed, copied_at) VALUES(?1, ?2, ?3, ?4)
+                     ON CONFLICT(id) DO UPDATE SET pinned = excluded.pinned, sealed = excluded.sealed,
+                         copied_at = excluded.copied_at",
+                    params![id, pinned, sealed, copied_at],
                 )
                 .map_err(db_error)?;
             }
@@ -472,11 +511,152 @@ mod tests {
             recency: 1,
             pin_order: None,
             payload: Payload::default(),
+            copied_at: now_millis(),
         };
         let mut sealed = seal(&cipher, &entry).unwrap();
         assert_eq!(unseal(&cipher, &sealed).unwrap().id, 3);
         sealed[20] ^= 1;
         assert!(unseal(&cipher, &sealed).is_err());
+    }
+
+    #[test]
+    fn legacy_database_migration_keeps_payloads_and_starts_expiry_once() {
+        let db = Connection::open_in_memory().unwrap();
+        let cipher = Aes256Gcm::new_from_slice(&[7; 32]).unwrap();
+        let entry = Entry {
+            id: 1,
+            recency: 1,
+            pin_order: None,
+            payload: Payload {
+                text: Some("legacy content".into()),
+                ..Payload::default()
+            },
+            copied_at: 0,
+        };
+        // The old encrypted entry layout is unchanged by the new schema metadata.
+        assert_eq!(
+            bincode::serialize(&entry).unwrap(),
+            bincode::serialize(&(entry.id, entry.recency, entry.pin_order, &entry.payload))
+                .unwrap()
+        );
+        db.execute_batch(
+            "CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
+             INSERT INTO settings VALUES(1, '{\"retention\":\"all\"}');
+             CREATE TABLE entries (id INTEGER PRIMARY KEY, pinned INTEGER NOT NULL, sealed BLOB NOT NULL);
+             PRAGMA user_version = 1;",
+        ).unwrap();
+        db.execute(
+            "INSERT INTO entries VALUES(?1, 0, ?2)",
+            params![entry.id, seal(&cipher, &entry).unwrap()],
+        )
+        .unwrap();
+        let before = now_millis();
+        let mut store = Store::initialize(db, false, None).unwrap();
+        store.cipher = Some(cipher.clone());
+        let (settings, history) = store.load().unwrap();
+        let copied_at = history.get(1).unwrap().entry.copied_at;
+        assert!((before..=now_millis()).contains(&copied_at));
+        assert_eq!(settings.expiry_seconds, 86_400);
+        assert_eq!(history.get(1).unwrap().entry.payload, entry.payload);
+        let mut reopened = Store::initialize(store.db, false, None).unwrap();
+        reopened.cipher = Some(cipher);
+        assert_eq!(
+            reopened.load().unwrap().1.get(1).unwrap().entry.copied_at,
+            copied_at
+        );
+    }
+
+    #[test]
+    fn startup_expiry_prunes_disk_and_preserves_original_timestamps_and_pins() {
+        let mut store =
+            Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
+        store.cipher = Some(Aes256Gcm::new_from_slice(&[7; 32]).unwrap());
+        let settings = Settings {
+            retention: Retention::All,
+            expiry_seconds: 60,
+            ..Settings::default()
+        };
+        let mut history = History::default();
+        let old = history
+            .record(Payload {
+                text: Some("old".into()),
+                ..Payload::default()
+            })
+            .unwrap();
+        let fresh = history
+            .record(Payload {
+                text: Some("fresh".into()),
+                ..Payload::default()
+            })
+            .unwrap();
+        let pinned = history
+            .record(Payload {
+                text: Some("pinned".into()),
+                ..Payload::default()
+            })
+            .unwrap();
+        history.pin(pinned, true);
+        store.sync(&settings, &history).unwrap();
+        store
+            .db
+            .execute(
+                "UPDATE entries SET copied_at = ?1 WHERE id IN (?2, ?3)",
+                params![now_millis() - 61_000, old, pinned],
+            )
+            .unwrap();
+        let (loaded_settings, loaded) = store.load().unwrap();
+        assert_eq!(loaded_settings.expiry_seconds, 60);
+        assert!(loaded.get(old).is_none());
+        assert_eq!(
+            loaded.get(fresh).unwrap().entry.copied_at,
+            history.get(fresh).unwrap().entry.copied_at
+        );
+        assert!(loaded.get(pinned).is_some());
+        assert_eq!(count(&store), 2);
+        let mut reduced = loaded.clone();
+        assert!(reduced.expire(now_millis() + 61_000));
+        store.sync(&settings, &reduced).unwrap();
+        assert_eq!(count(&store), 1);
+        assert!(store.load().unwrap().1.get(pinned).is_some());
+    }
+
+    #[test]
+    fn failed_expiry_change_preserves_saved_settings_and_history() {
+        let mut store =
+            Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
+        store.cipher = Some(Aes256Gcm::new_from_slice(&[7; 32]).unwrap());
+        let settings = Settings {
+            retention: Retention::All,
+            ..Settings::default()
+        };
+        let history = History::load(
+            vec![Entry {
+                id: 1,
+                recency: 1,
+                pin_order: None,
+                payload: Payload {
+                    text: Some("still valid".into()),
+                    ..Payload::default()
+                },
+                copied_at: now_millis() - 10_000,
+            }],
+            1,
+            settings.max_history_items,
+            settings.expiry_seconds,
+        );
+        store.sync(&settings, &history).unwrap();
+        store.db.execute_batch("CREATE TRIGGER reject_pruning BEFORE DELETE ON entries BEGIN SELECT RAISE(ABORT, 'pruning failed'); END;").unwrap();
+        let reduced_settings = Settings {
+            expiry_seconds: 1,
+            ..settings.clone()
+        };
+        let mut reduced = history.clone();
+        reduced.set_expiry_seconds(1);
+        assert!(store.sync(&reduced_settings, &reduced).is_err());
+        let (loaded_settings, loaded) = store.load().unwrap();
+        assert_eq!(loaded_settings, settings);
+        assert_eq!(loaded.previews().len(), 1);
+        assert_eq!(count(&store), 1);
     }
 
     fn count(store: &Store) -> u64 {

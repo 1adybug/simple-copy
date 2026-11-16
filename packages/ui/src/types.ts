@@ -11,6 +11,7 @@ export interface Settings {
   formats: Record<Kind, boolean>
   retention: Retention
   maxHistoryItems: number
+  expirySeconds: number
   restoreEnabled: boolean
   restoreSeconds: number
 }

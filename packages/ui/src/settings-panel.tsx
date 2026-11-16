@@ -133,7 +133,8 @@ export function SettingsPanel({ state, shortcutRecorder }: {
                 ))}
               </div>
             </fieldset>
-            <HistoryLimitInput value={settings.maxHistoryItems} onChange={(maxHistoryItems) => void save({ maxHistoryItems })} />
+            <HistoryLimitInput kind="count" value={settings.maxHistoryItems} onChange={(maxHistoryItems) => void save({ maxHistoryItems })} />
+            <HistoryLimitInput kind="expiry" value={settings.expirySeconds} onChange={(expirySeconds) => void save({ expirySeconds })} />
             <div className="setting-line">
               <span id="retention-heading" className="setting-label">{t('retention')}</span>
               <RadioGroup className="retention-options" orientation="horizontal" aria-labelledby="retention-heading" value={settings.retention}
@@ -205,11 +206,20 @@ function SettingsSection({ id, title, children }: { id: string; title: string; c
   </section>
 }
 
-function HistoryLimitInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+const historyLimitFields = {
+  count: { id: 'max-history-items', min: 0, label: 'maxHistory', unit: 'itemsUnit', help: 'maxHistoryHelp', error: 'maxHistoryError', confirm: 'confirmLimit', description: 'limitDescription' },
+  expiry: { id: 'expiry-seconds', min: 1, label: 'expiry', unit: 'seconds', help: 'expiryHelp', error: 'expiryError', confirm: 'confirmExpiry', description: 'expiryDescription' },
+} as const
+
+function HistoryLimitInput({ kind, value, onChange }: { kind: keyof typeof historyLimitFields; value: number; onChange: (value: number) => void }) {
+  const field = historyLimitFields[kind]
   const [draft, setDraft] = useState<string | null>(null)
   const [confirmLimit, setConfirmLimit] = useState<number | null>(null)
   const input = useRef<HTMLInputElement>(null)
-  const invalid = draft !== null && (!/^\d+$/.test(draft) || Number(draft) > 4294967295)
+  const invalid = draft !== null && (!/^\d+$/.test(draft) || Number(draft) < field.min || Number(draft) > 4294967295)
+  const helpId = kind === 'count' ? 'history-limit-help' : 'expiry-help'
+  const errorId = kind === 'count' ? 'history-limit-error' : 'expiry-error'
+  const unitId = field.id + '-unit'
 
   function commit() {
     if (draft === null || invalid) return
@@ -223,9 +233,9 @@ function HistoryLimitInput({ value, onChange }: { value: number; onChange: (valu
   return <>
     <div className="settings-field">
       <div className="setting-line">
-        <Label htmlFor="max-history-items">{t('maxHistory')}</Label>
+        <Label htmlFor={field.id}>{t(field.label)}</Label>
         <div className="quantity-input">
-          <Input ref={input} id="max-history-items" type="number" inputMode="numeric" min="0" max="4294967295" step="1"
+          <Input ref={input} id={field.id} type="number" inputMode="numeric" min={field.min} max="4294967295" step="1"
             value={draft ?? String(value)} onChange={(event) => setDraft(event.target.value)} onBlur={commit}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
@@ -233,17 +243,17 @@ function HistoryLimitInput({ value, onChange }: { value: number; onChange: (valu
                 event.currentTarget.blur()
               }
             }}
-            aria-invalid={invalid} aria-describedby={invalid ? 'history-limit-help history-limit-error' : 'history-limit-help'} />
-          <span aria-hidden="true">{t('itemsUnit')}</span>
+            aria-invalid={invalid} aria-describedby={`${unitId} ${helpId}${invalid ? ' ' + errorId : ''}`} />
+          <span id={unitId} aria-hidden="true">{t(field.unit)}</span>
         </div>
       </div>
-      <p id="history-limit-help" className="field-help">{t('maxHistoryHelp')}</p>
-      {invalid && <p id="history-limit-error" role="alert" className="field-error">{t('maxHistoryError')}</p>}
+      <p id={helpId} className="field-help">{t(field.help)}</p>
+      {invalid && <p id={errorId} role="alert" className="field-error">{t(field.error)}</p>}
     </div>
     <AlertDialog open={confirmLimit !== null} onOpenChange={(open) => { if (!open) setConfirmLimit(null) }}>
       <AlertDialogContent className="settings-confirm" onCloseAutoFocus={(event) => { event.preventDefault(); input.current?.focus() }}>
-        <AlertDialogHeader><AlertDialogMedia tone="danger"><DeleteIcon /></AlertDialogMedia><AlertDialogTitle>{t('confirmLimit')}</AlertDialogTitle>
-          <AlertDialogDescription>{t('limitDescription', { count: confirmLimit ?? 0 })}</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogHeader><AlertDialogMedia tone="danger"><DeleteIcon /></AlertDialogMedia><AlertDialogTitle>{t(field.confirm)}</AlertDialogTitle>
+          <AlertDialogDescription>{t(field.description, { count: confirmLimit ?? 0, seconds: confirmLimit ?? 0 })}</AlertDialogDescription></AlertDialogHeader>
         <AlertDialogFooter><AlertDialogCancel>{t('cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => {
           if (confirmLimit !== null) onChange(confirmLimit)
         }}>{t('confirm')}</AlertDialogAction></AlertDialogFooter>

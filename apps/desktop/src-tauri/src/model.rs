@@ -58,6 +58,7 @@ pub struct Settings {
     pub formats: Formats,
     pub retention: Retention,
     pub max_history_items: u32,
+    pub expiry_seconds: u32,
     pub restore_enabled: bool,
     pub restore_seconds: u32,
 }
@@ -76,6 +77,7 @@ impl Default for Settings {
             formats: Formats::default(),
             retention: Retention::Pinned,
             max_history_items: 20,
+            expiry_seconds: 24 * 60 * 60,
             restore_enabled: false,
             restore_seconds: 5,
         }
@@ -84,6 +86,9 @@ impl Default for Settings {
 
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
+        if self.expiry_seconds == 0 {
+            return Err(crate::i18n::t("expiryError").into());
+        }
         if !(1..=3600).contains(&self.restore_seconds) {
             return Err(crate::i18n::t("native.restoreRange").into());
         }
@@ -282,6 +287,36 @@ pub fn thumbnail(bytes: &[u8]) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expiry_defaults_to_one_day_and_requires_positive_whole_seconds() {
+        let settings: Settings = serde_json::from_str(r#"{"retention":"all"}"#).unwrap();
+        assert_eq!(settings.expiry_seconds, 86_400);
+        for seconds in [1, 60, 86_400, u32::MAX] {
+            let settings = Settings {
+                expiry_seconds: seconds,
+                ..settings.clone()
+            };
+            assert!(settings.validate().is_ok());
+            let reopened: Settings =
+                serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+            assert_eq!(reopened.expiry_seconds, seconds);
+        }
+        assert!(
+            Settings {
+                expiry_seconds: 0,
+                ..settings
+            }
+            .validate()
+            .is_err()
+        );
+        for invalid in ["-1", "1.5", "4294967296"] {
+            assert!(
+                serde_json::from_str::<Settings>(&format!(r#"{{"expirySeconds":{invalid}}}"#))
+                    .is_err()
+            );
+        }
+    }
 
     #[test]
     fn history_limit_defaults_for_existing_settings_and_preserves_zero() {

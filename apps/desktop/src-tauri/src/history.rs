@@ -1,4 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +14,16 @@ pub struct Entry {
     pub recency: u64,
     pub pin_order: Option<u64>,
     pub payload: Payload,
+    // SQLite owns this metadata so the encrypted v1 payload remains readable.
+    #[serde(skip)]
+    pub copied_at: u64,
+}
+
+pub fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 #[derive(Clone)]
@@ -51,6 +65,7 @@ pub struct History {
     next_id: ClipId,
     order: u64,
     max_items: u32,
+    expiry_seconds: u32,
 }
 
 impl Default for History {
@@ -60,12 +75,13 @@ impl Default for History {
             next_id: 0,
             order: 0,
             max_items: Settings::default().max_history_items,
+            expiry_seconds: Settings::default().expiry_seconds,
         }
     }
 }
 
 impl History {
-    pub fn load(entries: Vec<Entry>, max_id: ClipId, max_items: u32) -> Self {
+    pub fn load(entries: Vec<Entry>, max_id: ClipId, max_items: u32, expiry_seconds: u32) -> Self {
         let order = entries
             .iter()
             .map(|entry| entry.recency.max(entry.pin_order.unwrap_or_default()))
@@ -96,12 +112,18 @@ impl History {
             next_id: max_id.saturating_add(1),
             order,
             max_items,
+            expiry_seconds,
         };
-        history.trim();
+        history.trim(now_millis());
         history
     }
 
     pub fn record(&mut self, payload: Payload) -> Option<ClipId> {
+        self.record_at(payload, now_millis())
+    }
+
+    fn record_at(&mut self, payload: Payload, now: u64) -> Option<ClipId> {
+        self.expire(now);
         let fingerprint = payload.fingerprint();
         self.order += 1;
         if let Some(clip) = self
@@ -112,8 +134,9 @@ impl History {
             let entry = Arc::make_mut(&mut clip.entry);
             entry.recency = self.order;
             entry.payload = payload;
+            entry.copied_at = now;
             let id = entry.id;
-            self.trim();
+            self.trim(now);
             return self.get(id).map(|_| id);
         }
         let id = self.next_id;
@@ -124,10 +147,11 @@ impl History {
                 recency: self.order,
                 pin_order: None,
                 payload,
+                copied_at: now,
             },
             fingerprint,
         ));
-        self.trim();
+        self.trim(now);
         self.get(id).map(|_| id)
     }
 
@@ -147,13 +171,18 @@ impl History {
     }
 
     pub fn pin(&mut self, id: ClipId, pinned: bool) -> bool {
+        self.pin_at(id, pinned, now_millis())
+    }
+
+    fn pin_at(&mut self, id: ClipId, pinned: bool, now: u64) -> bool {
+        self.expire(now);
         let Some(clip) = self.clips.iter_mut().find(|clip| clip.entry.id == id) else {
             return false;
         };
         if clip.entry.pin_order.is_some() != pinned {
             self.order += 1;
             Arc::make_mut(&mut clip.entry).pin_order = pinned.then_some(self.order);
-            self.trim();
+            self.trim(now);
         }
         true
     }
@@ -194,10 +223,25 @@ impl History {
 
     pub fn set_max_items(&mut self, max_items: u32) {
         self.max_items = max_items;
-        self.trim();
+        self.trim(now_millis());
     }
 
-    fn trim(&mut self) {
+    pub fn set_expiry_seconds(&mut self, expiry_seconds: u32) {
+        self.expiry_seconds = expiry_seconds;
+        self.trim(now_millis());
+    }
+
+    pub fn expire(&mut self, now: u64) -> bool {
+        let before = self.clips.len();
+        let lifetime = u64::from(self.expiry_seconds) * 1000;
+        self.clips.retain(|clip| {
+            clip.entry.pin_order.is_some() || now.saturating_sub(clip.entry.copied_at) < lifetime
+        });
+        self.clips.len() != before
+    }
+
+    fn trim(&mut self, now: u64) {
+        self.expire(now);
         let max_items = self.max_items as usize;
         let mut bytes: usize = self
             .clips
@@ -356,6 +400,7 @@ mod tests {
 
     #[test]
     fn loading_duplicates_preserves_latest_content_recency_and_pins() {
+        let copied_at = now_millis();
         let latest = Payload {
             html: Some("<b>same</b>".into()),
             ..text("same")
@@ -366,21 +411,24 @@ mod tests {
                 recency: 4,
                 pin_order: Some(8),
                 payload: text("same"),
+                copied_at,
             },
             Entry {
                 id: 2,
                 recency: 10,
                 pin_order: None,
                 payload: latest.clone(),
+                copied_at,
             },
             Entry {
                 id: 3,
                 recency: 9,
                 pin_order: Some(11),
                 payload: text("other"),
+                copied_at,
             },
         ];
-        let mut history = History::load(entries, 99, 100);
+        let mut history = History::load(entries, 99, 100, Settings::default().expiry_seconds);
         assert_eq!(
             history
                 .previews()
@@ -534,5 +582,73 @@ mod tests {
         assert_eq!(history.retained(Retention::Session).count(), 0);
         assert_eq!(history.retained(Retention::Pinned).count(), 1);
         assert_eq!(history.retained(Retention::All).count(), max_items + 1);
+    }
+
+    #[test]
+    fn expiry_restarts_on_copy_and_preserves_pins_until_unpinned() {
+        let mut history = History::default();
+        let now = now_millis();
+        let lifetime = u64::from(Settings::default().expiry_seconds) * 1000;
+        let ordinary = history.record_at(text("ordinary"), now).unwrap();
+        let pinned = history.record_at(text("pinned"), now).unwrap();
+        assert!(history.pin_at(pinned, true, now));
+        assert_eq!(
+            history.record_at(text("ordinary"), now + 500),
+            Some(ordinary)
+        );
+        assert!(!history.expire(now + lifetime));
+        assert!(history.expire(now + lifetime + 500));
+        assert!(history.get(ordinary).is_none());
+        assert!(history.get(pinned).is_some());
+        assert!(history.pin_at(pinned, false, now + lifetime + 500));
+        assert!(history.get(pinned).is_none());
+    }
+
+    #[test]
+    fn expired_entries_cannot_be_pinned_or_reused_by_deduplication() {
+        let mut history = History::default();
+        history.set_expiry_seconds(1);
+        let now = now_millis();
+        let expired = history.record_at(text("same"), now).unwrap();
+        assert!(!history.expire(now + 999));
+        assert!(!history.expire(now.saturating_sub(5000)));
+        assert!(!history.pin_at(expired, true, now + 1000));
+        let fresh = history.record_at(text("same"), now + 1000).unwrap();
+        assert_ne!(expired, fresh);
+        assert_eq!(history.previews().len(), 1);
+    }
+
+    #[test]
+    fn loading_and_shortening_expiry_remove_old_ordinary_entries() {
+        let now = now_millis();
+        let entries = vec![
+            Entry {
+                id: 1,
+                recency: 1,
+                pin_order: None,
+                payload: text("expired"),
+                copied_at: now - 86_400_000,
+            },
+            Entry {
+                id: 2,
+                recency: 2,
+                pin_order: None,
+                payload: text("recent"),
+                copied_at: now - 10_000,
+            },
+            Entry {
+                id: 3,
+                recency: 3,
+                pin_order: Some(4),
+                payload: text("pinned"),
+                copied_at: now - 86_400_000,
+            },
+        ];
+        let mut history = History::load(entries, 3, 20, 86_400);
+        assert!(history.get(1).is_none());
+        assert!(history.get(2).is_some());
+        history.set_expiry_seconds(1);
+        assert!(history.get(2).is_none());
+        assert!(history.get(3).is_some());
     }
 }

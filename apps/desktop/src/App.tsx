@@ -164,9 +164,9 @@ function HistoryView({ state }: { state: ClipboardState }) {
           ))}
           {items.length === 0 && (
             <div className="empty-state" role="listitem">
-              {snapshot || !desktop ? <Clipboard size={30} strokeWidth={1.25} /> : <LoaderCircle className="animate-spin" size={24} />}
-              <h2>{snapshot || !desktop ? '复制一点内容，从这里开始' : '正在连接剪贴板'}</h2>
-              <p>文字、图片和文件会出现在这里</p>
+              {snapshot || !desktop
+                ? <Clipboard size={30} strokeWidth={1.25} role="img" aria-label="剪贴板为空" />
+                : <LoaderCircle className="animate-spin" size={24} role="status" aria-label="正在连接剪贴板" />}
               {snapshot && !snapshot.capabilities.background && (
                 <Button variant="secondary" size="sm" disabled={busy} onClick={() => void state.capture()}>收录当前剪贴板</Button>
               )}

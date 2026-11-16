@@ -93,7 +93,7 @@ test('search keeps empty history distinct and fits a narrow dark popup', async (
   await page.goto(desktopUrl)
   const search = page.getByRole('searchbox', { name: '搜索剪贴板' })
   await search.fill('查找内容')
-  await expect(page.getByRole('heading', { name: '复制一点内容，从这里开始' })).toBeVisible()
+  await expect(page.getByRole('img', { name: '剪贴板为空' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '没有匹配的记录' })).toHaveCount(0)
   await page.evaluate(() => {
     window.inspection.snapshot.settings.themeMode = 'dark'

@@ -48,7 +48,7 @@
   "theme.system": "System",
   "theme.light": "Hell",
   "theme.dark": "Dunkel",
-  "themeHelp": "Akzentfarbe und Transparenz folgen immer Windows. Der Farbmodus lässt sich separat wählen.",
+  "themeHelp": "Die Akzentfarbe folgt immer Windows. Der Farbmodus lässt sich separat wählen.",
   "recording": "Verlauf und Speicherung",
   "recordFormats": "Zu erfassende Inhalte",
   "retention": "Nach dem Beenden behalten",

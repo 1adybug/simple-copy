@@ -21,6 +21,9 @@ use crate::{
     platform::{self, Monitor, Target},
 };
 
+#[cfg(windows)]
+const WINDOW_RADIUS: f64 = 9.;
+
 #[derive(Default)]
 pub struct WindowState {
     popup: Mutex<PopupContext>,
@@ -109,7 +112,7 @@ fn sync_window_shape(window: &WebviewWindow) {
                 return;
             }
             // Match the shared UI's 9 logical-pixel shell radius, including on mixed-DPI displays.
-            let diameter = (18. * scale).round() as i32;
+            let diameter = (2. * WINDOW_RADIUS * scale).round() as i32;
             let shape = (size.width, size.height, diameter);
             let state = window.state::<WindowState>();
             {
@@ -159,6 +162,9 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .resizable(false)
         .decorations(false)
         .transparent(cfg!(windows))
+        // Composite WebView2 directly so the hidden native caption cannot be
+        // redirected into the transparent pixels around the custom window frame.
+        .no_redirection_bitmap(true)
         // Windows adds a 1px white frame when shadows are enabled without decorations.
         .shadow(false)
         .always_on_top(true)
@@ -506,6 +512,7 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
         .resizable(true)
         .decorations(false)
         .transparent(cfg!(windows))
+        .no_redirection_bitmap(true)
         .shadow(false)
         .visible(false)
         .build()

@@ -46,7 +46,7 @@ pub fn apply_theme(app: &AppHandle, mode: ThemeMode) {
             ThemeMode::Dark => Some(tauri::Theme::Dark),
         });
         #[cfg(windows)]
-        windows::apply_theme(&handle, mode);
+        windows::refresh(&handle);
     });
 }
 

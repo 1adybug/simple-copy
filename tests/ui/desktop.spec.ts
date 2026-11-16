@@ -15,6 +15,34 @@ const searchItems: Clip[] = [
 test.use({ viewport: { width: 360, height: 400 } })
 
 for (const view of ['history', 'settings']) {
+  test(`the frosted ${view} shell paints inside all four rounded corners after resizing`, async ({ page }) => {
+    await mockTauri(page)
+    await page.goto(view === 'settings' ? `${desktopUrl}?view=settings` : desktopUrl)
+    await expect(page.locator('html')).toHaveAttribute('data-transparency', 'false')
+    await expect(page.locator('.window-header')).toBeVisible()
+    if (view === 'settings') await expect(page.getByRole('combobox', { name: '明暗模式', exact: true })).toBeVisible()
+    for (const width of view === 'settings' ? [400, 640] : [360]) {
+      await page.setViewportSize({ width, height: view === 'settings' ? 480 : 400 })
+      const screenshot = await page.screenshot({ omitBackground: true, path: `.artifacts/frosted-${view}-${width}.png` })
+      const pixels = await page.evaluate(async (bytes) => {
+        const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/png' }))
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+        const context = canvas.getContext('2d')!
+        context.drawImage(bitmap, 0, 0)
+        bitmap.close()
+        const sample = (x: number, y: number) => [...context.getImageData(x, y, 1, 1).data]
+        return {
+          corners: [sample(0, 0), sample(canvas.width - 1, 0), sample(0, canvas.height - 1), sample(canvas.width - 1, canvas.height - 1)].map((pixel) => pixel[3]),
+          fill: sample(20, 4)[3],
+          grainColors: new Set(Array.from({ length: canvas.width - 40 }, (_, x) => sample(x + 20, 4).slice(0, 3).join(','))).size,
+        }
+      }, [...screenshot])
+      expect(pixels.corners).toEqual([0, 0, 0, 0])
+      expect(pixels.fill).toBe(255)
+      expect(pixels.grainColors).toBeGreaterThan(1)
+    }
+  })
+
   test(`the complete ${view} title bar is draggable outside its action buttons`, async ({ page }) => {
     await mockTauri(page)
     await page.goto(view === 'settings' ? `${desktopUrl}?view=settings` : desktopUrl)

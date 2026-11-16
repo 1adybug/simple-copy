@@ -48,7 +48,7 @@
   "theme.system": "跟随系统",
   "theme.light": "浅色",
   "theme.dark": "深色",
-  "themeHelp": "强调色和透明效果始终跟随 Windows，明暗模式可单独选择。",
+  "themeHelp": "强调色始终跟随 Windows，明暗模式可单独选择。",
   "recording": "记录与保存",
   "recordFormats": "记录类型",
   "retention": "退出后保留",

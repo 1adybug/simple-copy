@@ -48,7 +48,7 @@
   "theme.system": "Système",
   "theme.light": "Clair",
   "theme.dark": "Sombre",
-  "themeHelp": "La couleur d’accentuation et la transparence suivent toujours Windows. Le mode de couleur peut être choisi séparément.",
+  "themeHelp": "La couleur d’accentuation suit toujours Windows. Le mode de couleur peut être choisi séparément.",
   "recording": "Historique et stockage",
   "recordFormats": "Contenus à enregistrer",
   "retention": "Conserver après fermeture",

@@ -82,6 +82,9 @@ kbd { font: inherit; }
   height: 100dvh; min-height: 220px; display: flex; flex-direction: column;
   position: relative; overflow: hidden; border-radius: var(--radius);
   background: var(--sc-panel);
+  /* A static, cached tile gives the opaque shell a frosted texture without desktop blur. */
+  background-image: url("./frost-noise.svg");
+  background-size: 64px 64px;
 }
 :root[data-transparency="true"] .app-window {
   background: color-mix(in srgb, var(--sc-panel) var(--sc-panel-opacity, 100%), transparent);
@@ -275,6 +278,7 @@ kbd { font: inherit; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 @media (forced-colors: active) {
+  .app-window { background-image: none; }
   .app-dialog-overlay { background: Canvas; opacity: .7; backdrop-filter: none; }
   .dialog-media[data-tone] { background: Canvas; color: CanvasText; }
   :root[data-transparency] .app-window { background: Canvas; }

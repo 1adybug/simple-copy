@@ -77,7 +77,7 @@ h1, h2, h3 { text-wrap: balance; }
 .button-text:hover { background: var(--sc-secondary); color: var(--sc-primary); }
 
 .demo-scene { position: relative; border-radius: 26px; background: var(--site-stage); padding: 23px 36px 17px; scroll-margin-top: 24px; }
-.demo-window { display: block; width: 100%; max-width: 360px; height: 400px; margin: auto; border: 0; border-radius: 9px; background: var(--sc-panel); }
+.demo-window { display: block; width: 100%; max-width: 360px; height: 400px; margin: auto; border: 0; border-radius: 8px; background: var(--sc-panel); }
 .demo-controls { display: flex; justify-content: flex-end; max-width: 360px; margin: 8px auto 0; }
 .demo-controls button { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 4px; background: var(--sc-card); color: #6d507b; padding: 4px 7px; font-size: 10px; }
 .demo-controls button:hover { background: var(--sc-accent); }

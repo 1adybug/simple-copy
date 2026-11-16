@@ -1,8 +1,12 @@
 use serde::Serialize;
+#[cfg(windows)]
+use tauri::Manager;
 use tauri::{AppHandle, WebviewWindow};
 
 use crate::model::ThemeMode;
 
+#[cfg(windows)]
+mod frame;
 #[cfg(windows)]
 mod windows;
 
@@ -12,6 +16,7 @@ pub struct Appearance {
     pub revision: u64,
     pub accent_color: Option<[u8; 3]>,
     pub transparency: bool,
+    pub native_corners: bool,
 }
 
 pub fn initialize(_app: &AppHandle) {
@@ -37,6 +42,18 @@ pub fn refresh(_app: &AppHandle) {
     }
 }
 
+pub fn prepare_window(_window: &WebviewWindow) {
+    #[cfg(windows)]
+    {
+        let window = _window.clone();
+        let _ = _window.run_on_main_thread(move || {
+            if windows::prepare_window(&window) {
+                windows::refresh(window.app_handle());
+            }
+        });
+    }
+}
+
 pub fn apply_theme(app: &AppHandle, mode: ThemeMode) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
@@ -46,7 +63,7 @@ pub fn apply_theme(app: &AppHandle, mode: ThemeMode) {
             ThemeMode::Dark => Some(tauri::Theme::Dark),
         });
         #[cfg(windows)]
-        windows::refresh(&handle);
+        windows::apply_theme(&handle, mode);
     });
 }
 

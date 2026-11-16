@@ -48,7 +48,7 @@
   "theme.system": "Sistema",
   "theme.light": "Claro",
   "theme.dark": "Escuro",
-  "themeHelp": "A cor de destaque sempre segue o Windows. O modo de cor pode ser escolhido separadamente.",
+  "themeHelp": "A cor de destaque e a transparência sempre seguem o Windows. O modo de cor pode ser escolhido separadamente.",
   "recording": "Histórico e armazenamento",
   "recordFormats": "Conteúdo a registrar",
   "retention": "Manter ao sair",

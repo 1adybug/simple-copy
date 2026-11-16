@@ -48,7 +48,7 @@
   "theme.system": "Sistema",
   "theme.light": "Claro",
   "theme.dark": "Oscuro",
-  "themeHelp": "El color de énfasis siempre sigue a Windows. El modo de color se puede elegir por separado.",
+  "themeHelp": "El color de énfasis y la transparencia siempre siguen a Windows. El modo de color se puede elegir por separado.",
   "recording": "Historial y almacenamiento",
   "recordFormats": "Contenido que se registra",
   "retention": "Conservar al salir",

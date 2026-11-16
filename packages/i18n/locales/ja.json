@@ -48,7 +48,7 @@
   "theme.system": "システム",
   "theme.light": "ライト",
   "theme.dark": "ダーク",
-  "themeHelp": "アクセントカラーは常に Windows に従います。カラーモードは個別に選択できます。",
+  "themeHelp": "アクセントカラーと透明効果は常に Windows に従います。カラーモードは個別に選択できます。",
   "recording": "履歴と保存",
   "recordFormats": "記録する内容",
   "retention": "終了後に残す履歴",

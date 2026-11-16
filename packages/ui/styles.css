@@ -58,13 +58,14 @@
   --accent: var(--sc-accent);
   --muted-foreground: var(--sc-muted);
   --radius: 9px;
+  --window-radius: 8px;
   background: transparent;
 }
 
 * { box-sizing: border-box; scrollbar-width: none; scrollbar-color: var(--sc-control) transparent; }
 *::-webkit-scrollbar { display: none; }
 /* Portal overlays are body children and must share the transparent window's clipping boundary. */
-body { margin: 0; clip-path: inset(0 round var(--radius)); }
+body { margin: 0; clip-path: inset(0 round var(--window-radius)); }
 button, [role="menuitem"], [role="radio"], [role="switch"] { cursor: pointer; }
 button:disabled { cursor: default; }
 button, input { font: inherit; }
@@ -80,12 +81,13 @@ kbd { font: inherit; }
   --window-padding: 12px;
   --scroll-edge-padding: var(--window-padding);
   height: 100dvh; min-height: 220px; display: flex; flex-direction: column;
-  position: relative; overflow: hidden; border-radius: var(--radius);
+  position: relative; overflow: hidden; border-radius: var(--window-radius);
   background: var(--sc-panel);
-  /* A static, cached tile gives the opaque shell a frosted texture without desktop blur. */
-  background-image: url("./frost-noise.svg");
-  background-size: 64px 64px;
 }
+/* DWM clips the entire native window, including portals and its acrylic material.
+   A second CSS curve would reveal material between independently rounded edges. */
+:root[data-native-corners="true"] body { clip-path: none; }
+:root[data-native-corners="true"] .app-window { border-radius: 0; }
 :root[data-transparency="true"] .app-window {
   background: color-mix(in srgb, var(--sc-panel) var(--sc-panel-opacity, 100%), transparent);
 }
@@ -278,7 +280,6 @@ kbd { font: inherit; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 @media (forced-colors: active) {
-  .app-window { background-image: none; }
   .app-dialog-overlay { background: Canvas; opacity: .7; backdrop-filter: none; }
   .dialog-media[data-tone] { background: Canvas; color: CanvasText; }
   :root[data-transparency] .app-window { background: Canvas; }

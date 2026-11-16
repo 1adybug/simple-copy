@@ -51,13 +51,35 @@ test('a late appearance query cannot undo a newer system event', async ({ page }
   await page.evaluate(() => {
     window.inspection.appearance.accentColor = [16, 137, 62]
     window.inspection.appearance.transparency = true
+    window.inspection.appearance.nativeCorners = true
     window.inspection.publishAppearance()
   })
   await expect(page.locator('html')).toHaveAttribute('data-transparency', 'true')
+  await expect(page.locator('html')).toHaveAttribute('data-native-corners', 'true')
   const primary = await page.locator('html').evaluate((html) => html.style.getPropertyValue('--sc-primary'))
   await expect.poll(() => page.evaluate(() => window.inspection.pendingAppearance)).toBe(0)
   await expect(page.locator('html')).toHaveAttribute('data-transparency', 'true')
+  await expect(page.locator('html')).toHaveAttribute('data-native-corners', 'true')
   expect(await page.locator('html').evaluate((html) => html.style.getPropertyValue('--sc-primary'))).toBe(primary)
+})
+
+test('native clipping owns the shell and portals independently of transparency', async ({ page }) => {
+  await mockTauri(page, { appearance: { transparency: true, nativeCorners: true } })
+  await page.goto(`${desktopUrl}?view=settings`)
+  const root = page.locator('html')
+  await expect(root).toHaveAttribute('data-native-corners', 'true')
+  await expect(page.locator('body')).toHaveCSS('clip-path', 'none')
+  await expect(page.locator('.app-window')).toHaveCSS('border-radius', '0px')
+  await page.evaluate(() => { window.inspection.appearance.transparency = false; window.inspection.publishAppearance() })
+  await expect(root).toHaveAttribute('data-transparency', 'false')
+  await page.emulateMedia({ forcedColors: 'active' })
+  await expect(root).toHaveAttribute('data-native-corners', 'true')
+  await expect(page.locator('body')).toHaveCSS('clip-path', 'none')
+  await expect(page.locator('.app-window')).toHaveCSS('border-radius', '0px')
+  await page.evaluate(() => { window.inspection.appearance.nativeCorners = false; window.inspection.publishAppearance() })
+  await expect(root).toHaveAttribute('data-native-corners', 'false')
+  await expect(page.locator('.app-window')).toHaveCSS('border-radius', '8px')
+  await expect(page.locator('body')).toHaveCSS('clip-path', /round 8px/)
 })
 
 test('high contrast overrides custom colors and transparency without changing brightness', async ({ page }) => {

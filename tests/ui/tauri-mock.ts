@@ -22,7 +22,7 @@ interface MockOptions {
 
 export async function mockTauri(page: Page, options: MockOptions = {}) {
   await page.addInitScript((options: MockOptions) => {
-    const appearance: SystemAppearance = { revision: 1, accentColor: null, transparency: false, ...options.appearance }
+    const appearance: SystemAppearance = { revision: 1, accentColor: null, transparency: false, nativeCorners: false, ...options.appearance }
     const systemLocale = options.systemLocaleFailure ? 'en' : options.systemLocale ?? 'zh-CN'
     const snapshot: Snapshot = {
       locale: options.settings?.language && options.settings.language !== 'system' ? options.settings.language : systemLocale,

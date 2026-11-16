@@ -48,7 +48,7 @@
   "theme.system": "시스템",
   "theme.light": "밝게",
   "theme.dark": "어둡게",
-  "themeHelp": "강조 색은 항상 Windows 설정을 따릅니다. 색 모드는 별도로 선택할 수 있습니다.",
+  "themeHelp": "강조 색과 투명 효과는 항상 Windows 설정을 따릅니다. 색 모드는 별도로 선택할 수 있습니다.",
   "recording": "기록 및 저장",
   "recordFormats": "기록할 콘텐츠",
   "retention": "종료 후 유지",

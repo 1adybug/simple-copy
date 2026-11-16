@@ -48,7 +48,7 @@
   "theme.system": "System",
   "theme.light": "Light",
   "theme.dark": "Dark",
-  "themeHelp": "Accent colors always follow Windows. Color mode can be set separately.",
+  "themeHelp": "Accent colors and transparency always follow Windows. Color mode can be set separately.",
   "recording": "History and storage",
   "recordFormats": "Record types",
   "retention": "Keep after quitting",

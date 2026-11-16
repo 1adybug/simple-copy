@@ -8,6 +8,7 @@ export interface SystemAppearance {
   revision: number
   accentColor: Rgb | null
   transparency: boolean
+  nativeCorners: boolean
 }
 
 export function useTheme(mode: ThemeMode) {
@@ -51,6 +52,7 @@ export function useTheme(mode: ThemeMode) {
         tokens = Object.keys(palette)
       }
       root.dataset.transparency = String(!!appearance?.transparency && !forcedColors.matches && !reducedTransparency.matches)
+      root.dataset.nativeCorners = String(!!appearance?.nativeCorners)
     }
     apply()
     const preferences = [systemTheme, forcedColors, reducedTransparency]
@@ -60,6 +62,7 @@ export function useTheme(mode: ThemeMode) {
       resetPalette()
       root.style.removeProperty('--sc-panel-opacity')
       delete root.dataset.transparency
+      delete root.dataset.nativeCorners
     }
   }, [mode, appearance])
 }

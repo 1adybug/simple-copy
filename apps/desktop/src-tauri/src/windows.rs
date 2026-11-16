@@ -21,9 +21,6 @@ use crate::{
     platform::{self, Monitor, Target},
 };
 
-#[cfg(windows)]
-const WINDOW_RADIUS: f64 = 9.;
-
 #[derive(Default)]
 pub struct WindowState {
     popup: Mutex<PopupContext>,
@@ -33,8 +30,6 @@ pub struct WindowState {
     settings_opening: AtomicBool,
     pub recording_shortcut: AtomicBool,
     tray_labels: Mutex<Vec<(MenuItem<tauri::Wry>, &'static str)>>,
-    #[cfg(windows)]
-    rounded_windows: Mutex<std::collections::HashMap<String, (u32, u32, i32)>>,
 }
 
 #[derive(Default)]
@@ -95,66 +90,6 @@ pub fn refresh_language(app: &AppHandle) {
     });
 }
 
-fn sync_window_shape(window: &WebviewWindow) {
-    #[cfg(windows)]
-    {
-        use windows_sys::Win32::Graphics::Gdi::{CreateRoundRectRgn, DeleteObject, SetWindowRgn};
-
-        let window = window.clone();
-        let dispatcher = window.clone();
-        let _ = dispatcher.run_on_main_thread(move || {
-            let (Ok(hwnd), Ok(size), Ok(scale)) =
-                (window.hwnd(), window.outer_size(), window.scale_factor())
-            else {
-                return;
-            };
-            if size.width == 0 || size.height == 0 {
-                return;
-            }
-            // Match the shared UI's 9 logical-pixel shell radius, including on mixed-DPI displays.
-            let diameter = (2. * WINDOW_RADIUS * scale).round() as i32;
-            let shape = (size.width, size.height, diameter);
-            let state = window.state::<WindowState>();
-            {
-                let mut shapes = state.rounded_windows.lock().expect("window shape lock");
-                if shapes.get(window.label()) == Some(&shape) {
-                    return;
-                }
-                // SetWindowRgn can synchronously send window-position events. Cache first
-                // and release the lock so a resulting resize cannot re-enter this update.
-                shapes.insert(window.label().to_owned(), shape);
-            }
-            unsafe {
-                let region = CreateRoundRectRgn(
-                    0,
-                    0,
-                    size.width as i32 + 1,
-                    size.height as i32 + 1,
-                    diameter,
-                    diameter,
-                );
-                if region.is_null() || SetWindowRgn(hwnd.0, region, 1) == 0 {
-                    if !region.is_null() {
-                        DeleteObject(region);
-                    }
-                    state
-                        .rounded_windows
-                        .lock()
-                        .expect("window shape lock")
-                        .remove(window.label());
-                    eprintln!(
-                        "Could not clip native window: {}",
-                        std::io::Error::last_os_error()
-                    );
-                }
-                // A successful SetWindowRgn transfers ownership to Windows.
-            }
-        });
-    }
-    #[cfg(not(windows))]
-    let _ = window;
-}
-
 pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let history = WebviewWindowBuilder::new(app, "history", WebviewUrl::App("index.html".into()))
         .title(crate::i18n::t("appName"))
@@ -172,7 +107,7 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .visible(false)
         .focused(!cfg!(windows))
         .build()?;
-    sync_window_shape(&history);
+    appearance::prepare_window(&history);
     appearance::refresh(app);
     let handle = app.clone();
     history.on_window_event(move |event| match event {
@@ -200,7 +135,7 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         }
         tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. } => {
             if let Some(window) = handle.get_webview_window("history") {
-                sync_window_shape(&window);
+                appearance::prepare_window(&window);
             }
         }
         _ => {}
@@ -517,7 +452,7 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
         .visible(false)
         .build()
         .map_err(|error| error.to_string())?;
-        sync_window_shape(&window);
+        appearance::prepare_window(&window);
         appearance::refresh(&handle);
         let owner = handle.clone();
         window.on_window_event(move |event| {
@@ -526,17 +461,10 @@ pub async fn open_settings(app: &AppHandle) -> Result<(), String> {
                 tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. }
             ) && let Some(window) = owner.get_webview_window("settings")
             {
-                sync_window_shape(&window);
+                appearance::prepare_window(&window);
             }
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 appearance::forget_window(&owner, "settings");
-                #[cfg(windows)]
-                owner
-                    .state::<WindowState>()
-                    .rounded_windows
-                    .lock()
-                    .expect("window shape lock")
-                    .remove("settings");
                 owner
                     .state::<WindowState>()
                     .recording_shortcut

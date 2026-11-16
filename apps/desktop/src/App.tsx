@@ -1,12 +1,14 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { Clipboard, Copy, File, LoaderCircle, Pin, Search, Settings2, Trash2, X } from 'lucide-react'
+import { Clipboard, File, LoaderCircle, Search, X } from 'lucide-react'
 import { Component, lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Feedback, IconButton } from '@/components/app-controls'
 import { ClipImage, useThumbnailVisibility } from '@/components/clip-image'
 import { SettingsWindow } from '@/components/settings-window'
 import { WindowFrame } from '@/components/window-frame'
 import { BroomIcon } from '@/components/icons/broom-icon'
+import { CopyIcon, DeleteIcon, PinIcon } from '@/components/icons/clip-action-icons'
+import { CloseIcon, SettingsIcon } from '@/components/icons/window-action-icons'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -110,8 +112,8 @@ function HistoryView({ state }: { state: ClipboardState }) {
   return (
     <WindowFrame title="剪贴板" view="history" actions={<>
       <IconButton label="清除未置顶" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><BroomIcon /></IconButton>
-      <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><Settings2 /></IconButton>
-      <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><X /></IconButton>
+      <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><SettingsIcon /></IconButton>
+      <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><CloseIcon /></IconButton>
     </>}>
       <search className="history-search" aria-label="搜索剪贴板">
         <label htmlFor="history-query" className="sr-only">搜索剪贴板</label>
@@ -218,13 +220,13 @@ function ClipCard({ clip, busy, onPaste, onCopy, onPin, onDelete, observeThumbna
       <div className="clip-actions">
         <IconButton label={clip.pinned ? '取消置顶' : '置顶'} disabled={busy} onClick={onPin}
           aria-pressed={clip.pinned} className="pin-button">
-          <Pin strokeWidth={1.5} fill={clip.pinned ? 'currentColor' : 'none'} />
+          <PinIcon pinned={clip.pinned} />
         </IconButton>
         <IconButton label="复制" disabled={busy} onClick={onCopy} className="clip-action-reveal">
-          <Copy strokeWidth={1.5} />
+          <CopyIcon />
         </IconButton>
         <IconButton label="删除" disabled={busy} onClick={onDelete} className="clip-action-reveal delete-button">
-          <Trash2 strokeWidth={1.5} />
+          <DeleteIcon />
         </IconButton>
       </div>
     </Card>

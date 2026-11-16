@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use windows::{
@@ -23,36 +26,40 @@ struct Context {
 
 struct Monitor {
     colors: UISettings,
-    accessibility: AccessibilitySettings,
+    accessibility: Option<AccessibilitySettings>,
     color_token: Option<i64>,
     effects_token: Option<i64>,
     contrast_token: Option<i64>,
 }
 
 impl Monitor {
-    fn new(app: &AppHandle) -> windows::core::Result<Self> {
+    fn new(on_change: impl Fn() + Send + Sync + 'static) -> windows::core::Result<Self> {
         let mut monitor = Self {
             colors: UISettings::new()?,
-            accessibility: AccessibilitySettings::new()?,
+            accessibility: AccessibilitySettings::new().ok(),
             color_token: None,
             effects_token: None,
             contrast_token: None,
         };
-        let handle = app.clone();
+        let on_change = Arc::new(on_change);
+        let update = on_change.clone();
         let changed = TypedEventHandler::<UISettings, IInspectable>::new(move |_, _| {
-            // WinRT delivers these events on a worker thread. Window effects belong to the UI loop.
-            super::refresh(&handle);
+            update();
             Ok(())
         });
-        monitor.color_token = Some(monitor.colors.ColorValuesChanged(&changed)?);
-        monitor.effects_token = Some(monitor.colors.AdvancedEffectsEnabledChanged(&changed)?);
-        let handle = app.clone();
-        monitor.contrast_token = Some(monitor.accessibility.HighContrastChanged(
-            &TypedEventHandler::<AccessibilitySettings, IInspectable>::new(move |_, _| {
-                super::refresh(&handle);
-                Ok(())
-            }),
-        )?);
+        // Some desktop Windows versions expose HighContrast but reject its event with
+        // ERROR_NOT_FOUND. Optional subscriptions must not discard readable system settings
+        // or the other active listeners. ColorValuesChanged also refreshes contrast state.
+        monitor.color_token = monitor.colors.ColorValuesChanged(&changed).ok();
+        monitor.effects_token = monitor.colors.AdvancedEffectsEnabledChanged(&changed).ok();
+        if let Some(accessibility) = &monitor.accessibility {
+            monitor.contrast_token = accessibility
+                .HighContrastChanged(&TypedEventHandler::new(move |_, _| {
+                    on_change();
+                    Ok(())
+                }))
+                .ok();
+        }
         Ok(monitor)
     }
 }
@@ -65,15 +72,17 @@ impl Drop for Monitor {
         if let Some(token) = self.effects_token {
             let _ = self.colors.RemoveAdvancedEffectsEnabledChanged(token);
         }
-        if let Some(token) = self.contrast_token {
-            let _ = self.accessibility.RemoveHighContrastChanged(token);
+        if let (Some(accessibility), Some(token)) = (&self.accessibility, self.contrast_token) {
+            let _ = accessibility.RemoveHighContrastChanged(token);
         }
     }
 }
 
 pub(super) fn initialize(app: &AppHandle) {
     app.manage(AppearanceState::default());
-    let monitor = Monitor::new(app).ok();
+    let handle = app.clone();
+    // WinRT delivers changes on worker threads; dispatch native effects to the UI loop.
+    let monitor = Monitor::new(move || super::refresh(&handle)).ok();
     app.state::<AppearanceState>()
         .0
         .lock()
@@ -131,7 +140,8 @@ pub(super) fn refresh(app: &AppHandle) {
         context.revision += 1;
         let monitor = context.monitor.as_ref();
         let high_contrast = monitor
-            .and_then(|monitor| monitor.accessibility.HighContrast().ok())
+            .and_then(|monitor| monitor.accessibility.as_ref())
+            .and_then(|accessibility| accessibility.HighContrast().ok())
             .unwrap_or(true);
         let color = |kind| monitor.and_then(|monitor| monitor.colors.GetColorValue(kind).ok());
         let accent = color(UIColorType::Accent)
@@ -171,5 +181,19 @@ pub(super) fn refresh(app: &AppHandle) {
             .windows
             .insert(label, appearance.clone());
         let _ = window.emit("system-appearance-changed", appearance);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optional_accessibility_events_do_not_disable_system_colors() {
+        let monitor = Monitor::new(|| {}).expect("Windows system appearance is readable");
+        assert!(monitor.colors.GetColorValue(UIColorType::Accent).is_ok());
+        assert!(monitor.colors.AdvancedEffectsEnabled().is_ok());
+        assert!(monitor.color_token.is_some());
+        assert!(monitor.effects_token.is_some());
     }
 }

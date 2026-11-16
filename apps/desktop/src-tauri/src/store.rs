@@ -316,6 +316,38 @@ mod tests {
     }
 
     #[test]
+    fn repeated_content_persists_the_latest_formats_without_another_row() {
+        let mut store =
+            Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
+        store.cipher = Some(Aes256Gcm::new_from_slice(&[7; 32]).unwrap());
+        let settings = Settings {
+            retention: Retention::All,
+            ..Settings::default()
+        };
+        let mut history = History::default();
+        let plain = Payload {
+            text: Some("same content".into()),
+            ..Payload::default()
+        };
+        let id = history.record(plain.clone()).unwrap();
+        history.pin(id, true);
+        store.sync(&settings, &history).unwrap();
+        let rich = Payload {
+            html: Some("<b>same content</b>".into()),
+            ..plain
+        };
+        assert_eq!(history.record(rich.clone()), Some(id));
+        store.sync(&settings, &history).unwrap();
+        let (_, reopened) = store.load().unwrap();
+        assert_eq!(count(&store), 1);
+        assert_eq!(reopened.previews().len(), 1);
+        let restored = &reopened.get(id).unwrap().entry;
+        assert_eq!(restored.payload, rich);
+        assert!(restored.pin_order.is_some());
+        assert_eq!(restored.recency, history.get(id).unwrap().entry.recency);
+    }
+
+    #[test]
     fn history_limit_survives_reload_and_prunes_persisted_entries() {
         for max_history_items in [150, 0] {
             let mut store =

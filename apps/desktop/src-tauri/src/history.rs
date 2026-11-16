@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -20,14 +20,14 @@ pub struct Clip {
 }
 
 impl Clip {
-    fn from_entry(entry: Entry) -> Self {
+    fn from_entry(entry: Entry, fingerprint: [u8; 32]) -> Self {
         let thumbnail = entry
             .payload
             .png
             .as_deref()
             .and_then(|png| thumbnail(png).ok());
         Self {
-            fingerprint: entry.payload.fingerprint(),
+            fingerprint,
             entry: Arc::new(entry),
             thumbnail: thumbnail.map(Arc::new),
         }
@@ -71,8 +71,28 @@ impl History {
             .map(|entry| entry.recency.max(entry.pin_order.unwrap_or_default()))
             .max()
             .unwrap_or_default();
+        let mut unique: HashMap<[u8; 32], Entry> = HashMap::new();
+        for entry in entries {
+            let fingerprint = entry.payload.fingerprint();
+            match unique.entry(fingerprint) {
+                std::collections::hash_map::Entry::Occupied(mut slot) => {
+                    let current = slot.get_mut();
+                    let pin_order = current.pin_order.max(entry.pin_order);
+                    if entry.recency > current.recency {
+                        *current = entry;
+                    }
+                    current.pin_order = pin_order;
+                }
+                std::collections::hash_map::Entry::Vacant(slot) => {
+                    slot.insert(entry);
+                }
+            }
+        }
         let mut history = Self {
-            clips: entries.into_iter().map(Clip::from_entry).collect(),
+            clips: unique
+                .into_iter()
+                .map(|(fingerprint, entry)| Clip::from_entry(entry, fingerprint))
+                .collect(),
             next_id: max_id.saturating_add(1),
             order,
             max_items,
@@ -89,17 +109,24 @@ impl History {
             .iter_mut()
             .find(|clip| clip.fingerprint == fingerprint)
         {
-            Arc::make_mut(&mut clip.entry).recency = self.order;
-            return Some(clip.entry.id);
+            let entry = Arc::make_mut(&mut clip.entry);
+            entry.recency = self.order;
+            entry.payload = payload;
+            let id = entry.id;
+            self.trim();
+            return self.get(id).map(|_| id);
         }
         let id = self.next_id;
         self.next_id += 1;
-        self.clips.push(Clip::from_entry(Entry {
-            id,
-            recency: self.order,
-            pin_order: None,
-            payload,
-        }));
+        self.clips.push(Clip::from_entry(
+            Entry {
+                id,
+                recency: self.order,
+                pin_order: None,
+                payload,
+            },
+            fingerprint,
+        ));
         self.trim();
         self.get(id).map(|_| id)
     }
@@ -287,6 +314,88 @@ mod tests {
         );
         history.delete(b);
         assert_eq!(history.top_pin().unwrap().entry.id, a);
+    }
+
+    #[test]
+    fn repeated_content_uses_the_latest_formats_and_moves_to_the_front() {
+        let mut history = History::default();
+        let first = history.record(text("内容")).unwrap();
+        let second = history.record(text("other")).unwrap();
+        let rich = Payload {
+            html: Some("<b>内容</b>".into()),
+            rtf: Some(b"{\\rtf1 content}\0".to_vec()),
+            ..text("内容")
+        };
+        assert_eq!(history.record(rich.clone()), Some(first));
+        assert_eq!(history.previews().len(), 2);
+        assert_eq!(history.previews()[0].id, first);
+        assert_eq!(history.get(first).unwrap().entry.payload, rich);
+        assert_eq!(history.record(text("内容")), Some(first));
+        assert!(history.get(first).unwrap().entry.payload.html.is_none());
+        assert_eq!(history.record(text("new")), Some(second + 1));
+    }
+
+    #[test]
+    fn refreshing_a_pinned_entry_preserves_its_identity_and_pin_order() {
+        let mut history = History::default();
+        let first = history.record(text("first")).unwrap();
+        history.pin(first, true);
+        let pin_order = history.get(first).unwrap().entry.pin_order;
+        let second = history.record(text("second")).unwrap();
+        history.pin(second, true);
+        let updated = Payload {
+            html: Some("<i>first</i>".into()),
+            ..text("first")
+        };
+        assert_eq!(history.record(updated.clone()), Some(first));
+        assert_eq!(history.get(first).unwrap().entry.pin_order, pin_order);
+        assert_eq!(history.get(first).unwrap().entry.payload, updated);
+        assert_eq!(history.top_pin().unwrap().entry.id, second);
+        assert_eq!(history.previews().len(), 2);
+    }
+
+    #[test]
+    fn loading_duplicates_preserves_latest_content_recency_and_pins() {
+        let latest = Payload {
+            html: Some("<b>same</b>".into()),
+            ..text("same")
+        };
+        let entries = vec![
+            Entry {
+                id: 1,
+                recency: 4,
+                pin_order: Some(8),
+                payload: text("same"),
+            },
+            Entry {
+                id: 2,
+                recency: 10,
+                pin_order: None,
+                payload: latest.clone(),
+            },
+            Entry {
+                id: 3,
+                recency: 9,
+                pin_order: Some(11),
+                payload: text("other"),
+            },
+        ];
+        let mut history = History::load(entries, 99, 100);
+        assert_eq!(
+            history
+                .previews()
+                .iter()
+                .map(|clip| clip.id)
+                .collect::<Vec<_>>(),
+            [3, 2]
+        );
+        let kept = &history.get(2).unwrap().entry;
+        assert_eq!(kept.recency, 10);
+        assert_eq!(kept.pin_order, Some(8));
+        assert_eq!(kept.payload, latest);
+        assert_eq!(history.record(text("new")), Some(100));
+        assert_eq!(history.record(text("same")), Some(2));
+        assert_eq!(history.top_pin().unwrap().entry.id, 3);
     }
 
     #[test]

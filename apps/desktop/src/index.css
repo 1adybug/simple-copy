@@ -92,6 +92,8 @@ kbd { font: inherit; }
 .history-search { position: relative; z-index: 1; flex-shrink: 0; margin: 3px var(--history-list-padding) 0; }
 .history-search-input { height: 32px; padding-inline: 32px 34px; background: var(--card); font-size: 12px; }
 .history-search-input:hover { background: var(--sc-hover); }
+.history-search-input:focus { background: var(--sc-hover); outline: none; }
+.history-search:focus-within .history-search-icon { color: var(--foreground); }
 .history-search-input::-webkit-search-cancel-button,
 .history-search-input::-webkit-search-decoration { -webkit-appearance: none; }
 .history-search-icon { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
@@ -266,6 +268,7 @@ kbd { font: inherit; }
   [data-slot="switch-thumb"] { background: ButtonText; }
   [data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] { background: HighlightText; }
   .pin-button[aria-pressed="true"] { outline: 1px solid Highlight; }
+  .history-search-input:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
 }
 @media (max-width: 420px) {
   .settings-form { gap: 10px; }

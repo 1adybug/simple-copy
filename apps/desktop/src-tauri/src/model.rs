@@ -165,7 +165,35 @@ impl Payload {
 
     pub fn fingerprint(&self) -> [u8; 32] {
         let mut digest = Sha256::new();
-        bincode::serialize_into(&mut digest, self).expect("clipboard payload is serializable");
+        // Identity follows the copied content, independently of companion formats supplied
+        // by the source application. The latest capture still keeps all of its representations.
+        if !self.files.is_empty() {
+            digest.update(b"files");
+            bincode::serialize_into(&mut digest, &self.files)
+                .expect("clipboard files are serializable");
+        } else if let Some(png) = &self.png {
+            if let Ok(image) = decode_image(png) {
+                let pixels = image.to_rgba8();
+                digest.update(b"image");
+                digest.update(pixels.width().to_le_bytes());
+                digest.update(pixels.height().to_le_bytes());
+                digest.update(pixels.as_raw());
+            } else {
+                digest.update(b"image-bytes");
+                digest.update(png);
+            }
+        } else if let Some(text) = self.text.as_deref().filter(|text| !text.is_empty()) {
+            digest.update(b"text");
+            digest.update(text.as_bytes());
+        } else if let Some(html) = &self.html {
+            digest.update(b"html");
+            digest.update(html.as_bytes());
+        } else if let Some(rtf) = &self.rtf {
+            digest.update(b"rtf");
+            // Windows clipboard buffers include NUL terminators and allocation padding.
+            let end = rtf.iter().rposition(|byte| *byte != 0).map_or(0, |i| i + 1);
+            digest.update(&rtf[..end]);
+        }
         digest.finalize().into()
     }
 
@@ -314,5 +342,107 @@ mod tests {
             })
             .is_none()
         );
+    }
+
+    #[test]
+    fn text_identity_ignores_companion_formats_but_keeps_every_character() {
+        let plain = Payload {
+            text: Some("内容".into()),
+            ..Payload::default()
+        };
+        let rich = Payload {
+            html: Some(
+                "<html><body><!--StartFragment--><b>内容</b><!--EndFragment--></body></html>"
+                    .into(),
+            ),
+            rtf: Some(b"{\\rtf1 content}\0".to_vec()),
+            ..plain.clone()
+        };
+        assert_eq!(plain.fingerprint(), rich.fingerprint());
+        for value in ["内容 ", "内容\n", "内容不同"] {
+            assert_ne!(
+                plain.fingerprint(),
+                Payload {
+                    text: Some(value.into()),
+                    ..Payload::default()
+                }
+                .fingerprint()
+            );
+        }
+        let prefix = "a".repeat(640);
+        let first = Payload {
+            text: Some(format!("{prefix}first")),
+            ..Payload::default()
+        };
+        let second = Payload {
+            text: Some(format!("{prefix}second")),
+            ..Payload::default()
+        };
+        assert_eq!(first.preview_text(), second.preview_text());
+        assert_ne!(first.fingerprint(), second.fingerprint());
+    }
+
+    #[test]
+    fn image_identity_uses_pixels_instead_of_encoding_or_text_alternatives() {
+        use image::codecs::png::{CompressionType, FilterType, PngEncoder};
+        use image::{ExtendedColorType, ImageEncoder};
+
+        let encode = |pixels: &[u8], compression| {
+            let mut bytes = Vec::new();
+            PngEncoder::new_with_quality(&mut bytes, compression, FilterType::NoFilter)
+                .write_image(pixels, 1, 1, ExtendedColorType::Rgba8)
+                .unwrap();
+            bytes
+        };
+        let first = Payload {
+            png: Some(encode(&[120, 40, 200, 255], CompressionType::Fast)),
+            ..Payload::default()
+        };
+        let second = Payload {
+            text: Some("image from another app".into()),
+            html: Some("<img src=\"example.png\">".into()),
+            png: Some(encode(&[120, 40, 200, 255], CompressionType::Best)),
+            ..Payload::default()
+        };
+        assert_ne!(first.png, second.png);
+        assert_eq!(first.fingerprint(), second.fingerprint());
+        let changed = Payload {
+            png: Some(encode(&[121, 40, 200, 255], CompressionType::Fast)),
+            ..Payload::default()
+        };
+        assert_ne!(first.fingerprint(), changed.fingerprint());
+        assert_ne!(
+            second.fingerprint(),
+            Payload {
+                png: None,
+                ..second.clone()
+            }
+            .fingerprint()
+        );
+    }
+
+    #[test]
+    fn file_identity_keeps_paths_and_order_and_rtf_ignores_buffer_padding() {
+        let files = Payload {
+            files: vec!["file:///a/report.txt".into(), "file:///b/report.txt".into()],
+            ..Payload::default()
+        };
+        let mut companion = files.clone();
+        companion.text = Some("report.txt".into());
+        assert_eq!(files.fingerprint(), companion.fingerprint());
+        companion.files.reverse();
+        assert_ne!(files.fingerprint(), companion.fingerprint());
+        companion.files = vec!["file:///c/report.txt".into()];
+        assert_ne!(files.fingerprint(), companion.fingerprint());
+
+        let rtf = Payload {
+            rtf: Some(b"{\\rtf1 content}".to_vec()),
+            ..Payload::default()
+        };
+        let padded = Payload {
+            rtf: Some(b"{\\rtf1 content}\0\0\0".to_vec()),
+            ..Payload::default()
+        };
+        assert_eq!(rtf.fingerprint(), padded.fingerprint());
     }
 }

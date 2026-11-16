@@ -14,6 +14,29 @@ const searchItems: Clip[] = [
 
 test.use({ viewport: { width: 360, height: 400 } })
 
+test('search focus stays borderless and keeps the system high-contrast focus indicator', async ({ page }) => {
+  await mockTauri(page, { items: searchItems.slice(0, 2), appearance: { accentColor: [0, 120, 212] } })
+  await page.goto(desktopUrl)
+  const search = page.getByRole('searchbox', { name: '搜索剪贴板' })
+  const icon = page.locator('.history-search-icon')
+  const restingIcon = await icon.evaluate((svg) => getComputedStyle(svg).color)
+  await search.click()
+  await expect(search).toBeFocused()
+  await expect(search).toHaveCSS('outline-style', 'none')
+  await expect(search).toHaveCSS('border-width', '0px')
+  await expect(search).toHaveCSS('box-shadow', 'none')
+  await expect(icon).not.toHaveCSS('color', restingIcon)
+  await search.press('Shift+Tab')
+  await page.keyboard.press('Tab')
+  await expect(search).toBeFocused()
+  await expect(search).toHaveCSS('outline-style', 'none')
+  await page.locator('.clip-card').first().hover()
+  await page.screenshot({ path: '.artifacts/history-focus-icons.png' })
+  await page.emulateMedia({ forcedColors: 'active' })
+  await expect(search).toHaveCSS('outline-style', 'solid')
+  await checkAccessibility(page)
+})
+
 test('search filters previews immediately, follows clipboard updates and clears without changing history', async ({ page }) => {
   await mockTauri(page, { items: searchItems })
   await page.goto(desktopUrl)

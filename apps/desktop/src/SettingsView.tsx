@@ -78,88 +78,90 @@ export default function SettingsView({ state }: { state: ClipboardState }) {
 
   return (
     <>
-      <form className="settings-form" noValidate onSubmit={(event) => event.preventDefault()}>
-        <SettingsSection id="preferences-heading" title="使用偏好" icon={<SlidersHorizontal />}>
-          <ShortcutInput value={settings.shortcut} onChange={(shortcut) => void save({ shortcut })} />
-          {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
-          <fieldset className="settings-field">
-            <legend id="theme-mode-heading">明暗模式</legend>
-            <RadioGroup className="theme-options" orientation="horizontal" aria-labelledby="theme-mode-heading" aria-describedby="theme-mode-help" value={settings.themeMode}
-              onValueChange={(value) => void save({ themeMode: value as ThemeMode })}>
-              {([
-                ['system', '跟随系统', <Monitor />],
-                ['light', '浅色', <Sun />],
-                ['dark', '深色', <Moon />],
-              ] as const).map(([value, title, icon]) => (
-                <RadioGroupItem key={value} value={value} variant="card" className="theme-choice">
-                  {icon}<span>{title}</span>
-                </RadioGroupItem>
-              ))}
-            </RadioGroup>
-            <p id="theme-mode-help" className="field-help">强调色和透明效果始终跟随 Windows，明暗模式可单独选择。</p>
-          </fieldset>
-        </SettingsSection>
-        <SettingsSection id="recording-heading" title="记录与保存" icon={<Clipboard />}>
-          <fieldset className="settings-field">
-            <legend>收录的内容类型</legend>
-            <div className="format-options">
-              {formatOptions.map((format) => (
-                <Label key={format.key} htmlFor={'format-' + format.key} className="format-choice"
-                  data-checked={settings.formats[format.key] || undefined} data-format={format.key}>
-                  <span className="format-icon" aria-hidden="true">{format.icon}</span>
-                  <span id={'format-title-' + format.key} className="format-title">{format.title}</span>
-                  <Checkbox id={'format-' + format.key} checked={settings.formats[format.key]}
-                    aria-labelledby={'format-title-' + format.key} aria-describedby={'format-detail-' + format.key}
-                    onCheckedChange={(checked) => void save({ formats: { [format.key]: checked === true } })} />
-                  <small id={'format-detail-' + format.key} className="format-detail">{format.detail}</small>
-                </Label>
-              ))}
-            </div>
-          </fieldset>
-          <HistoryLimitInput value={settings.maxHistoryItems} onChange={(maxHistoryItems) => void save({ maxHistoryItems })} />
-          <fieldset className="settings-field">
-            <legend id="retention-heading">退出后保留</legend>
-            <RadioGroup className="retention-options" orientation="vertical" aria-labelledby="retention-heading" value={settings.retention}
-              onValueChange={(value) => {
-                retentionFocus.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
-                updateRetention(value as Retention)
-              }}>
-              {retentionOptions.map(([value, title, detail]) => (
-                <RadioGroupItem key={value} value={value} variant="card" className="retention-choice"
-                  aria-labelledby={'retention-title-' + value} aria-describedby={'retention-detail-' + value}>
-                  <span className="choice-copy"><span id={'retention-title-' + value}>{title}</span>
-                    <small id={'retention-detail-' + value}>{detail}</small></span>
-                </RadioGroupItem>
-              ))}
-            </RadioGroup>
-          </fieldset>
-          {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
-        </SettingsSection>
-        <SettingsSection id="restore-heading" title="自动恢复" icon={<RotateCcw />}>
-          <div className="setting-line restore-toggle">
-            <Label htmlFor="restore-enabled" className="choice-copy"><span id="restore-label">常驻恢复</span>
-              <small id="restore-help">复制其他内容后，恢复为第一条置顶内容</small></Label>
-            <Switch id="restore-enabled" aria-labelledby="restore-label" aria-describedby="restore-help" checked={settings.restoreEnabled}
-              disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => void save({ restoreEnabled: checked })} />
-          </div>
-          <div className="settings-field">
-            <div className="setting-line">
-              <Label htmlFor="restore-delay">每次变化后等待</Label>
-              <div className="quantity-input restore-quantity">
-                <Input id="restore-delay" type="number" inputMode="numeric" min="1" max="3600" step="1"
-                  value={delay ?? String(settings.restoreSeconds)} onChange={(event) => updateDelay(event.target.value)}
-                  onBlur={() => { if (!validation) setDelay(null) }}
-                  aria-invalid={!!validation} aria-describedby={validation ? 'restore-delay-unit delay-help delay-error' : 'restore-delay-unit delay-help'} />
-                <span id="restore-delay-unit" aria-hidden="true">秒</span>
+      <div className="settings-scroll">
+        <form className="settings-form" noValidate onSubmit={(event) => event.preventDefault()}>
+          <SettingsSection id="preferences-heading" title="使用偏好" icon={<SlidersHorizontal />}>
+            <ShortcutInput value={settings.shortcut} onChange={(shortcut) => void save({ shortcut })} />
+            {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
+            <fieldset className="settings-field">
+              <legend id="theme-mode-heading">明暗模式</legend>
+              <RadioGroup className="theme-options" orientation="horizontal" aria-labelledby="theme-mode-heading" aria-describedby="theme-mode-help" value={settings.themeMode}
+                onValueChange={(value) => void save({ themeMode: value as ThemeMode })}>
+                {([
+                  ['system', '跟随系统', <Monitor />],
+                  ['light', '浅色', <Sun />],
+                  ['dark', '深色', <Moon />],
+                ] as const).map(([value, title, icon]) => (
+                  <RadioGroupItem key={value} value={value} variant="card" className="theme-choice">
+                    {icon}<span>{title}</span>
+                  </RadioGroupItem>
+                ))}
+              </RadioGroup>
+              <p id="theme-mode-help" className="field-help">强调色和透明效果始终跟随 Windows，明暗模式可单独选择。</p>
+            </fieldset>
+          </SettingsSection>
+          <SettingsSection id="recording-heading" title="记录与保存" icon={<Clipboard />}>
+            <fieldset className="settings-field">
+              <legend>收录的内容类型</legend>
+              <div className="format-options">
+                {formatOptions.map((format) => (
+                  <Label key={format.key} htmlFor={'format-' + format.key} className="format-choice"
+                    data-checked={settings.formats[format.key] || undefined} data-format={format.key}>
+                    <span className="format-icon" aria-hidden="true">{format.icon}</span>
+                    <span id={'format-title-' + format.key} className="format-title">{format.title}</span>
+                    <Checkbox id={'format-' + format.key} checked={settings.formats[format.key]}
+                      aria-labelledby={'format-title-' + format.key} aria-describedby={'format-detail-' + format.key}
+                      onCheckedChange={(checked) => void save({ formats: { [format.key]: checked === true } })} />
+                    <small id={'format-detail-' + format.key} className="format-detail">{format.detail}</small>
+                  </Label>
+                ))}
               </div>
+            </fieldset>
+            <HistoryLimitInput value={settings.maxHistoryItems} onChange={(maxHistoryItems) => void save({ maxHistoryItems })} />
+            <fieldset className="settings-field">
+              <legend id="retention-heading">退出后保留</legend>
+              <RadioGroup className="retention-options" orientation="vertical" aria-labelledby="retention-heading" value={settings.retention}
+                onValueChange={(value) => {
+                  retentionFocus.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
+                  updateRetention(value as Retention)
+                }}>
+                {retentionOptions.map(([value, title, detail]) => (
+                  <RadioGroupItem key={value} value={value} variant="card" className="retention-choice"
+                    aria-labelledby={'retention-title-' + value} aria-describedby={'retention-detail-' + value}>
+                    <span className="choice-copy"><span id={'retention-title-' + value}>{title}</span>
+                      <small id={'retention-detail-' + value}>{detail}</small></span>
+                  </RadioGroupItem>
+                ))}
+              </RadioGroup>
+            </fieldset>
+            {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
+          </SettingsSection>
+          <SettingsSection id="restore-heading" title="自动恢复" icon={<RotateCcw />}>
+            <div className="setting-line restore-toggle">
+              <Label htmlFor="restore-enabled" className="choice-copy"><span id="restore-label">常驻恢复</span>
+                <small id="restore-help">复制其他内容后，恢复为第一条置顶内容</small></Label>
+              <Switch id="restore-enabled" aria-labelledby="restore-label" aria-describedby="restore-help" checked={settings.restoreEnabled}
+                disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => void save({ restoreEnabled: checked })} />
             </div>
-            <p id="delay-help" className="field-help">连续复制会重新计时。最近置顶的内容排在第一条。</p>
-            {validation && <p id="delay-error" role="alert" className="field-error">{validation}</p>}
-          </div>
-          {!snapshot.capabilities.restoreAvailable && !snapshot.capabilities.message && <p className="field-help">当前平台暂不支持常驻恢复。</p>}
-        </SettingsSection>
-        {snapshot.capabilities.message && <Feedback message={snapshot.capabilities.message} />}
-      </form>
+            <div className="settings-field">
+              <div className="setting-line">
+                <Label htmlFor="restore-delay">每次变化后等待</Label>
+                <div className="quantity-input restore-quantity">
+                  <Input id="restore-delay" type="number" inputMode="numeric" min="1" max="3600" step="1"
+                    value={delay ?? String(settings.restoreSeconds)} onChange={(event) => updateDelay(event.target.value)}
+                    onBlur={() => { if (!validation) setDelay(null) }}
+                    aria-invalid={!!validation} aria-describedby={validation ? 'restore-delay-unit delay-help delay-error' : 'restore-delay-unit delay-help'} />
+                  <span id="restore-delay-unit" aria-hidden="true">秒</span>
+                </div>
+              </div>
+              <p id="delay-help" className="field-help">连续复制会重新计时。最近置顶的内容排在第一条。</p>
+              {validation && <p id="delay-error" role="alert" className="field-error">{validation}</p>}
+            </div>
+            {!snapshot.capabilities.restoreAvailable && !snapshot.capabilities.message && <p className="field-help">当前平台暂不支持常驻恢复。</p>}
+          </SettingsSection>
+          {snapshot.capabilities.message && <Feedback message={snapshot.capabilities.message} />}
+        </form>
+      </div>
       <footer className="settings-status" aria-label="设置保存状态">
         {closeError || state.error
           ? <Feedback error={closeError || state.error} onDismiss={() => { setCloseError(null); state.clearMessage() }} />

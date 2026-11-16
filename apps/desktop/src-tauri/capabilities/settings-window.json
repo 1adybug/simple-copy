@@ -1,12 +1,9 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "settings-window-controls",
-  "description": "Native window controls for the borderless settings window",
+  "description": "Destroy the borderless settings window after pending settings saves complete",
   "windows": ["settings"],
   "permissions": [
-    "core:window:allow-minimize",
-    "core:window:allow-toggle-maximize",
-    "core:window:allow-is-maximized",
     "core:window:allow-destroy"
   ]
 }

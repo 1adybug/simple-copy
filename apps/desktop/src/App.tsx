@@ -1,11 +1,11 @@
-import logo from '@simple-copy/brand/logo.svg'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Clipboard, Copy, File, LoaderCircle, Pin, Search, Settings2, Trash2, X } from 'lucide-react'
 import { Component, lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Feedback, IconButton } from '@/components/app-controls'
 import { ClipImage, useThumbnailVisibility } from '@/components/clip-image'
-import { SettingsHeader } from '@/components/settings-header'
+import { SettingsWindow } from '@/components/settings-window'
+import { WindowFrame } from '@/components/window-frame'
 import { BroomIcon } from '@/components/icons/broom-icon'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -29,14 +29,13 @@ export default function App() {
   useTheme(state.snapshot?.settings.themeMode ?? 'system')
   useEffect(() => { document.title = settingsWindow ? '设置 · Simple Copy' : '剪贴板 · Simple Copy' }, [settingsWindow])
   return settingsWindow
-    ? <main className="app-window settings-window">
-      <SettingsHeader />
+    ? <SettingsWindow>
       <SettingsBoundary>
         <Suspense fallback={<div className="settings-loading" role="status"><LoaderCircle className="animate-spin" aria-hidden="true" />正在载入设置</div>}>
           <SettingsView state={state} />
         </Suspense>
       </SettingsBoundary>
-    </main>
+    </SettingsWindow>
     : <HistoryView state={state} />
 }
 
@@ -109,17 +108,11 @@ function HistoryView({ state }: { state: ClipboardState }) {
   }
 
   return (
-    <main className="app-window history-window">
-      <header className="window-header">
-        <div className="heading-row">
-          <div className="window-heading" data-tauri-drag-region><img src={logo} width={24} height={24} alt="" draggable={false} /><h1>剪贴板</h1></div>
-          <div className="header-actions">
-            <IconButton label="清除未置顶" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><BroomIcon /></IconButton>
-            <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><Settings2 /></IconButton>
-            <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><X /></IconButton>
-          </div>
-        </div>
-      </header>
+    <WindowFrame title="剪贴板" view="history" actions={<>
+      <IconButton label="清除未置顶" disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><BroomIcon /></IconButton>
+      <IconButton label="设置" onClick={() => void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error)))}><Settings2 /></IconButton>
+      <IconButton label="收起" onClick={() => void invoke('hide_history').catch(() => {})}><X /></IconButton>
+    </>}>
       <search className="history-search" aria-label="搜索剪贴板">
         <label htmlFor="history-query" className="sr-only">搜索剪贴板</label>
         <Search className="history-search-icon" size={15} aria-hidden="true" />
@@ -181,7 +174,7 @@ function HistoryView({ state }: { state: ClipboardState }) {
           )}
         </div>
       </div>
-      <div className="history-feedback">
+      <div className="window-feedback">
         <Feedback error={navigationError || state.error || snapshot?.error || snapshot?.shortcutError}
           message={state.message} onDismiss={navigationError || state.error || state.message
             ? () => { setNavigationError(null); state.clearMessage() } : undefined} />
@@ -203,7 +196,7 @@ function HistoryView({ state }: { state: ClipboardState }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </main>
+    </WindowFrame>
   )
 }
 

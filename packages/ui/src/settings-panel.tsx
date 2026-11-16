@@ -191,7 +191,7 @@ export function SettingsPanel({ state, shortcutRecorder }: {
             <AlertDialogDescription>{t('retentionDescription')}</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel>{t('cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => {
             if (confirmRetention) void save({ retention: confirmRetention })
-          }}>{t('changeRetention')}</AlertDialogAction></AlertDialogFooter>
+          }}>{t('confirm')}</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
@@ -246,7 +246,7 @@ function HistoryLimitInput({ value, onChange }: { value: number; onChange: (valu
           <AlertDialogDescription>{t('limitDescription', { count: confirmLimit ?? 0 })}</AlertDialogDescription></AlertDialogHeader>
         <AlertDialogFooter><AlertDialogCancel>{t('cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => {
           if (confirmLimit !== null) onChange(confirmLimit)
-        }}>{t('reduceLimit')}</AlertDialogAction></AlertDialogFooter>
+        }}>{t('confirm')}</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   </>

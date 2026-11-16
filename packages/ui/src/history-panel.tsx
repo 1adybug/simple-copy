@@ -176,7 +176,7 @@ export function HistoryPanel({
               confirmationFocus.current = null
               if (confirmation === 'clear') onAction({ type: 'clearUnpinned' })
               else if (confirmation) onAction({ type: 'delete', id: confirmation.id })
-            }}>{confirmation === 'clear' ? t('clearRecords') : t('deleteRecord')}</AlertDialogAction>
+            }}>{t('confirm')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

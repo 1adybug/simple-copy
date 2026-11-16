@@ -278,6 +278,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn language_choice_survives_reload_and_can_return_to_system() {
+        let mut store =
+            Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
+        let mut settings = Settings {
+            retention: Retention::Session,
+            language: crate::i18n::Language::Japanese,
+            ..Settings::default()
+        };
+        store.sync(&settings, &History::default()).unwrap();
+        assert_eq!(store.load().unwrap().0.language, settings.language);
+        settings.language = crate::i18n::Language::System;
+        store.sync(&settings, &History::default()).unwrap();
+        assert_eq!(store.load().unwrap().0.language, settings.language);
+    }
+
+    #[test]
     fn retention_changes_prune_disk_and_preserve_session_history() {
         let mut store =
             Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();

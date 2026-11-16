@@ -23,7 +23,9 @@ interface MockOptions {
 export async function mockTauri(page: Page, options: MockOptions = {}) {
   await page.addInitScript((options: MockOptions) => {
     const appearance: SystemAppearance = { revision: 1, accentColor: null, transparency: false, ...options.appearance }
+    const systemLocale = options.systemLocaleFailure ? 'en' : options.systemLocale ?? 'zh-CN'
     const snapshot: Snapshot = {
+      locale: options.settings?.language && options.settings.language !== 'system' ? options.settings.language : systemLocale,
       revision: 1,
       popupToken: 1,
       items: options.items ?? Array.from({ length: options.imageCount ?? 1 }, (_, index) => ({
@@ -35,9 +37,9 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
         fileCount: 0,
       })),
       settings: {
-        shortcut: 'Super+V', themeMode: 'system',
+        shortcut: 'Super+V', themeMode: 'system', language: 'system',
         formats: { text: true, link: true, richText: true, image: true, files: true },
-        retention: 'pinned', maxHistoryItems: 100,
+        retention: 'pinned', maxHistoryItems: 20,
         restoreEnabled: false, restoreSeconds: 5,
         ...options.settings,
       },
@@ -70,7 +72,11 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
     const inspection = {
       snapshot, appearance, calls, activeUrls, pendingThumbnails: 0, pendingAppearance: 0,
       emit,
-      publish: () => { snapshot.revision++; emit('clipboard-state', structuredClone(snapshot)) },
+      publish: () => {
+        snapshot.locale = snapshot.settings.language === 'system' ? systemLocale : snapshot.settings.language
+        snapshot.revision++
+        emit('clipboard-state', structuredClone(snapshot))
+      },
       publishAppearance: () => { appearance.revision++; emit('system-appearance-changed', structuredClone(appearance)) },
       reopen: () => { snapshot.popupToken++; emit('popup-opened', snapshot.popupToken) },
     }
@@ -94,7 +100,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
           calls.push({ command, args })
           if (command === 'system_locale') {
             if (options.systemLocaleFailure) throw new Error('System locale unavailable')
-            return options.systemLocale ?? 'zh-CN'
+            return snapshot.locale
           }
           if (command === 'system_appearance') {
             inspection.pendingAppearance++
@@ -124,8 +130,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
             if (options.saveDelay) await new Promise((resolve) => setTimeout(resolve, options.saveDelay))
             if (saveFailures > 0) { saveFailures--; throw new Error('设置保存失败，请重试。') }
             snapshot.settings = structuredClone(args.settings as Snapshot['settings'])
-            snapshot.revision++
-            emit('clipboard-state', structuredClone(snapshot))
+            inspection.publish()
             return structuredClone(snapshot)
           }
           if (command === 'history_action' || command === 'capture_current') return { message: '操作已完成' }

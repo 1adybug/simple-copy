@@ -13,8 +13,10 @@ use service::{Action, Reply, Request, ServiceHandle, Snapshot};
 use windows::WindowState;
 
 #[tauri::command]
-fn system_locale() -> &'static str {
-    i18n::locale()
+async fn system_locale(state: tauri::State<'_, ServiceHandle>) -> Result<&'static str, String> {
+    // Wait for persisted settings to load before the first webview chooses its language.
+    state.request(Request::Snapshot).await?;
+    Ok(i18n::locale())
 }
 
 fn check_window(window: &WebviewWindow) -> Result<(), String> {
@@ -38,7 +40,7 @@ async fn clipboard_snapshot(
 ) -> Result<Snapshot, String> {
     check_window(&window)?;
     match state.request(Request::Snapshot).await? {
-        Reply::Snapshot(snapshot) => Ok(snapshot),
+        Reply::Snapshot(snapshot) => Ok(*snapshot),
         _ => unreachable!(),
     }
 }
@@ -74,7 +76,7 @@ async fn save_settings(
 ) -> Result<Snapshot, String> {
     check_window(&window)?;
     match state.request(Request::SaveSettings(settings)).await? {
-        Reply::Snapshot(snapshot) => Ok(snapshot),
+        Reply::Snapshot(snapshot) => Ok(*snapshot),
         _ => unreachable!(),
     }
 }

@@ -1,4 +1,4 @@
-import { t } from '@simple-copy/i18n'
+import { setLocale, t, type Locale } from '@simple-copy/i18n'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -14,6 +14,7 @@ function applySettingsPatch(settings: Settings, patch: SettingsPatch): Settings 
 }
 
 export interface Snapshot {
+  locale: Locale
   revision: number
   popupToken: number
   items: Clip[]
@@ -56,6 +57,7 @@ export function useClipboard() {
     popupToken.current = Math.max(popupToken.current, next.popupToken)
     if (!currentSnapshot.current || next.revision >= currentSnapshot.current.revision) {
       currentSnapshot.current = next
+      setLocale(next.locale)
       setSnapshot(next)
     }
   }, [])

@@ -44,7 +44,7 @@ pub enum Action {
 }
 
 pub enum Reply {
-    Snapshot(Snapshot),
+    Snapshot(Box<Snapshot>),
     Image(Vec<u8>),
     Operation(Operation),
 }
@@ -58,6 +58,7 @@ pub struct Operation {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    pub locale: &'static str,
     pub revision: u64,
     pub popup_token: u64,
     pub items: Vec<Preview>,
@@ -106,6 +107,8 @@ impl ServiceHandle {
                     store.status = Some(error);
                     (Settings::default(), History::default())
                 });
+                crate::i18n::set_language(settings.language);
+                windows::refresh_language(&app);
                 windows::apply_theme(&app, settings.theme_mode);
                 let backend = platform::create(app.clone());
                 let (backend, initial_error) = match backend {
@@ -209,6 +212,7 @@ struct Service {
 impl Service {
     fn snapshot(&self) -> Snapshot {
         Snapshot {
+            locale: crate::i18n::locale(),
             revision: self.event_revision,
             popup_token: windows::popup_token(&self.app),
             items: self.history.previews(),
@@ -247,7 +251,7 @@ impl Service {
 
     fn request(&mut self, request: Request) -> Result<Reply, String> {
         match request {
-            Request::Snapshot => Ok(Reply::Snapshot(self.snapshot())),
+            Request::Snapshot => Ok(Reply::Snapshot(Box::new(self.snapshot()))),
             Request::Image(id) => self
                 .history
                 .image(id)
@@ -293,10 +297,14 @@ impl Service {
                 if settings.theme_mode != before.theme_mode {
                     windows::apply_theme(&self.app, settings.theme_mode);
                 }
+                if settings.language != before.language {
+                    crate::i18n::set_language(settings.language);
+                    windows::refresh_language(&self.app);
+                }
                 self.history = history;
                 self.settings = settings;
                 self.publish();
-                Ok(Reply::Snapshot(self.snapshot()))
+                Ok(Reply::Snapshot(Box::new(self.snapshot())))
             }
             Request::CaptureCurrent => {
                 self.capture_current(true)?;

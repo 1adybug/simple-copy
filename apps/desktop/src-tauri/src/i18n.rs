@@ -1,4 +1,55 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{
+    collections::HashMap,
+    sync::{
+        OnceLock,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
+
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
+pub enum Language {
+    #[default]
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "en")]
+    English,
+    #[serde(rename = "zh-CN")]
+    SimplifiedChinese,
+    #[serde(rename = "zh-TW")]
+    TraditionalChinese,
+    #[serde(rename = "ja")]
+    Japanese,
+    #[serde(rename = "ko")]
+    Korean,
+    #[serde(rename = "de")]
+    German,
+    #[serde(rename = "fr")]
+    French,
+    #[serde(rename = "es")]
+    Spanish,
+    #[serde(rename = "pt")]
+    Portuguese,
+    #[serde(rename = "ru")]
+    Russian,
+}
+
+impl Language {
+    fn resolve(self, system: &'static str) -> &'static str {
+        match self {
+            Self::System => system,
+            Self::English => "en",
+            Self::SimplifiedChinese => "zh-CN",
+            Self::TraditionalChinese => "zh-TW",
+            Self::Japanese => "ja",
+            Self::Korean => "ko",
+            Self::German => "de",
+            Self::French => "fr",
+            Self::Spanish => "es",
+            Self::Portuguese => "pt",
+            Self::Russian => "ru",
+        }
+    }
+}
 
 const CATALOGS: [(&str, &str); 10] = [
     (
@@ -44,35 +95,51 @@ const CATALOGS: [(&str, &str); 10] = [
 ];
 
 struct Localization {
-    locale: &'static str,
-    messages: HashMap<String, String>,
-    english: HashMap<String, String>,
+    system_locale: &'static str,
+    selected: AtomicUsize,
+    messages: Vec<HashMap<String, String>>,
 }
 
 fn localization() -> &'static Localization {
     static LOCALIZATION: OnceLock<Localization> = OnceLock::new();
     LOCALIZATION.get_or_init(|| {
         let locale = resolve_locale(&system_languages());
-        let source = CATALOGS.iter().find(|(name, _)| *name == locale).unwrap().1;
         Localization {
-            locale,
-            messages: serde_json::from_str(source).expect("bundled locale catalog"),
-            english: serde_json::from_str(CATALOGS[0].1).expect("bundled English catalog"),
+            system_locale: locale,
+            selected: AtomicUsize::new(
+                CATALOGS
+                    .iter()
+                    .position(|(name, _)| *name == locale)
+                    .unwrap(),
+            ),
+            messages: CATALOGS
+                .iter()
+                .map(|(_, source)| serde_json::from_str(source).expect("bundled locale catalog"))
+                .collect(),
         }
     })
 }
 
 pub fn locale() -> &'static str {
-    localization().locale
+    CATALOGS[localization().selected.load(Ordering::Acquire)].0
+}
+
+pub fn set_language(language: Language) {
+    let localization = localization();
+    let locale = language.resolve(localization.system_locale);
+    let index = CATALOGS
+        .iter()
+        .position(|(name, _)| *name == locale)
+        .unwrap();
+    localization.selected.store(index, Ordering::Release);
 }
 
 pub fn t(key: &'static str) -> &'static str {
     let localization = localization();
-    localization
-        .messages
+    localization.messages[localization.selected.load(Ordering::Acquire)]
         .get(key)
         .filter(|value| !value.is_empty())
-        .or_else(|| localization.english.get(key))
+        .or_else(|| localization.messages[0].get(key))
         .map(String::as_str)
         .expect("known translation key")
 }
@@ -177,6 +244,16 @@ fn system_languages() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn language_override_and_system_mode_share_the_bundled_catalogs() {
+        assert_eq!(Language::System.resolve("zh-CN"), "zh-CN");
+        for (locale, _) in CATALOGS {
+            let language: Language = serde_json::from_value(serde_json::json!(locale)).unwrap();
+            assert_eq!(language.resolve("zh-CN"), locale);
+            assert_eq!(serde_json::to_value(language).unwrap(), locale);
+        }
+    }
 
     #[test]
     fn language_negotiation_matches_the_shared_contract() {

@@ -3,7 +3,8 @@
   "sourceRoots": ["apps/desktop/src", "apps/website/src", "packages/brand/src", "packages/ui/src", "packages/i18n/src"],
   "locale": "system",
   "canonicalMap": "DESIGN.md",
-  "requiredCapabilities": ["Form", "Scrollbar", "Toast"],
+  "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast"],
+  "ownership": { "Select/Listbox": "authored" },
   "requiredCommands": ["typecheck", "build", "ui"],
   "commands": {
     "typecheck": "pnpm typecheck",
@@ -12,6 +13,7 @@
   },
   "evidence": {
     "failurePaths": "tests/ui/settings.spec.ts",
-    "accessibility": "tests/ui/website.spec.ts"
+    "accessibility": "tests/ui/website.spec.ts",
+    "localePopup": "tests/ui/locale.spec.ts"
   }
 }

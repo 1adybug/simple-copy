@@ -3,9 +3,9 @@ import { useI18n } from '@simple-copy/i18n/react'
 import { product } from '@simple-copy/brand'
 import logo from '@simple-copy/brand/logo.svg'
 import {
-  ArrowDownToLine, ArrowRight, Check, Copy, FileText, Folder, Image,
-  Link, Pin, RotateCcw, Type,
+  ArrowDownToLine, ArrowRight, Check, Copy, FileText, Pin, RotateCcw,
 } from 'lucide-react'
+import { FilesIcon, ImageIcon, LinkIcon, RichTextIcon, TextIcon } from '@simple-copy/ui/icons/content-type-icons'
 import { useEffect, useRef, useState } from 'react'
 import { demoPasteMessage } from './demo-data'
 
@@ -60,11 +60,11 @@ function ClipboardDemo() {
 }
 
 const formats = [
-  { key: 'text', icon: Type },
-  { key: 'link', icon: Link },
-  { key: 'richText', icon: FileText },
-  { key: 'image', icon: Image },
-  { key: 'files', icon: Folder },
+  { key: 'text', icon: TextIcon },
+  { key: 'link', icon: LinkIcon },
+  { key: 'richText', icon: RichTextIcon },
+  { key: 'image', icon: ImageIcon },
+  { key: 'files', icon: FilesIcon },
 ] as const
 
 function GetApp() {
@@ -137,7 +137,7 @@ export default function App() {
 
       <section className="features-section section-shell" id="features" aria-labelledby="formats-title">
         <h2 id="formats-title">{t('site.formats')}</h2>
-        <ul className="formats-grid">{formats.map(({ key, icon: Icon }) => <li key={key}><Icon size={22} aria-hidden="true" />{t(`format.${key}`)}</li>)}</ul>
+        <ul className="formats-grid">{formats.map(({ key, icon: Icon }) => <li key={key}><Icon width={22} height={22} aria-hidden="true" />{t(`format.${key}`)}</li>)}</ul>
         <div className="feature-notes"><p><Pin size={16} aria-hidden="true" />{t('site.pinFeature')}</p><p><RotateCcw size={16} aria-hidden="true" />{t('site.restoreFeature')}</p></div>
       </section>
 

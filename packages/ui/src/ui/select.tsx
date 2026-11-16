@@ -3,8 +3,17 @@ import { cn } from "cn"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+const SelectOpenContext = React.createContext(false)
+
+function Select({ open, defaultOpen = false, onOpenChange, ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  const [internalOpen, setInternalOpen] = React.useState(defaultOpen)
+  const isOpen = open ?? internalOpen
+  return <SelectOpenContext value={isOpen}>
+    <SelectPrimitive.Root data-slot="select" open={isOpen} onOpenChange={(next) => {
+      setInternalOpen(next)
+      onOpenChange?.(next)
+    }} {...props} />
+  </SelectOpenContext>
 }
 
 function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.Value>) {
@@ -36,12 +45,42 @@ function SelectTrigger({
 function SelectContent({
   className,
   children,
+  ref,
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const open = React.useContext(SelectOpenContext)
+  const [content, setContent] = React.useState<HTMLDivElement | null>(null)
+  const contentRef = React.useCallback((element: HTMLDivElement | null) => {
+    setContent(element)
+    if (typeof ref === "function") return ref(element)
+    if (ref) ref.current = element
+  }, [ref])
+
+  React.useLayoutEffect(() => {
+    if (!open || !content?.isConnected) return
+    // Radix makes this popup modal and hides the background from screen readers.
+    // Native inert also removes those hidden controls from focus and interaction.
+    const background: HTMLElement[] = []
+    let branch: Element = content
+    while (branch.parentElement) {
+      const parent = branch.parentElement
+      for (const sibling of parent.children) {
+        if (sibling !== branch && sibling instanceof HTMLElement && !sibling.inert) {
+          sibling.inert = true
+          background.push(sibling)
+        }
+      }
+      if (parent === content.ownerDocument.body) break
+      branch = parent
+    }
+    return () => { for (const element of background) element.inert = false }
+  }, [content, open])
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
+        ref={contentRef}
         data-slot="select-content"
         position="popper"
         align="start"

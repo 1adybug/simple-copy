@@ -9,7 +9,7 @@ import { CopyIcon, DeleteIcon, PinIcon } from './icons/clip-action-icons'
 import { CloseIcon, SettingsIcon } from './icons/window-action-icons'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle,
 } from './ui/alert-dialog'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
@@ -40,6 +40,7 @@ export function HistoryPanel({
 }: HistoryPanelProps) {
   useI18n()
   const [confirmation, setConfirmation] = useState<Clip | 'clear' | null>(null)
+  const confirmationFocus = useRef<HTMLButtonElement | null>(null)
   const [searchValue, setSearchValue] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const search = useRef<HTMLInputElement>(null)
@@ -86,7 +87,10 @@ export function HistoryPanel({
 
   return (
     <WindowFrame title={t('clipboard')} view="history" actions={<>
-      <IconButton label={t('clearUnpinned')} disabled={ordinaryCount === 0 || busy} onClick={() => setConfirmation('clear')}><BroomIcon /></IconButton>
+      <IconButton label={t('clearUnpinned')} disabled={ordinaryCount === 0 || busy} onClick={(event) => {
+        confirmationFocus.current = event.currentTarget
+        setConfirmation('clear')
+      }}><BroomIcon /></IconButton>
       <IconButton label={t('settings')} onClick={onOpenSettings}><SettingsIcon /></IconButton>
       <IconButton label={t('dismiss')} onClick={onDismiss}><CloseIcon /></IconButton>
     </>}>
@@ -129,7 +133,7 @@ export function HistoryPanel({
               onPaste={() => onAction({ type: 'paste', id: clip.id })}
               onCopy={() => onAction({ type: 'copy', id: clip.id })}
               onPin={() => onAction({ type: 'pin', id: clip.id, pinned: !clip.pinned })}
-              onDelete={() => setConfirmation(clip)}
+              onDelete={(trigger) => { confirmationFocus.current = trigger; setConfirmation(clip) }}
             />
           ))}
           {items.length === 0 && (
@@ -153,8 +157,14 @@ export function HistoryPanel({
         <Feedback error={error} message={message} onDismiss={onClearMessage} />
       </div>
       <AlertDialog open={confirmation !== null} onOpenChange={(open) => { if (!open) setConfirmation(null) }}>
-        <AlertDialogContent className="confirm-dialog">
+        <AlertDialogContent className="confirm-dialog" onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          const trigger = confirmationFocus.current
+          if (trigger?.isConnected) trigger.focus()
+          else search.current?.focus()
+        }}>
           <AlertDialogHeader>
+            <AlertDialogMedia tone="danger">{confirmation === 'clear' ? <BroomIcon /> : <DeleteIcon />}</AlertDialogMedia>
             <AlertDialogTitle>{confirmation === 'clear' ? t('confirmClear') : t('confirmDelete')}</AlertDialogTitle>
             <AlertDialogDescription>
               {confirmation === 'clear' ? t('clearDescription', { count: ordinaryCount }) : t('deleteDescription')}
@@ -162,7 +172,8 @@ export function HistoryPanel({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-            <AlertDialogAction className="danger-button" onClick={() => {
+            <AlertDialogAction variant="destructive" onClick={() => {
+              confirmationFocus.current = null
               if (confirmation === 'clear') onAction({ type: 'clearUnpinned' })
               else if (confirmation) onAction({ type: 'delete', id: confirmation.id })
             }}>{confirmation === 'clear' ? t('clearRecords') : t('deleteRecord')}</AlertDialogAction>
@@ -174,7 +185,7 @@ export function HistoryPanel({
 }
 
 function ClipCard({ clip, busy, onPaste, onCopy, onPin, onDelete, renderImage }: {
-  clip: Clip; busy: boolean; onPaste: () => void; onCopy: () => void; onPin: () => void; onDelete: () => void
+  clip: Clip; busy: boolean; onPaste: () => void; onCopy: () => void; onPin: () => void; onDelete: (trigger: HTMLButtonElement) => void
   renderImage?: (clip: Clip) => ReactNode
 }) {
   return (
@@ -194,7 +205,7 @@ function ClipCard({ clip, busy, onPaste, onCopy, onPin, onDelete, renderImage }:
           <PinIcon pinned={clip.pinned} />
         </IconButton>
         <IconButton label={t('copy')} disabled={busy} onClick={onCopy} className="clip-action-reveal"><CopyIcon /></IconButton>
-        <IconButton label={t('delete')} disabled={busy} onClick={onDelete} className="clip-action-reveal delete-button"><DeleteIcon /></IconButton>
+        <IconButton label={t('delete')} disabled={busy} onClick={(event) => onDelete(event.currentTarget)} className="clip-action-reveal delete-button"><DeleteIcon /></IconButton>
       </div>
     </Card>
   )

@@ -1,17 +1,20 @@
-import { t } from '@simple-copy/i18n'
+import { languageNames, supportedLocales, t, type Language } from '@simple-copy/i18n'
 import { useI18n } from '@simple-copy/i18n/react'
-import { Check, Clipboard, File, Image, Keyboard, Link, LoaderCircle, Monitor, Moon, RotateCcw, SlidersHorizontal, Sun, Type } from 'lucide-react'
+import { Check, Clipboard, Keyboard, LoaderCircle, Monitor, Moon, RotateCcw, SlidersHorizontal, Sun } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Feedback } from './app-controls'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle,
 } from './ui/alert-dialog'
+import { FilesIcon, ImageIcon, LinkIcon, RichTextIcon, TextIcon } from './icons/content-type-icons'
+import { DeleteIcon } from './icons/clip-action-icons'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
+import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Switch } from './ui/switch'
 import { errorText } from './errors'
 import { shortcutLabel } from './shortcuts'
@@ -38,11 +41,11 @@ export interface SettingsPanelState {
 }
 
 const formatOptions: { key: Kind; icon: ReactNode }[] = [
-  { key: 'text', icon: <Type /> },
-  { key: 'link', icon: <Link /> },
-  { key: 'richText', icon: <Clipboard /> },
-  { key: 'image', icon: <Image /> },
-  { key: 'files', icon: <File /> },
+  { key: 'text', icon: <TextIcon /> },
+  { key: 'link', icon: <LinkIcon /> },
+  { key: 'richText', icon: <RichTextIcon /> },
+  { key: 'image', icon: <ImageIcon /> },
+  { key: 'files', icon: <FilesIcon /> },
 ]
 
 const retentionOptions = [
@@ -87,9 +90,19 @@ export function SettingsPanel({ state, shortcutRecorder }: {
           <SettingsSection id="preferences-heading" title={t('preferences')} icon={<SlidersHorizontal />}>
             <ShortcutInput recorder={shortcutRecorder} value={settings.shortcut} onChange={(shortcut) => void save({ shortcut })} />
             {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
+            <div className="setting-line language-setting">
+              <Label htmlFor="language">{t('language')}</Label>
+              <SelectRoot value={settings.language} onValueChange={(language) => void save({ language: language as Language })}>
+                <SelectTrigger id="language"><SelectValue /></SelectTrigger>
+                <SelectContent collisionPadding={16}>
+                  <SelectItem value="system">{t('language.system')}</SelectItem>
+                  {supportedLocales.map((locale) => <SelectItem key={locale} value={locale}><span lang={locale}>{languageNames[locale]}</span></SelectItem>)}
+                </SelectContent>
+              </SelectRoot>
+            </div>
             <fieldset className="settings-field">
               <legend id="theme-mode-heading">{t('theme')}</legend>
-              <RadioGroup className="theme-options" orientation="horizontal" aria-labelledby="theme-mode-heading" aria-describedby="theme-mode-help" value={settings.themeMode}
+              <RadioGroup className="theme-options" orientation="horizontal" aria-labelledby="theme-mode-heading" value={settings.themeMode}
                 onValueChange={(value) => void save({ themeMode: value as ThemeMode })}>
                 {([
                   ['system', t('theme.system'), <Monitor />],
@@ -101,7 +114,6 @@ export function SettingsPanel({ state, shortcutRecorder }: {
                   </RadioGroupItem>
                 ))}
               </RadioGroup>
-              <p id="theme-mode-help" className="field-help">{t('themeHelp')}</p>
             </fieldset>
           </SettingsSection>
           <SettingsSection id="recording-heading" title={t('recording')} icon={<Clipboard />}>
@@ -116,7 +128,7 @@ export function SettingsPanel({ state, shortcutRecorder }: {
                     <Checkbox id={'format-' + format.key} checked={settings.formats[format.key]}
                       aria-labelledby={'format-title-' + format.key} aria-describedby={'format-detail-' + format.key}
                       onCheckedChange={(checked) => void save({ formats: { [format.key]: checked === true } })} />
-                    <small id={'format-detail-' + format.key} className="format-detail">{t(`formatDetail.${format.key}`)}</small>
+                    <small id={'format-detail-' + format.key} className="sr-only">{t(`formatDetail.${format.key}`)}</small>
                   </Label>
                 ))}
               </div>
@@ -124,7 +136,7 @@ export function SettingsPanel({ state, shortcutRecorder }: {
             <HistoryLimitInput value={settings.maxHistoryItems} onChange={(maxHistoryItems) => void save({ maxHistoryItems })} />
             <fieldset className="settings-field">
               <legend id="retention-heading">{t('retention')}</legend>
-              <RadioGroup className="retention-options" orientation="vertical" aria-labelledby="retention-heading" value={settings.retention}
+              <RadioGroup className="retention-options" orientation="horizontal" aria-labelledby="retention-heading" aria-describedby="retention-help" value={settings.retention}
                 onValueChange={(value) => {
                   retentionFocus.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
                   updateRetention(value as Retention)
@@ -132,11 +144,12 @@ export function SettingsPanel({ state, shortcutRecorder }: {
                 {retentionOptions.map((value) => (
                   <RadioGroupItem key={value} value={value} variant="card" className="retention-choice"
                     aria-labelledby={'retention-title-' + value} aria-describedby={'retention-detail-' + value}>
-                    <span className="choice-copy"><span id={'retention-title-' + value}>{t(`retention.${value}`)}</span>
-                      <small id={'retention-detail-' + value}>{t(`retentionDetail.${value}`)}</small></span>
+                    <span id={'retention-title-' + value}>{t(`retention.${value}`)}</span>
+                    <small id={'retention-detail-' + value} className="sr-only">{t(`retentionDetail.${value}`)}</small>
                   </RadioGroupItem>
                 ))}
               </RadioGroup>
+              <p id="retention-help" className="field-help">{t(`retentionDetail.${settings.retention}`)}</p>
             </fieldset>
             {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
           </SettingsSection>
@@ -177,7 +190,7 @@ export function SettingsPanel({ state, shortcutRecorder }: {
           event.preventDefault()
           retentionFocus.current?.focus()
         }}>
-          <AlertDialogHeader><AlertDialogTitle>{t('confirmRetention')}</AlertDialogTitle>
+          <AlertDialogHeader><AlertDialogMedia tone="danger"><DeleteIcon /></AlertDialogMedia><AlertDialogTitle>{t('confirmRetention')}</AlertDialogTitle>
             <AlertDialogDescription>{t('retentionDescription')}</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel>{t('cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => {
             if (confirmRetention) void save({ retention: confirmRetention })
@@ -232,7 +245,7 @@ function HistoryLimitInput({ value, onChange }: { value: number; onChange: (valu
     </div>
     <AlertDialog open={confirmLimit !== null} onOpenChange={(open) => { if (!open) setConfirmLimit(null) }}>
       <AlertDialogContent className="settings-confirm" onCloseAutoFocus={(event) => { event.preventDefault(); input.current?.focus() }}>
-        <AlertDialogHeader><AlertDialogTitle>{t('confirmLimit')}</AlertDialogTitle>
+        <AlertDialogHeader><AlertDialogMedia tone="danger"><DeleteIcon /></AlertDialogMedia><AlertDialogTitle>{t('confirmLimit')}</AlertDialogTitle>
           <AlertDialogDescription>{t('limitDescription', { count: confirmLimit ?? 0 })}</AlertDialogDescription></AlertDialogHeader>
         <AlertDialogFooter><AlertDialogCancel>{t('cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => {
           if (confirmLimit !== null) onChange(confirmLimit)

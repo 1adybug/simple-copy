@@ -1,3 +1,5 @@
+import type { Language } from '@simple-copy/i18n'
+
 export type Kind = 'text' | 'link' | 'richText' | 'image' | 'files'
 export type Retention = 'session' | 'pinned' | 'all'
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -5,6 +7,7 @@ export type ThemeMode = 'system' | 'light' | 'dark'
 export interface Settings {
   shortcut: string
   themeMode: ThemeMode
+  language: Language
   formats: Record<Kind, boolean>
   retention: Retention
   maxHistoryItems: number

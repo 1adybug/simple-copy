@@ -7,13 +7,13 @@ export function WindowFrame({ title, view, actions, children }: {
 }) {
   return (
     <main className={`app-window ${view}-window`} aria-label={title}>
-      <header className="window-header">
-        <div className="heading-row">
+      <header className="window-header" data-tauri-drag-region>
+        <div className="heading-row" data-tauri-drag-region>
           <div className="window-heading" data-tauri-drag-region>
             <img src={logo} width={24} height={24} alt="" draggable={false} />
             <h1>{title}</h1>
           </div>
-          <div className="header-actions" role="group" aria-label={t('windowActions')}>{actions}</div>
+          <div className="header-actions" data-tauri-drag-region role="group" aria-label={t('windowActions')}>{actions}</div>
         </div>
       </header>
       {children}

@@ -12,7 +12,8 @@ test('new groups retain every setting and rapid format changes save together', a
     await expect(page.getByRole('region', { name, exact: true })).toHaveCount(1)
   }
   await expect(page.getByRole('checkbox')).toHaveCount(5)
-  await expect(page.getByRole('combobox')).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: '语言', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('spinbutton', { name: '最多保存条数' })).toHaveValue('20')
   const footer = page.locator('.settings-status')
   const footerY = (await footer.boundingBox())!.y
   // The complete tile is a label; one click must produce exactly one change.
@@ -37,7 +38,7 @@ test('new groups retain every setting and rapid format changes save together', a
 })
 
 test('history limit commits only on blur or non-composing Enter and confirms reductions', async ({ page }) => {
-  await mockTauri(page)
+  await mockTauri(page, { settings: { maxHistoryItems: 100 } })
   await page.goto(settingsUrl)
   const limit = page.getByRole('spinbutton', { name: '最多保存条数' })
   await limit.fill('60')
@@ -81,7 +82,7 @@ test('retention choices confirm disk reductions and restore focus after cancella
   await page.keyboard.press('Escape')
   await expect(all).toBeChecked()
   await expect(session).toBeFocused()
-  await page.keyboard.press('ArrowDown', { delay: 50 })
+  await page.keyboard.press('ArrowRight', { delay: 50 })
   await expect(page.getByRole('alertdialog')).toBeVisible()
   await page.getByRole('button', { name: '更改保留方式', exact: true }).click()
   await expect.poll(() => page.evaluate(() => window.inspection.snapshot.settings.retention)).toBe('pinned')
@@ -93,9 +94,9 @@ test('retention choices confirm disk reductions and restore focus after cancella
 test('restore remains configurable while off, validates seconds and respects platform capability', async ({ page }) => {
   await mockTauri(page, { capabilities: { restoreAvailable: false, message: '当前平台暂不支持常驻恢复。' } })
   await page.goto(settingsUrl)
-  const toggle = page.getByRole('switch', { name: '常驻恢复', exact: true })
+  const toggle = page.getByRole('switch', { name: '恢复置顶内容', exact: true })
   await expect(toggle).toBeDisabled()
-  const delay = page.getByRole('spinbutton', { name: '每次变化后等待' })
+  const delay = page.getByRole('spinbutton', { name: '恢复延迟' })
   await expect(delay).toBeEnabled()
   for (const value of ['0', '3601', '', '1.5']) {
     await delay.fill(value)
@@ -195,7 +196,7 @@ for (const scenario of [
       form.scrollTop += panel.getBoundingClientRect().top - form.getBoundingClientRect().top
     })
     await page.screenshot({ path: `.artifacts/settings-${scenario.name}-recording.png` })
-    await page.getByRole('switch', { name: '常驻恢复', exact: true }).focus()
+    await page.getByRole('switch', { name: '恢复置顶内容', exact: true }).focus()
     await expect(page.getByRole('button', { name: '关闭设置', exact: true })).toBeInViewport()
     await expect(page.locator('.settings-status')).toBeInViewport()
     await checkAccessibility(page)

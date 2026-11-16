@@ -103,7 +103,7 @@ test('reduced transparency and motion follow system preferences in a fixed light
   await expect(page.locator('html')).toHaveAttribute('data-transparency', 'false')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   expect(await page.locator('html').evaluate((html) => html.style.getPropertyValue('--sc-primary'))).toBe(primary)
-  await expect(page.getByRole('switch', { name: '常驻恢复', exact: true })).toHaveCSS('transition-duration', '1e-05s')
+  await expect(page.getByRole('switch', { name: '恢复置顶内容', exact: true })).toHaveCSS('transition-duration', '1e-05s')
   await client.send('Emulation.setEmulatedMedia', { features: [] })
   await expect(page.locator('html')).toHaveAttribute('data-transparency', 'true')
 })

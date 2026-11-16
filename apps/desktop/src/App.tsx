@@ -1,4 +1,5 @@
 import { t } from '@simple-copy/i18n'
+import { useI18n } from '@simple-copy/i18n/react'
 import { Feedback } from '@simple-copy/ui/app-controls'
 import { Button } from '@simple-copy/ui/ui/button'
 import { LoaderCircle } from 'lucide-react'
@@ -11,10 +12,11 @@ import { useTheme } from './theme'
 const SettingsView = lazy(() => import('./SettingsView'))
 
 export default function App() {
+  const { locale } = useI18n()
   const state = useClipboard()
   const settingsWindow = new URLSearchParams(location.search).get('view') === 'settings'
   useTheme(state.snapshot?.settings.themeMode ?? 'system')
-  useEffect(() => { document.title = `${t(settingsWindow ? 'settings' : 'clipboard')} · Simple Copy` }, [settingsWindow])
+  useEffect(() => { document.title = `${t(settingsWindow ? 'settings' : 'clipboard')} · Simple Copy` }, [settingsWindow, locale])
   return settingsWindow
     ? <SettingsWindow>
       <SettingsBoundary>

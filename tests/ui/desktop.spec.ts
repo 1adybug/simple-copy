@@ -14,6 +14,61 @@ const searchItems: Clip[] = [
 
 test.use({ viewport: { width: 360, height: 400 } })
 
+for (const view of ['history', 'settings']) {
+  test(`the complete ${view} title bar is draggable outside its action buttons`, async ({ page }) => {
+    await mockTauri(page)
+    await page.goto(view === 'settings' ? `${desktopUrl}?view=settings` : desktopUrl)
+    await expect(page.locator('.window-header')).toBeVisible()
+    const hits = await page.locator('.window-header').evaluate((header) => {
+      const box = header.getBoundingClientRect()
+      return [box.top + 1, box.top + box.height / 2, box.bottom - 1].map((y) => {
+        const element = document.elementFromPoint(box.left + 40, y)
+        return element?.hasAttribute('data-tauri-drag-region')
+      })
+    })
+    expect(hits).toEqual([true, true, true])
+    const action = page.locator('.header-actions button').last()
+    expect(await action.evaluate((button) => {
+      const box = button.getBoundingClientRect()
+      return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === button
+        && !button.hasAttribute('data-tauri-drag-region')
+    })).toBe(true)
+  })
+}
+
+test('confirmation dialogs keep safe focus, restore their trigger and fit the compact window', async ({ page }) => {
+  await mockTauri(page, { items: searchItems })
+  await page.goto(desktopUrl)
+  const clear = page.getByRole('button', { name: '清除未置顶', exact: true })
+  await clear.click()
+  const dialog = page.getByRole('alertdialog')
+  const cancel = page.getByRole('button', { name: '取消', exact: true })
+  await expect(cancel).toBeFocused()
+  await expect(dialog).toContainText('将移除 4 条未置顶记录')
+  const box = (await dialog.boundingBox())!
+  expect(box.x).toBeGreaterThanOrEqual(16)
+  expect(box.y).toBeGreaterThanOrEqual(16)
+  expect(box.x + box.width).toBeLessThanOrEqual(344)
+  expect(box.y + box.height).toBeLessThanOrEqual(384)
+  const cancelBox = (await cancel.boundingBox())!
+  const actionBox = (await page.getByRole('button', { name: '清除记录', exact: true }).boundingBox())!
+  expect(cancelBox.y).toBe(actionBox.y)
+  await page.keyboard.press('Shift+Tab')
+  await expect(page.getByRole('button', { name: '清除记录', exact: true })).toBeFocused()
+  await checkAccessibility(page)
+  await page.screenshot({ path: '.artifacts/history-confirmation.png' })
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(clear).toBeFocused()
+  expect(await page.evaluate(() => window.inspection.calls.some((call) => call.command === 'hide_history'))).toBe(false)
+  await page.locator('.clip-card').first().hover()
+  const remove = page.getByRole('button', { name: '删除', exact: true }).first()
+  await remove.click()
+  await expect(page.getByRole('alertdialog')).toContainText('删除这条记录？')
+  await cancel.click()
+  await expect(remove).toBeFocused()
+})
+
 test('search focus stays borderless and keeps the system high-contrast focus indicator', async ({ page }) => {
   await mockTauri(page, { items: searchItems.slice(0, 2), appearance: { accentColor: [0, 120, 212] } })
   await page.goto(desktopUrl)

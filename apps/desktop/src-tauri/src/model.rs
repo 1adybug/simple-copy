@@ -54,6 +54,7 @@ impl Default for Formats {
 pub struct Settings {
     pub shortcut: String,
     pub theme_mode: ThemeMode,
+    pub language: crate::i18n::Language,
     pub formats: Formats,
     pub retention: Retention,
     pub max_history_items: u32,
@@ -71,9 +72,10 @@ impl Default for Settings {
             }
             .into(),
             theme_mode: ThemeMode::System,
+            language: crate::i18n::Language::System,
             formats: Formats::default(),
             retention: Retention::Pinned,
-            max_history_items: 100,
+            max_history_items: 20,
             restore_enabled: false,
             restore_seconds: 5,
         }
@@ -284,7 +286,13 @@ mod tests {
     #[test]
     fn history_limit_defaults_for_existing_settings_and_preserves_zero() {
         let settings: Settings = serde_json::from_str(r#"{"retention":"all"}"#).unwrap();
-        assert_eq!(settings.max_history_items, 100);
+        assert_eq!(settings.max_history_items, 20);
+        assert_eq!(settings.language, crate::i18n::Language::System);
+        let saved: Settings =
+            serde_json::from_str(r#"{"maxHistoryItems":100,"language":"ja"}"#).unwrap();
+        assert_eq!(saved.max_history_items, 100);
+        assert_eq!(saved.language, crate::i18n::Language::Japanese);
+        assert!(serde_json::from_str::<Settings>(r#"{"language":"unknown"}"#).is_err());
         let settings = Settings {
             max_history_items: 0,
             ..settings

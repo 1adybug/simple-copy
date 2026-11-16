@@ -14,6 +14,11 @@ export type Messages = Record<MessageKey, string>
 export const catalogs = { en, 'zh-CN': zhCN, 'zh-TW': zhTW, ja, ko, de, fr, es, pt, ru } satisfies Record<string, Messages>
 export type Locale = keyof typeof catalogs
 export const supportedLocales = Object.keys(catalogs) as Locale[]
+export type Language = 'system' | Locale
+export const languageNames: Record<Locale, string> = {
+  en: 'English', 'zh-CN': '简体中文', 'zh-TW': '繁體中文', ja: '日本語', ko: '한국어',
+  de: 'Deutsch', fr: 'Français', es: 'Español', pt: 'Português', ru: 'Русский',
+}
 
 // Match in preference order, with an explicit Chinese script taking precedence over region.
 // Kept in parity with src-tauri/src/i18n.rs by the shared locale-cases.json fixture.
@@ -41,6 +46,7 @@ const listeners = new Set<() => void>()
 
 export function getLocale(): Locale { return activeLocale }
 export function setLocale(locale: Locale) {
+  if (activeLocale === locale && document.documentElement.lang === locale) return
   activeLocale = locale
   document.documentElement.lang = locale
   document.documentElement.dir = 'ltr'

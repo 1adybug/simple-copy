@@ -29,7 +29,7 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border-0 bg-card px-3 py-2 text-left text-foreground transition-colors outline-none hover:bg-accent active:bg-control/30 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-50 data-[placeholder]:text-muted-foreground [&_[data-slot=select-value]]:truncate",
+        "flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border-0 bg-card px-3 py-2 text-left text-foreground transition-colors outline-none hover:bg-accent active:bg-control/30 disabled:cursor-default disabled:opacity-50 data-[placeholder]:text-muted-foreground [&_[data-slot=select-value]]:truncate",
         className
       )}
       {...props}
@@ -117,7 +117,7 @@ function SelectItem({
       data-slot="select-item"
       aria-describedby={description ? descriptionId : undefined}
       className={cn(
-        "relative cursor-pointer rounded-sm py-2 pr-8 pl-2 outline-none select-none hover:bg-accent active:bg-secondary data-[state=checked]:bg-accent data-[highlighted]:bg-accent data-[highlighted]:outline-1 data-[highlighted]:outline-ring data-[highlighted]:-outline-offset-1 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative cursor-pointer rounded-sm py-2 pr-8 pl-2 outline-none select-none hover:bg-accent active:bg-secondary data-[state=checked]:bg-accent data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className
       )}
       {...props}

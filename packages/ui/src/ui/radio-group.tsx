@@ -27,7 +27,7 @@ function RadioGroupItem({
       data-slot="radio-group-item"
       data-variant="card"
       className={cn(
-        "group/radio-card relative flex items-center gap-3 rounded-md border-0 bg-secondary p-3 text-left text-foreground transition-colors outline-none hover:bg-accent active:bg-control/30 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-accent",
+        "group/radio-card relative flex items-center gap-3 rounded-md border-0 bg-secondary p-3 text-left text-foreground transition-colors outline-none hover:bg-accent active:bg-control/30 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-accent",
         className
       )}
       {...props}
@@ -42,7 +42,7 @@ function RadioGroupItem({
     <RadioGroupPrimitive.Item
       data-slot="radio-group-item"
       className={cn(
-        "aspect-square size-4 shrink-0 rounded-full border-0 bg-control text-primary-foreground transition-colors outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary hover:brightness-95 active:brightness-90 aria-invalid:bg-destructive aria-invalid:focus-visible:outline-destructive",
+        "aspect-square size-4 shrink-0 rounded-full border-0 bg-control text-primary-foreground transition-colors outline-none disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary hover:brightness-95 active:brightness-90 aria-invalid:bg-destructive",
         className
       )}
       {...props}

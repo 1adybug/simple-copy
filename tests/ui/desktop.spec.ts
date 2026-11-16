@@ -50,9 +50,10 @@ test('confirmation dialogs keep safe focus, restore their trigger and fit the co
   expect(box.y).toBeGreaterThanOrEqual(16)
   expect(box.x + box.width).toBeLessThanOrEqual(344)
   expect(box.y + box.height).toBeLessThanOrEqual(384)
-  const cancelBox = (await cancel.boundingBox())!
-  const actionBox = (await page.getByRole('button', { name: '清除记录', exact: true }).boundingBox())!
-  expect(cancelBox.y).toBe(actionBox.y)
+  // Sample both buttons in the same frame while the dialog's entry animation runs.
+  const buttonPositions = await dialog.locator('[data-slot="alert-dialog-footer"] > button')
+    .evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().y))
+  expect(buttonPositions[0]).toBe(buttonPositions[1])
   await page.keyboard.press('Shift+Tab')
   await expect(page.getByRole('button', { name: '清除记录', exact: true })).toBeFocused()
   await checkAccessibility(page)
@@ -69,17 +70,19 @@ test('confirmation dialogs keep safe focus, restore their trigger and fit the co
   await expect(remove).toBeFocused()
 })
 
-test('search focus stays borderless and keeps the system high-contrast focus indicator', async ({ page }) => {
+test('search focus stays borderless and uses color in normal and high-contrast modes', async ({ page }) => {
   await mockTauri(page, { items: searchItems.slice(0, 2), appearance: { accentColor: [0, 120, 212] } })
   await page.goto(desktopUrl)
   const search = page.getByRole('searchbox', { name: '搜索剪贴板' })
   const icon = page.locator('.history-search-icon')
   const restingIcon = await icon.evaluate((svg) => getComputedStyle(svg).color)
+  const restingFill = await search.evaluate((input) => getComputedStyle(input).backgroundColor)
   await search.click()
   await expect(search).toBeFocused()
   await expect(search).toHaveCSS('outline-style', 'none')
   await expect(search).toHaveCSS('border-width', '0px')
   await expect(search).toHaveCSS('box-shadow', 'none')
+  await expect(search).not.toHaveCSS('background-color', restingFill)
   await expect(icon).not.toHaveCSS('color', restingIcon)
   await search.press('Shift+Tab')
   await page.keyboard.press('Tab')
@@ -88,7 +91,14 @@ test('search focus stays borderless and keeps the system high-contrast focus ind
   await page.locator('.clip-card').first().hover()
   await page.screenshot({ path: '.artifacts/history-focus-icons.png' })
   await page.emulateMedia({ forcedColors: 'active' })
-  await expect(search).toHaveCSS('outline-style', 'solid')
+  await expect(search).toHaveCSS('outline-style', 'none')
+  await expect(search).toHaveCSS('border-width', '0px')
+  await expect(search).toHaveCSS('forced-color-adjust', 'none')
+  await expect.poll(() => page.locator('.history-search').evaluate((container) => {
+    const input = container.querySelector('input')!
+    const searchIcon = container.querySelector('.history-search-icon')!
+    return getComputedStyle(input).color === getComputedStyle(searchIcon).color
+  })).toBe(true)
   await checkAccessibility(page)
 })
 

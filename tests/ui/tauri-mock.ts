@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import type { Snapshot } from '../../apps/desktop/src/native'
 
 interface MockOptions {
+  items?: Snapshot['items']
   imageCount?: number
   thumbnailFailure?: boolean
   thumbnailDelay?: number
@@ -13,7 +14,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
     const snapshot: Snapshot = {
       revision: 1,
       popupToken: 1,
-      items: Array.from({ length: options.imageCount ?? 1 }, (_, index) => ({
+      items: options.items ?? Array.from({ length: options.imageCount ?? 1 }, (_, index) => ({
         id: index + 1,
         kind: options.imageCount ? 'image' : 'text',
         pinned: index === 0,
@@ -55,6 +56,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
     const inspection = {
       snapshot, calls, activeUrls, pendingThumbnails: 0,
       publish: () => { snapshot.revision++; emit('clipboard-state', structuredClone(snapshot)) },
+      reopen: () => { snapshot.popupToken++; emit('popup-opened', snapshot.popupToken) },
     }
     Object.assign(window, {
       inspection,
@@ -109,6 +111,7 @@ declare global {
       activeUrls: Set<string>
       pendingThumbnails: number
       publish: () => void
+      reopen: () => void
     }
   }
 }

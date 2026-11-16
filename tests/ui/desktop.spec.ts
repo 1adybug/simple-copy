@@ -1,10 +1,109 @@
 import { expect, test } from '@playwright/test'
+import type { Clip } from '../../apps/desktop/src/native'
 import { checkAccessibility } from './accessibility'
 import { mockTauri } from './tauri-mock'
 
 const desktopUrl = 'http://127.0.0.1:1421'
+const searchItems: Clip[] = [
+  { id: 1, kind: 'text', pinned: true, text: 'Hello，中文笔记', hasThumbnail: false, fileCount: 0 },
+  { id: 2, kind: 'link', pinned: false, text: 'https://example.com/HELLO', hasThumbnail: false, fileCount: 0 },
+  { id: 3, kind: 'files', pinned: false, text: '会议记录.docx', hasThumbnail: false, fileCount: 1 },
+  { id: 4, kind: 'image', pinned: false, text: '', hasThumbnail: true, fileCount: 0 },
+  { id: 5, kind: 'text', pinned: false, text: '另一条中文笔记', hasThumbnail: false, fileCount: 0 },
+]
 
 test.use({ viewport: { width: 360, height: 400 } })
+
+test('search filters previews immediately, follows clipboard updates and clears without changing history', async ({ page }) => {
+  await mockTauri(page, { items: searchItems })
+  await page.goto(desktopUrl)
+  const search = page.getByRole('searchbox', { name: '搜索剪贴板' })
+  const cards = page.locator('.clip-card')
+  await expect(cards).toHaveCount(5)
+  await search.fill('  hello  ')
+  await expect(cards).toHaveCount(2)
+  await expect(cards.first()).toContainText('Hello，中文笔记')
+  await expect(cards.last()).toContainText('https://example.com/HELLO')
+  await page.evaluate(() => {
+    window.inspection.snapshot.items.push({ id: 6, kind: 'text', pinned: false, text: 'Hello 新增', hasThumbnail: false, fileCount: 0 })
+    window.inspection.publish()
+  })
+  await expect(cards).toHaveCount(3)
+  await page.getByRole('button', { name: '清除未置顶', exact: true }).click()
+  await expect(page.getByRole('alertdialog')).toContainText('将移除 5 条未置顶记录')
+  await page.getByRole('button', { name: '取消', exact: true }).click()
+  await search.fill('会议记录')
+  await expect(cards).toHaveCount(1)
+  await expect(cards).toContainText('会议记录.docx')
+  await search.fill('图片')
+  await expect(cards).toHaveCount(1)
+  await expect(cards).toHaveAttribute('data-kind', 'image')
+  await search.fill('does-not-match')
+  await expect(cards).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '没有匹配的记录' })).toBeVisible()
+  await checkAccessibility(page)
+  await page.getByRole('button', { name: '清空搜索' }).click()
+  await expect(search).toHaveValue('')
+  await expect(search).toBeFocused()
+  await expect(cards).toHaveCount(6)
+  expect(await page.evaluate(() => window.inspection.calls.filter((call) => call.command === 'history_action'))).toEqual([])
+  await page.screenshot({ path: '.artifacts/history-search.png' })
+})
+
+test('search respects IME composition and keyboard actions use only matching history', async ({ page }) => {
+  await mockTauri(page, { items: searchItems })
+  await page.goto(desktopUrl)
+  const search = page.getByRole('searchbox', { name: '搜索剪贴板' })
+  await expect(page.locator('.clip-card')).toHaveCount(5)
+  await search.focus()
+  await search.dispatchEvent('compositionstart')
+  await search.fill('zhongwen')
+  await expect(page.locator('.clip-card')).toHaveCount(5)
+  await search.dispatchEvent('keydown', { key: 'ArrowDown', isComposing: true })
+  await search.dispatchEvent('keydown', { key: 'Escape', isComposing: true })
+  await expect(search).toBeFocused()
+  expect(await page.evaluate(() => window.inspection.calls.some((call) => call.command === 'hide_history'))).toBe(false)
+  await search.fill('中文')
+  await search.dispatchEvent('compositionend', { data: '中文' })
+  await expect(page.locator('.clip-card')).toHaveCount(2)
+  await page.keyboard.press('Control+ArrowDown')
+  await expect(search).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.locator('.clip-main').first()).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.locator('.clip-main').last()).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect.poll(() => page.evaluate(() => window.inspection.calls.find((call) => call.command === 'history_action')?.args.action)).toEqual({ type: 'paste', id: 5 })
+  await search.focus()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: '清空搜索' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(search).toBeFocused()
+  await expect(page.locator('.clip-card')).toHaveCount(5)
+  await search.fill('中文')
+  await expect(page.locator('.clip-card')).toHaveCount(2)
+  await page.evaluate(() => window.inspection.reopen())
+  await expect(search).toHaveValue('')
+  await expect(page.locator('.clip-card')).toHaveCount(5)
+})
+
+test('search keeps empty history distinct and fits a narrow dark popup', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 400 })
+  await mockTauri(page, { items: [] })
+  await page.goto(desktopUrl)
+  const search = page.getByRole('searchbox', { name: '搜索剪贴板' })
+  await search.fill('查找内容')
+  await expect(page.getByRole('heading', { name: '复制一点内容，从这里开始' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '没有匹配的记录' })).toHaveCount(0)
+  await page.evaluate(() => {
+    window.inspection.snapshot.settings.themeMode = 'dark'
+    window.inspection.publish()
+  })
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await checkAccessibility(page)
+  await page.screenshot({ path: '.artifacts/history-search-dark-empty.png' })
+})
 
 test('long image history loads only nearby previews and releases offscreen blobs', async ({ page }) => {
   await mockTauri(page, { imageCount: 500 })

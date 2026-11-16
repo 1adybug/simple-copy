@@ -1,7 +1,7 @@
 import logo from '@simple-copy/brand/logo.svg'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { Clipboard, Copy, File, LoaderCircle, Pin, Settings2, Trash2, X } from 'lucide-react'
+import { Clipboard, Copy, File, LoaderCircle, Pin, Search, Settings2, Trash2, X } from 'lucide-react'
 import { Component, lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Feedback, IconButton } from '@/components/app-controls'
 import { ClipImage, useThumbnailVisibility } from '@/components/clip-image'
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { desktop, errorText, useClipboard, type Clip, type Kind } from './native'
 import { useTheme } from './theme'
 
@@ -56,10 +57,20 @@ function HistoryView({ state }: { state: ClipboardState }) {
   const { snapshot, action, busy, clearMessage } = state
   const [confirmation, setConfirmation] = useState<Clip | 'clear' | null>(null)
   const [navigationError, setNavigationError] = useState<string | null>(null)
+  const [searchValue, setSearchValue] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const search = useRef<HTMLInputElement>(null)
+  const composing = useRef(false)
   const list = useRef<HTMLDivElement>(null)
   const observeThumbnail = useThumbnailVisibility(list)
   const items = snapshot?.items ?? []
+  const query = searchQuery.trim().toLowerCase()
+  const filteredItems = query
+    ? items.filter((clip) => clip.text.toLowerCase().includes(query) || kindLabels[clip.kind].includes(query))
+    : items
   const ordinaryCount = items.filter((item) => !item.pinned).length
+
+  useEffect(() => { list.current?.scrollTo({ top: 0 }) }, [query])
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
@@ -72,6 +83,9 @@ function HistoryView({ state }: { state: ClipboardState }) {
     if (!desktop) return () => document.removeEventListener('keydown', onKey)
     const unlisten = listen('popup-opened', () => {
       clearMessage()
+      composing.current = false
+      setSearchValue('')
+      setSearchQuery('')
       list.current?.scrollTo({ top: 0 })
     })
     return () => {
@@ -106,9 +120,41 @@ function HistoryView({ state }: { state: ClipboardState }) {
           </div>
         </div>
       </header>
+      <search className="history-search" aria-label="搜索剪贴板">
+        <label htmlFor="history-query" className="sr-only">搜索剪贴板</label>
+        <Search className="history-search-icon" size={15} aria-hidden="true" />
+        <Input ref={search} id="history-query" className="history-search-input" type="search"
+          placeholder="搜索剪贴板" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+          aria-controls="clipboard-history" value={searchValue}
+          onChange={(event) => {
+            setSearchValue(event.target.value)
+            if (!composing.current) setSearchQuery(event.target.value)
+          }}
+          onCompositionStart={() => { composing.current = true }}
+          onCompositionEnd={(event) => {
+            composing.current = false
+            setSearchQuery(event.currentTarget.value)
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'ArrowDown' || event.nativeEvent.isComposing || composing.current
+              || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+            const first = list.current?.querySelector<HTMLButtonElement>('.clip-main:not(:disabled)')
+            if (!first) return
+            event.preventDefault()
+            first.focus({ preventScroll: true })
+            first.closest('.clip-card')?.scrollIntoView({ block: 'nearest' })
+          }} />
+        {searchValue && <IconButton label="清空搜索" className="history-search-clear" onClick={() => {
+          composing.current = false
+          setSearchValue('')
+          setSearchQuery('')
+          search.current?.focus()
+        }}><X size={14} /></IconButton>}
+      </search>
+      <span className="sr-only" role="status">{query && `找到 ${filteredItems.length} 条记录`}</span>
       <div className="history-scroll">
-        <div ref={list} className="history-list" role="list" aria-label="剪贴板历史" onKeyDown={navigate}>
-          {items.map((clip) => (
+        <div ref={list} id="clipboard-history" className="history-list" role="list" aria-label="剪贴板历史" onKeyDown={navigate}>
+          {filteredItems.map((clip) => (
             <ClipCard key={clip.id} clip={clip} busy={busy} observeThumbnail={observeThumbnail}
               onPaste={() => void action({ type: 'paste', id: clip.id })}
               onCopy={() => void action({ type: 'copy', id: clip.id })}
@@ -117,13 +163,20 @@ function HistoryView({ state }: { state: ClipboardState }) {
             />
           ))}
           {items.length === 0 && (
-            <div className="empty-state">
+            <div className="empty-state" role="listitem">
               {snapshot || !desktop ? <Clipboard size={30} strokeWidth={1.25} /> : <LoaderCircle className="animate-spin" size={24} />}
               <h2>{snapshot || !desktop ? '复制一点内容，从这里开始' : '正在连接剪贴板'}</h2>
               <p>文字、图片和文件会出现在这里</p>
               {snapshot && !snapshot.capabilities.background && (
                 <Button variant="secondary" size="sm" disabled={busy} onClick={() => void state.capture()}>收录当前剪贴板</Button>
               )}
+            </div>
+          )}
+          {items.length > 0 && filteredItems.length === 0 && (
+            <div className="empty-state" role="listitem">
+              <Search size={30} strokeWidth={1.25} aria-hidden="true" />
+              <h2>没有匹配的记录</h2>
+              <p>换个关键词，或清空搜索试试</p>
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { languageNames, supportedLocales, t, type Language } from '@simple-copy/i18n'
 import { useI18n } from '@simple-copy/i18n/react'
-import { Check, Clipboard, Keyboard, LoaderCircle, Monitor, Moon, RotateCcw, SlidersHorizontal, Sun } from 'lucide-react'
+import { LoaderCircle } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Feedback } from './app-controls'
 import {
@@ -87,10 +87,10 @@ export function SettingsPanel({ state, shortcutRecorder }: {
     <>
       <div className="settings-scroll">
         <form className="settings-form" noValidate onSubmit={(event) => event.preventDefault()}>
-          <SettingsSection id="preferences-heading" title={t('preferences')} icon={<SlidersHorizontal />}>
+          <SettingsSection id="preferences-heading" title={t('preferences')}>
             <ShortcutInput recorder={shortcutRecorder} value={settings.shortcut} onChange={(shortcut) => void save({ shortcut })} />
             {snapshot.shortcutError && <Feedback error={snapshot.shortcutError} />}
-            <div className="setting-line language-setting">
+            <div className="setting-line select-setting">
               <Label htmlFor="language">{t('language')}</Label>
               <SelectRoot value={settings.language} onValueChange={(language) => void save({ language: language as Language })}>
                 <SelectTrigger id="language"><SelectValue /></SelectTrigger>
@@ -100,23 +100,23 @@ export function SettingsPanel({ state, shortcutRecorder }: {
                 </SelectContent>
               </SelectRoot>
             </div>
-            <fieldset className="settings-field">
-              <legend id="theme-mode-heading">{t('theme')}</legend>
-              <RadioGroup className="theme-options" orientation="horizontal" aria-labelledby="theme-mode-heading" value={settings.themeMode}
-                onValueChange={(value) => void save({ themeMode: value as ThemeMode })}>
-                {([
-                  ['system', t('theme.system'), <Monitor />],
-                  ['light', t('theme.light'), <Sun />],
-                  ['dark', t('theme.dark'), <Moon />],
-                ] as const).map(([value, title, icon]) => (
-                  <RadioGroupItem key={value} value={value} variant="card" className="theme-choice">
-                    {icon}<span>{title}</span>
-                  </RadioGroupItem>
-                ))}
-              </RadioGroup>
-            </fieldset>
+            <div className="setting-line select-setting">
+              <Label htmlFor="theme-mode">{t('theme')}</Label>
+              <SelectRoot value={settings.themeMode} onValueChange={(value) => void save({ themeMode: value as ThemeMode })}>
+                <SelectTrigger id="theme-mode"><SelectValue /></SelectTrigger>
+                <SelectContent collisionPadding={16}>
+                  {([
+                    ['system', t('theme.system')],
+                    ['light', t('theme.light')],
+                    ['dark', t('theme.dark')],
+                  ] as const).map(([value, title]) => (
+                    <SelectItem key={value} value={value}>{title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </SelectRoot>
+            </div>
           </SettingsSection>
-          <SettingsSection id="recording-heading" title={t('recording')} icon={<Clipboard />}>
+          <SettingsSection id="recording-heading" title={t('recording')}>
             <fieldset className="settings-field">
               <legend>{t('recordFormats')}</legend>
               <div className="format-options">
@@ -134,9 +134,9 @@ export function SettingsPanel({ state, shortcutRecorder }: {
               </div>
             </fieldset>
             <HistoryLimitInput value={settings.maxHistoryItems} onChange={(maxHistoryItems) => void save({ maxHistoryItems })} />
-            <fieldset className="settings-field">
-              <legend id="retention-heading">{t('retention')}</legend>
-              <RadioGroup className="retention-options" orientation="horizontal" aria-labelledby="retention-heading" aria-describedby="retention-help" value={settings.retention}
+            <div className="setting-line">
+              <span id="retention-heading" className="setting-label">{t('retention')}</span>
+              <RadioGroup className="retention-options" orientation="horizontal" aria-labelledby="retention-heading" value={settings.retention}
                 onValueChange={(value) => {
                   retentionFocus.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
                   updateRetention(value as Retention)
@@ -149,14 +149,13 @@ export function SettingsPanel({ state, shortcutRecorder }: {
                   </RadioGroupItem>
                 ))}
               </RadioGroup>
-              <p id="retention-help" className="field-help">{t(`retentionDetail.${settings.retention}`)}</p>
-            </fieldset>
+            </div>
             {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
           </SettingsSection>
-          <SettingsSection id="restore-heading" title={t('restore')} icon={<RotateCcw />}>
+          <SettingsSection id="restore-heading" title={t('restore')}>
             <div className="setting-line restore-toggle">
               <Label htmlFor="restore-enabled" className="choice-copy"><span id="restore-label">{t('restoreEnabled')}</span>
-                <small id="restore-help">{t('restoreHelp')}</small></Label>
+                <small id="restore-help" className="sr-only">{t('restoreHelp')}</small></Label>
               <Switch id="restore-enabled" aria-labelledby="restore-label" aria-describedby="restore-help" checked={settings.restoreEnabled}
                 disabled={!snapshot.capabilities.restoreAvailable} onCheckedChange={(checked) => void save({ restoreEnabled: checked })} />
             </div>
@@ -171,7 +170,7 @@ export function SettingsPanel({ state, shortcutRecorder }: {
                   <span id="restore-delay-unit" aria-hidden="true">{t('seconds')}</span>
                 </div>
               </div>
-              <p id="delay-help" className="field-help">{t('delayHelp')}</p>
+              <p id="delay-help" className="sr-only">{t('delayHelp')}</p>
               {validation && <p id="delay-error" role="alert" className="field-error">{validation}</p>}
             </div>
             {!snapshot.capabilities.restoreAvailable && !snapshot.capabilities.message && <p className="field-help">{t('restoreUnavailable')}</p>}
@@ -179,12 +178,10 @@ export function SettingsPanel({ state, shortcutRecorder }: {
           {snapshot.capabilities.message && <Feedback message={snapshot.capabilities.message} />}
         </form>
       </div>
-      <footer className="settings-status" aria-label={t('saveStatus')}>
-        {state.error
-          ? <Feedback error={state.error} onDismiss={state.clearMessage} />
-          : <p role="status">{savingSettings ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : state.message ? <Check aria-hidden="true" /> : <Check className="save-idle-icon" aria-hidden="true" />}
-            <span>{savingSettings ? t('saving') : state.message || t('autoSave')}</span></p>}
-      </footer>
+      <div className="sr-only" role="status" aria-label={t('saveStatus')}>
+        {savingSettings ? t('saving') : state.message}
+      </div>
+      {state.error && <div className="window-feedback"><Feedback error={state.error} onDismiss={state.clearMessage} /></div>}
       <AlertDialog open={confirmRetention !== null} onOpenChange={(open) => { if (!open) setConfirmRetention(null) }}>
         <AlertDialogContent className="settings-confirm" onCloseAutoFocus={(event) => {
           event.preventDefault()
@@ -201,9 +198,9 @@ export function SettingsPanel({ state, shortcutRecorder }: {
   )
 }
 
-function SettingsSection({ id, title, icon, children }: { id: string; title: string; icon: ReactNode; children: ReactNode }) {
+function SettingsSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return <section className="settings-panel" aria-labelledby={id}>
-    <h2 id={id}><span aria-hidden="true">{icon}</span>{title}</h2>
+    <h2 id={id} className="sr-only">{title}</h2>
     {children}
   </section>
 }
@@ -300,9 +297,9 @@ function ShortcutInput({ value, onChange, recorder }: {
   return (
     <div className="shortcut-setting">
       <div className="setting-line">
-        <span id="shortcut-label" className="shortcut-label"><Keyboard aria-hidden="true" />{t('shortcut')}</span>
+        <span id="shortcut-label" className="setting-label">{t('shortcut')}</span>
         <Button type="button" variant="secondary" className="shortcut-recorder" aria-pressed={recording}
-          aria-labelledby="shortcut-label shortcut-value" aria-describedby="shortcut-help"
+          aria-labelledby="shortcut-label shortcut-value" aria-describedby={error || recording ? 'shortcut-help' : undefined}
           onClick={() => {
             setRecording(true)
             setError(null)
@@ -316,9 +313,9 @@ function ShortcutInput({ value, onChange, recorder }: {
           </span>}</span>
         </Button>
       </div>
-      <small id="shortcut-help" className={error ? 'field-error' : 'field-help'} role={error ? 'alert' : undefined}>
-        {error || (recording ? t('shortcutRecordingHelp') : t('shortcutHelp'))}
-      </small>
+      {(error || recording) && <small id="shortcut-help" className={error ? 'field-error' : 'field-help'} role={error ? 'alert' : undefined}>
+        {error || t('shortcutRecordingHelp')}
+      </small>}
     </div>
   )
 }

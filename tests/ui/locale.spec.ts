@@ -25,9 +25,15 @@ for (const locale of supportedLocales) {
     await page.goto('http://127.0.0.1:1421/?view=settings')
     await expect(page.locator('html')).toHaveAttribute('lang', locale)
     await expect(page).toHaveTitle(`${translate(locale, 'settings')} · Simple Copy`)
-    await expect(page.getByRole('heading', { name: translate(locale, 'preferences'), exact: true })).toBeVisible()
+    await expect(page.getByRole('region', { name: translate(locale, 'preferences'), exact: true })).toBeVisible()
     await page.getByRole('checkbox', { name: translate(locale, 'format.link'), exact: true }).uncheck()
-    await expect(page.locator('.settings-status')).toContainText(translate(locale, 'saved'))
+    await expect(page.getByRole('status', { name: translate(locale, 'saveStatus') })).toContainText(translate(locale, 'saved'))
+    expect(await page.locator('.format-choice[data-format="files"]').evaluate((element) => {
+      const text = document.createRange()
+      text.selectNodeContents(element.querySelector('.format-title')!)
+      const lines = [...text.getClientRects()].filter((box) => box.width > 0)
+      return lines.length === 1 && lines[0].right <= element.querySelector('[data-slot="checkbox"]')!.getBoundingClientRect().left
+    })).toBe(true)
     const delay = page.getByRole('spinbutton', { name: translate(locale, 'restoreDelay') })
     await delay.fill('0')
     await expect(delay).toHaveAttribute('aria-invalid', 'true')
@@ -36,7 +42,7 @@ for (const locale of supportedLocales) {
     expect(await page.locator('.settings-form').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
     if (['de', 'ja', 'zh-TW'].includes(locale)) await checkAccessibility(page)
     if (['de', 'ja'].includes(locale)) {
-      await page.locator('#preferences-heading').scrollIntoViewIfNeeded()
+      await page.getByRole('region', { name: translate(locale, 'preferences'), exact: true }).scrollIntoViewIfNeeded()
       await page.screenshot({ path: `.artifacts/i18n-settings-${locale}.png` })
     }
   })
@@ -130,14 +136,14 @@ test('a failed language save keeps the confirmed locale and can be retried', asy
   await page.goto('http://127.0.0.1:1421/?view=settings')
   await page.getByRole('combobox', { name: '语言', exact: true }).click()
   await page.getByRole('option', { name: 'English', exact: true }).click()
-  await expect(page.locator('.settings-status')).toContainText('设置保存失败，请重试。')
+  await expect(page.getByRole('alert')).toContainText('设置保存失败，请重试。')
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
   await expect(page.getByRole('combobox', { name: '语言', exact: true })).toHaveText('跟随系统')
   expect(await page.evaluate(() => window.inspection.snapshot.settings.language)).toBe('system')
   await page.getByRole('combobox', { name: '语言', exact: true }).click()
   await page.getByRole('option', { name: 'English', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-  await expect(page.locator('.settings-status')).toContainText('Settings saved')
+  await expect(page.getByRole('status', { name: 'Settings save status' })).toContainText('Settings saved')
 })
 
 test('native locale lookup failures use English even when the browser language is Chinese', async ({ page }) => {

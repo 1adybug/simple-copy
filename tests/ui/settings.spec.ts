@@ -5,7 +5,7 @@ import { mockTauri } from './tauri-mock'
 const settingsUrl = 'http://127.0.0.1:1421/?view=settings'
 test.use({ viewport: { width: 480, height: 640 } })
 
-test('new groups retain every setting and rapid format changes save together', async ({ page }) => {
+test('compact groups retain every setting without persistent hints and rapid format changes save together', async ({ page }) => {
   await mockTauri(page, { saveDelay: 100 })
   await page.goto(settingsUrl)
   for (const name of ['使用偏好', '记录与保存', '自动恢复']) {
@@ -13,9 +13,15 @@ test('new groups retain every setting and rapid format changes save together', a
   }
   await expect(page.getByRole('checkbox')).toHaveCount(5)
   await expect(page.getByRole('combobox', { name: '语言', exact: true })).toHaveCount(1)
-  await expect(page.getByRole('spinbutton', { name: '最多保存条数' })).toHaveValue('20')
-  const footer = page.locator('.settings-status')
-  const footerY = (await footer.boundingBox())!.y
+  await expect(page.getByRole('combobox', { name: '明暗模式', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('spinbutton', { name: '记录上限' })).toHaveValue('20')
+  await expect(page.locator('.settings-status')).toHaveCount(0)
+  await expect(page.getByText('更改会自动保存', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('点击修改', { exact: true })).toHaveCount(0)
+  await expect(page.locator('#shortcut-help')).toHaveCount(0)
+  await expect(page.getByRole('spinbutton', { name: '恢复延迟' })).toBeInViewport()
+  const status = page.getByRole('status', { name: '设置保存状态' })
+  await expect(status).toHaveClass('sr-only')
   // The complete tile is a label; one click must produce exactly one change.
   await page.locator('.format-choice[data-format="text"]').click()
   await page.getByRole('checkbox', { name: '链接', exact: true }).uncheck()
@@ -23,8 +29,7 @@ test('new groups retain every setting and rapid format changes save together', a
   await page.getByRole('checkbox', { name: '图片', exact: true }).uncheck()
   await page.getByRole('checkbox', { name: '文件与文件夹', exact: true }).uncheck()
   await expect.poll(() => page.evaluate(() => Object.values(window.inspection.snapshot.settings.formats).every((enabled) => !enabled))).toBe(true)
-  await expect(footer).toContainText('设置已保存')
-  expect((await footer.boundingBox())!.y).toBe(footerY)
+  await expect(status).toContainText('设置已保存')
   expect(await page.evaluate(() => window.inspection.calls.filter((call) => call.command === 'save_settings').length)).toBe(5)
   await page.getByRole('checkbox', { name: '纯文本', exact: true }).focus()
   await page.keyboard.press('Space')
@@ -40,7 +45,7 @@ test('new groups retain every setting and rapid format changes save together', a
 test('history limit commits only on blur or non-composing Enter and confirms reductions', async ({ page }) => {
   await mockTauri(page, { settings: { maxHistoryItems: 100 } })
   await page.goto(settingsUrl)
-  const limit = page.getByRole('spinbutton', { name: '最多保存条数' })
+  const limit = page.getByRole('spinbutton', { name: '记录上限' })
   await limit.fill('60')
   await limit.dispatchEvent('keydown', { key: 'Enter', isComposing: true })
   expect(await page.evaluate(() => window.inspection.snapshot.settings.maxHistoryItems)).toBe(100)
@@ -72,8 +77,8 @@ test('retention choices confirm disk reductions and restore focus after cancella
   await mockTauri(page)
   await page.goto(settingsUrl)
   const retention = page.getByRole('radiogroup', { name: '退出后保留' })
-  const all = retention.getByRole('radio', { name: '保留全部', exact: true })
-  const session = retention.getByRole('radio', { name: '仅本次运行', exact: true })
+  const all = retention.getByRole('radio', { name: '全部', exact: true })
+  const session = retention.getByRole('radio', { name: '不保留', exact: true })
   await all.click()
   await expect.poll(() => page.evaluate(() => window.inspection.snapshot.settings.retention)).toBe('all')
   await session.click()
@@ -94,7 +99,7 @@ test('retention choices confirm disk reductions and restore focus after cancella
 test('restore remains configurable while off, validates seconds and respects platform capability', async ({ page }) => {
   await mockTauri(page, { capabilities: { restoreAvailable: false, message: '当前平台暂不支持常驻恢复。' } })
   await page.goto(settingsUrl)
-  const toggle = page.getByRole('switch', { name: '恢复置顶内容', exact: true })
+  const toggle = page.getByRole('switch', { name: '自动恢复置顶内容', exact: true })
   await expect(toggle).toBeDisabled()
   const delay = page.getByRole('spinbutton', { name: '恢复延迟' })
   await expect(delay).toBeEnabled()
@@ -117,11 +122,13 @@ test('theme follows live system changes only in system mode', async ({ page }) =
   await page.emulateMedia({ colorScheme: 'light' })
   await mockTauri(page)
   await page.goto(settingsUrl)
-  await page.getByRole('radio', { name: '深色', exact: true }).click()
+  await page.getByRole('combobox', { name: '明暗模式', exact: true }).click()
+  await page.getByRole('option', { name: '深色', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.emulateMedia({ colorScheme: 'light' })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await page.getByRole('radio', { name: '跟随系统', exact: true }).click()
+  await page.getByRole('combobox', { name: '明暗模式', exact: true }).click()
+  await page.getByRole('option', { name: '跟随系统', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await page.emulateMedia({ colorScheme: 'dark' })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
@@ -132,12 +139,14 @@ test('theme follows live system changes only in system mode', async ({ page }) =
 test('shortcut recording supports keyboard, native events, cancellation and IME', async ({ page }) => {
   await mockTauri(page)
   await page.goto(settingsUrl)
-  const recorder = page.getByRole('button', { name: /^呼出快捷键/ })
+  const recorder = page.getByRole('button', { name: /^快捷键/ })
   await recorder.click()
+  await expect(page.locator('#shortcut-help')).toHaveText('按 Esc 取消录入，按 Tab 离开')
   await recorder.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true })
   await expect(recorder).toHaveAttribute('aria-pressed', 'true')
   await recorder.press('Escape')
   await expect(recorder).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.locator('#shortcut-help')).toHaveCount(0)
   await recorder.click()
   await recorder.press('Tab')
   await expect(recorder).not.toBeFocused()
@@ -158,10 +167,10 @@ test('closing waits for automatic saves and a failed save keeps the window open 
   const text = page.getByRole('checkbox', { name: '纯文本', exact: true })
   const close = page.getByRole('button', { name: '关闭设置', exact: true })
   await text.uncheck()
-  await expect(page.locator('.settings-status')).toContainText('正在保存设置')
+  await expect(page.getByRole('status', { name: '设置保存状态' })).toContainText('正在保存设置')
   await close.click()
   expect(await page.evaluate(() => window.inspection.calls.some((call) => call.command === 'plugin:window|destroy'))).toBe(false)
-  await expect(page.locator('.settings-status')).toContainText('设置保存失败，请重试。')
+  await expect(page.getByRole('alert')).toContainText('设置保存失败，请重试。')
   await expect(text).toBeChecked()
   expect(await page.evaluate(() => window.inspection.calls.some((call) => call.command === 'plugin:window|destroy'))).toBe(false)
   await text.uncheck()
@@ -182,23 +191,32 @@ for (const scenario of [
     await mockTauri(page)
     await page.goto(settingsUrl)
     await expect(page.getByRole('region', { name: '使用偏好' })).toBeVisible()
-    await page.getByRole('button', { name: /^呼出快捷键/ }).focus()
+    await page.getByRole('button', { name: /^快捷键/ }).focus()
     await checkAccessibility(page)
     await page.screenshot({ path: `.artifacts/settings-${scenario.name}-top.png` })
-    await page.getByRole('spinbutton', { name: '最多保存条数' }).scrollIntoViewIfNeeded()
+    await page.getByRole('spinbutton', { name: '记录上限' }).scrollIntoViewIfNeeded()
     // Radix also mounts visually hidden form-bridge inputs; measure the visible controls.
     expect(await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.settings-panel, .settings-panel button, .settings-panel [data-slot="input"], .format-choice')].every((element) => {
       const box = element.getBoundingClientRect()
       return box.left >= 0 && box.right <= window.innerWidth
     }))).toBe(true)
+    const files = page.locator('.format-choice[data-format="files"]')
+    expect(await files.evaluate((element) => {
+      const title = element.querySelector('.format-title')!
+      const checkbox = element.querySelector('[data-slot="checkbox"]')!
+      const text = document.createRange()
+      text.selectNodeContents(title)
+      const lines = [...text.getClientRects()].filter((box) => box.width > 0)
+      return lines.length === 1 && lines[0].right <= checkbox.getBoundingClientRect().left
+    })).toBe(true)
     await page.locator('.settings-form').evaluate((form) => {
       const panel = form.querySelector<HTMLElement>('[aria-labelledby="recording-heading"]')!
       form.scrollTop += panel.getBoundingClientRect().top - form.getBoundingClientRect().top
     })
     await page.screenshot({ path: `.artifacts/settings-${scenario.name}-recording.png` })
-    await page.getByRole('switch', { name: '恢复置顶内容', exact: true }).focus()
+    await page.getByRole('switch', { name: '自动恢复置顶内容', exact: true }).focus()
     await expect(page.getByRole('button', { name: '关闭设置', exact: true })).toBeInViewport()
-    await expect(page.locator('.settings-status')).toBeInViewport()
+    await expect(page.locator('.settings-status')).toHaveCount(0)
     await checkAccessibility(page)
     await page.screenshot({ path: `.artifacts/settings-${scenario.name}-restore.png` })
   })

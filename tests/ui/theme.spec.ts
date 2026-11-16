@@ -32,7 +32,8 @@ for (const view of ['history', 'settings'] as const) {
       await expect.poll(() => page.locator('.app-window').evaluate((app) => getComputedStyle(app).backgroundColor)).toMatch(/^rgb\(/)
       expect(await page.evaluate(() => window.inspection.calls.filter((call) => call.command === 'save_settings'))).toHaveLength(0)
       if (view === 'settings') {
-        await page.getByRole('radio', { name: mode === 'dark' ? '浅色' : '深色', exact: true }).click()
+        await page.getByRole('combobox', { name: '明暗模式', exact: true }).click()
+        await page.getByRole('option', { name: mode === 'dark' ? '浅色' : '深色', exact: true }).click()
         await expect(root).toHaveAttribute('data-theme', mode === 'dark' ? 'light' : 'dark')
         await expect.poll(() => root.evaluate((html) => html.style.getPropertyValue('--sc-primary'))).not.toBe('')
         await page.evaluate(() => { window.inspection.appearance.transparency = true; window.inspection.publishAppearance() })
@@ -83,10 +84,11 @@ test('high contrast overrides custom colors and transparency without changing br
 test('unavailable native appearance leaves a usable solid theme', async ({ page }) => {
   await mockTauri(page, { appearanceFailure: true })
   await page.goto(`${desktopUrl}?view=settings`)
-  await page.getByRole('radio', { name: '深色', exact: true }).click()
+  await page.getByRole('combobox', { name: '明暗模式', exact: true }).click()
+  await page.getByRole('option', { name: '深色', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await expect(page.locator('html')).toHaveAttribute('data-transparency', 'false')
-  await expect(page.locator('.settings-status')).toContainText('设置已保存')
+  await expect(page.getByRole('status', { name: '设置保存状态' })).toContainText('设置已保存')
   await checkAccessibility(page)
 })
 
@@ -103,7 +105,7 @@ test('reduced transparency and motion follow system preferences in a fixed light
   await expect(page.locator('html')).toHaveAttribute('data-transparency', 'false')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   expect(await page.locator('html').evaluate((html) => html.style.getPropertyValue('--sc-primary'))).toBe(primary)
-  await expect(page.getByRole('switch', { name: '恢复置顶内容', exact: true })).toHaveCSS('transition-duration', '1e-05s')
+  await expect(page.getByRole('switch', { name: '自动恢复置顶内容', exact: true })).toHaveCSS('transition-duration', '1e-05s')
   await client.send('Emulation.setEmulatedMedia', { features: [] })
   await expect(page.locator('html')).toHaveAttribute('data-transparency', 'true')
 })

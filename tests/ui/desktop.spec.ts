@@ -169,20 +169,18 @@ test('failed thumbnail requests keep clipboard actions and keyboard navigation u
   await expect.poll(() => page.evaluate(() => window.inspection.calls.some((call) => call.command === 'history_action'))).toBe(true)
 })
 
-test('settings remain operable while loading and retain their authored select and theme', async ({ page }) => {
+test('settings remain operable while loading and expose keyboard-accessible theme choices', async ({ page }) => {
+  await page.setViewportSize({ width: 480, height: 640 })
   await mockTauri(page, { snapshotDelay: 400 })
   await page.goto(`${desktopUrl}/?view=settings`)
   await expect(page.getByRole('button', { name: '关闭设置' })).toBeVisible()
-  await expect(page.getByRole('combobox', { name: '主题模式' })).toBeVisible()
-  const theme = page.locator('[data-slot="select-trigger"]').first()
-  const triggerBox = (await theme.boundingBox())!
-  await theme.click()
-  const options = page.getByRole('listbox')
-  await expect(options).toBeVisible()
-  expect(Math.abs((await options.boundingBox())!.width - triggerBox.width)).toBeLessThanOrEqual(1)
-  await page.getByRole('option', { name: '深色' }).click()
+  const theme = page.getByRole('radiogroup', { name: '主题模式' })
+  await expect(theme).toBeVisible()
+  await theme.getByRole('radio', { name: '浅色', exact: true }).focus()
+  // Radix moves focus asynchronously; model a physical keypress through that focus event.
+  await page.keyboard.press('ArrowRight', { delay: 50 })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await expect(theme).toBeFocused()
+  await expect(theme.getByRole('radio', { name: '深色', exact: true })).toBeFocused()
   await checkAccessibility(page)
   await page.screenshot({ path: '.artifacts/optimization-settings-after.png' })
 })
@@ -203,7 +201,7 @@ test('settings code stays deferred in history and module failures can be retried
   await expect(page.getByRole('button', { name: '重新载入' })).toBeVisible()
   await page.unroute('**/assets/SettingsView-*.js')
   await page.getByRole('button', { name: '重新载入' }).click()
-  await expect(page.getByRole('combobox', { name: '主题模式' })).toBeVisible()
+  await expect(page.getByRole('radiogroup', { name: '主题模式' })).toBeVisible()
 })
 
 test('history accessibility is preserved with offscreen rendering enabled', async ({ page }) => {

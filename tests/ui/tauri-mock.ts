@@ -7,6 +7,10 @@ interface MockOptions {
   thumbnailFailure?: boolean
   thumbnailDelay?: number
   snapshotDelay?: number
+  settings?: Partial<Snapshot['settings']>
+  capabilities?: Partial<Snapshot['capabilities']>
+  saveDelay?: number
+  saveFailures?: number
 }
 
 export async function mockTauri(page: Page, options: MockOptions = {}) {
@@ -27,10 +31,12 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
         formats: { text: true, link: true, richText: true, image: true, files: true },
         retention: 'pinned', maxHistoryItems: 100,
         restoreEnabled: false, restoreSeconds: 5,
+        ...options.settings,
       },
       capabilities: {
         platform: 'windows', background: true, automaticPaste: true,
         restoreAvailable: true, canAuthorize: false, message: null,
+        ...options.capabilities,
       },
       storageStatus: null, shortcutError: null, error: null, restorePending: false,
     }
@@ -55,9 +61,11 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
     }
     const inspection = {
       snapshot, calls, activeUrls, pendingThumbnails: 0,
+      emit,
       publish: () => { snapshot.revision++; emit('clipboard-state', structuredClone(snapshot)) },
       reopen: () => { snapshot.popupToken++; emit('popup-opened', snapshot.popupToken) },
     }
+    let saveFailures = options.saveFailures ?? 0
     Object.assign(window, {
       inspection,
       isTauri: true,
@@ -89,7 +97,10 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
             } finally { inspection.pendingThumbnails-- }
           }
           if (command === 'plugin:window|is_maximized') return false
+          if (command === 'plugin:window|close') { emit('tauri://close-requested', null); return }
           if (command === 'save_settings') {
+            if (options.saveDelay) await new Promise((resolve) => setTimeout(resolve, options.saveDelay))
+            if (saveFailures > 0) { saveFailures--; throw new Error('设置保存失败，请重试。') }
             snapshot.settings = structuredClone(args.settings as Snapshot['settings'])
             snapshot.revision++
             emit('clipboard-state', structuredClone(snapshot))
@@ -110,6 +121,7 @@ declare global {
       calls: { command: string; args: Record<string, unknown> }[]
       activeUrls: Set<string>
       pendingThumbnails: number
+      emit: (event: string, payload: unknown) => void
       publish: () => void
       reopen: () => void
     }

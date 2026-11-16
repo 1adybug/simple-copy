@@ -14,6 +14,7 @@
   --sc-hover: #f4edf8;
   --sc-control: #947f9f;
   --sc-muted: #716576;
+  --sc-muted-on-fill: #63546b;
   --sc-danger: #a4263b;
   --sc-danger-hover: #8d1e31;
   --sc-danger-foreground: #ffffff;
@@ -51,6 +52,7 @@
   --sc-hover: #3a2f42;
   --sc-control: #9c88a7;
   --sc-muted: #c4b2cd;
+  --sc-muted-on-fill: #c4b2cd;
   --sc-danger: #ffa5b6;
   --sc-danger-hover: #ffc0cc;
   --sc-danger-foreground: #3b0e19;

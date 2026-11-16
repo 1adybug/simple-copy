@@ -16,6 +16,7 @@ colors:
   hover: "#f4edf8"
   control: "#947f9f"
   muted: "#716576"
+  muted-on-fill: "#63546b"
   danger: "#a4263b"
 typography:
   sans:
@@ -55,6 +56,18 @@ components:
     textColor: "{colors.primary}"
   caption:
     textColor: "{colors.muted}"
+  on-tint-caption:
+    textColor: "{colors.muted-on-fill}"
+  switch:
+    backgroundColor: "{colors.control}"
+  switch-checked:
+    backgroundColor: "{colors.primary}"
+  button-hover:
+    backgroundColor: "{colors.primary-hover}"
+  button-active:
+    backgroundColor: "{colors.primary-active}"
+  card-hover:
+    backgroundColor: "{colors.hover}"
   panel:
     backgroundColor: "{colors.panel}"
   destructive-action:
@@ -78,13 +91,15 @@ The monorepo has two visual registers: the compact desktop product and a spaciou
 
 History and settings share lavender panel surfaces (#eae1f0) and white content cards (#ffffff), establishing boundaries through color. Secondary controls use a lavender fill, menus use the popover fill, and selected options use the accent fill. Hover uses a distinct light fill; pressed controls deepen their fill. Plum identifies active pins and primary actions. Errors and deletion confirmations use the danger color together with explicit text. Keyboard focus retains a visible outline. Forced-colors mode uses system colors and borders so that controls remain distinguishable when background colors are replaced.
 
+Settings map their muted foreground to the shared --sc-muted-on-fill token (#63546b in light mode, #c4b2cd in dark mode). This paired caption color remains legible on both secondary and selected accent fills, including format descriptions, retention help, the brand label and save status. The existing --sc-muted role continues to serve captions on lighter surfaces elsewhere.
+
 Desktop settings offer system, light and dark theme modes, with system as the default for new and existing settings. Rust Settings owns the persisted preference and applies it to the native application; the shared App theme hook resolves system changes and sets data-theme on the document for both history and settings. Both windows consume the same saved snapshot. Explicit light or dark mode stays fixed until the preference changes. The marketing website retains its light palette.
 
 packages/brand/tokens.css remains the canonical palette source. Its dark selector maps the same semantic roles to background #1d1721, panel #251d2b, card #302637, popover and secondary #3a2d42, foreground #f2eaf6, muted #c4b2cd, primary #d2a4e6 and danger #ffa5b6. Primary and danger controls use their paired foreground tokens so text and selection indicators remain legible in both modes. Desktop icons, empty states and feedback also consume paired theme tokens; changing themes preserves the existing light colors, geometry, flat surfaces and forced-colors behavior. The desktop Tailwind dark variant follows data-theme rather than a separate system preference.
 
 ## Typography
 
-The Windows font stack matches the reference. History text uses 13px type with 1.65 line height. Settings use 12px labels and 11px supporting copy. Preview text preserves source whitespace and wraps long lines.
+The Windows font stack matches the reference. History text uses 13px type with 1.65 line height. Settings use 13px section headings, 12px labels and 11px supporting copy. Preview text preserves source whitespace and wraps long lines.
 
 ## Layout
 
@@ -93,6 +108,8 @@ The history window measures 360 by 400 logical pixels. Its single-row title bar 
 The fixed search field sits between the title bar and history list, uses the shared Input with a card fill, and aligns to the list's horizontal padding. It filters the current list's preview text and content-type labels immediately, ignoring case and surrounding whitespace. IME composition updates the input without filtering unfinished text. A localized clear button restores all items and focuses the input; Arrow Down enters the filtered list. No-results copy is distinct from empty history. Search is transient and resets when the popup opens; clipboard queries are not written to URLs or persistent storage. Clear-unpinned continues to apply to the complete history and states its full count in the confirmation.
 
 All desktop scroll surfaces, including history, settings, feedback and menus, hide native scrollbars while retaining wheel, touchpad and keyboard scrolling. Scrollbar tracks reserve no layout space. The global rule in apps/desktop/src/index.css owns this behavior.
+
+Settings use a compact single page in the existing 480 by 640 logical-pixel window, with a 400 by 480 minimum. The fixed title bar pairs the product mark and 设置 with a small Simple Copy label and native window actions. The form owns scrolling between the title bar and a persistent automatic-save status footer. Three white panels replace the previous seven standalone sections: 使用偏好 contains the shortcut and theme; 记录与保存 contains formats, count limit and retention; 自动恢复 contains the restore switch and delay. Panels use 16px padding and 12px gaps, with a maximum content width of 620px. Below 420px, padding tightens and format tiles change from three columns to two; 文件与文件夹 spans two columns in both layouts. The title bar and save status remain accessible while the form scrolls.
 
 ## Elevation & Depth
 
@@ -106,26 +123,27 @@ The popup and cards use 9px corners. Body-level clipping shares the popup radius
 
 ## Components
 
-Shared shadcn/ui Button, Card, DropdownMenu, AlertDialog, Select, Switch, RadioGroup, Label and Input own their respective interactions. History actions use sibling buttons to keep paste, pin, copy and delete targets independent. Pin, copy and delete form a right-hand column aligned to the three text line boxes; pin remains visible, while copy and delete appear on card hover or keyboard focus. Every icon action retains its accessible label. Application and tray tooltips are intentionally absent.
+Shared shadcn/ui Button, Card, DropdownMenu, AlertDialog, Select, Switch, RadioGroup, Checkbox, Label and Input own their respective interactions. History actions use sibling buttons to keep paste, pin, copy and delete targets independent. Pin, copy and delete form a right-hand column aligned to the three text line boxes; pin remains visible, while copy and delete appear on card hover or keyboard focus. Every icon action retains its accessible label. Application and tray tooltips are intentionally absent.
 
-Button uses filled primary and secondary variants or a ghost variant. Input uses a secondary fill. Switch and RadioGroup use solid control fills, with thumb position and an inner dot identifying state as well as color. Settings rows are independent color blocks separated by 4px gaps. Theme mode and history retention use the shared Radix-backed Select with card-filled triggers and flat, portal-mounted popover menus matching the trigger width. Options use accent fills and a checkmark for selection; retention options retain their descriptions, also shown below the current selection. Shared brand surface and control tokens in packages/brand/tokens.css map through apps/desktop/src/index.css into these primitives; website demonstrations consume the same tokens directly.
+Button uses filled primary and secondary variants or a ghost variant. Input uses a secondary fill. Switch, RadioGroup and Checkbox use solid control fills, with thumb position, an inner dot or a checkmark identifying state as well as color. Settings use the shared Radix-backed RadioGroup card variant for fully exposed choices: three equal icon-and-label theme tiles, and a vertical retention list with each option's description. Five format tiles use shared Checkbox and Label so clicking anywhere on a tile toggles it exactly once; all formats may be disabled. Secondary fills distinguish controls within each white panel, with accent fills identifying selection. The existing authored Select remains the owner for actual dropdowns. Shared brand surface and control tokens in packages/brand/tokens.css map through apps/desktop/src/index.css into these primitives; website demonstrations consume the same tokens directly.
 
 Every enabled action has hover, pressed and visible keyboard-focus states. Busy actions are guarded against duplicate requests. Dialogs trap and restore focus. Settings save valid field changes automatically through the shared serialized settings queue, own numeric validation and error text, and confirm reductions in disk history retention. There is no manual save action or privacy note. A shared Feedback component announces action outcomes.
 
-Settings label the shortcut section 快捷键. The 其他设置 section presents 常驻回复 as the same icon, label, description and switch row used by recording-format settings. Shortcut and valid delay inputs use white card fills in light mode, mapped through the shared card token in dark mode; the numeric delay input hides native stepper arrows.
+The 使用偏好 panel starts with 呼出快捷键: a clickable recorder containing individual keycaps, followed by recording/cancellation guidance and inline errors. Escape cancels, Tab cancels and leaves the recorder, and composing IME events do not record shortcuts. The 自动恢复 panel labels the feature 常驻恢复 and explains that it restores the first pinned item. Its delay stays editable while the feature is off, allowing preconfiguration; platform capability still governs the switch. Numeric fields include a visible 条 or 秒 suffix and hide native stepper arrows. Global save feedback lives in the fixed footer, distinguishes idle/saving/saved/error states, and never reports success before the queue completes. Field errors remain next to their controls. Retention and count confirmations restore keyboard focus to the initiating field.
 
-The 历史条数 section uses the same numeric setting row for 最多保存条数. Rust Settings owns the persisted count limit, which defaults to 100 for new and existing settings; 0 removes the count limit and pinned entries do not count toward it. The existing byte budget still applies. Count edits commit on blur or Enter so intermediate digits cannot prune history. Reducing the limit requires the shared confirmation dialog; saving the setting and pruning disk history happen together, and in-memory history changes only after storage succeeds.
+The 记录与保存 panel includes 最多保存条数. Rust Settings owns the persisted count limit, which defaults to 100 for new and existing settings; 0 removes the count limit and pinned entries do not count toward it. The existing byte budget still applies. Count edits commit on blur or non-composing Enter so intermediate digits cannot prune history. Reducing the limit requires the shared confirmation dialog; saving the setting and pruning disk history happen together, and in-memory history changes only after storage succeeds.
 
 Arrow keys navigate history items, Enter selects and Escape dismisses the popup. Modified keys and IME composition retain their native behavior. Clipboard HTML is stored as data and previewed as plain text. Image previews use bounded PNG thumbnails in a stable 135px frame, preserving aspect ratio through object-fit. One observer per history list requests previews only within the viewport and a 160px margin; leaving that region releases the image object URL, and late responses cannot revive removed previews. Cards progressively use content-visibility with content-derived intrinsic heights; unsupported engines render the full list. All records remain in the DOM for keyboard navigation and assistive technology. Reduced-motion preferences shorten animation and transition durations.
 
-The history entry loads independently of the settings form and its Select/Switch dependencies. The settings title bar stays available while the form module or settings snapshot loads, and a module failure provides an explicit reload action. Both windows retain the shared serialized settings queue in apps/desktop/src/native.ts.
+The history entry loads independently of the settings form and its RadioGroup/Checkbox/Switch dependencies. The settings title bar stays available while the form module or settings snapshot loads, and a module failure provides an explicit reload action. Both windows retain the shared serialized settings queue in apps/desktop/src/native.ts.
 
 ### Canonical UI Map
 
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
-| Select/Listbox | apps/desktop/src/components/ui/select.tsx | Settings fields in this document | Authored Radix Select | tests/ui/desktop.spec.ts popup, keyboard and theme checks |
-| Form | apps/desktop/src/SettingsView.tsx and native.ts settings queue | Settings and retention rules in README.md | Automatic save; numeric commit on blur or Enter | Typecheck and existing Rust settings tests |
+| Select/Listbox | apps/desktop/src/components/ui/select.tsx | Dropdown ownership; fixed setting choices use RadioGroup | Authored Radix Select when a dropdown is needed | Shared primitive; no current settings dropdown |
+| Single/Multiple Choice | Shared ui/radio-group.tsx and ui/checkbox.tsx | Settings groups in this document | Radio card; checkbox tile; native keyboard semantics | tests/ui/settings.spec.ts keyboard, theme and selection checks |
+| Form | apps/desktop/src/SettingsView.tsx and native.ts settings queue | Settings and retention rules in README.md | Automatic save; numeric count commit on blur or Enter | tests/ui/settings.spec.ts save, failure, close and confirmation checks; Rust settings tests |
 | Scrollbar | apps/desktop/src/index.css and apps/website/src/styles.css | Layout rules in this document | Hidden desktop scrollbars; visible website scrollbars | Browser layout and keyboard checks |
 | Toast | apps/desktop/src/components/app-controls.tsx Feedback | Shared feedback rules in this document | Error and status; website inline live regions | tests/ui accessibility and command-copy checks |
 

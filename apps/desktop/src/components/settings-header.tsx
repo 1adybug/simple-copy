@@ -30,10 +30,11 @@ export function SettingsHeader() {
   }
 
   return <>
-    <header className="window-header">
+    <header className="window-header settings-header">
       <div className="heading-row">
         <div className="window-heading" data-tauri-drag-region>
-          <img src={logo} width={24} height={24} alt="" draggable={false} /><h1>设置</h1>
+          <img src={logo} width={24} height={24} alt="" draggable={false} />
+          <h1>设置</h1><span className="settings-brand">Simple Copy</span>
         </div>
         <div className="header-actions settings-window-actions" role="group" aria-label="窗口操作">
           <IconButton label="最小化" onClick={() => void control('minimize')}><Minus /></IconButton>

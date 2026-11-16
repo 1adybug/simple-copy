@@ -18,8 +18,26 @@ function RadioGroup({
 
 function RadioGroupItem({
   className,
+  children,
+  variant = "default",
   ...props
-}: React.ComponentProps<typeof RadioGroupPrimitive.Item>) {
+}: React.ComponentProps<typeof RadioGroupPrimitive.Item> & { variant?: "default" | "card" }) {
+  if (variant === "card") return (
+    <RadioGroupPrimitive.Item
+      data-slot="radio-group-item"
+      data-variant="card"
+      className={cn(
+        "group/radio-card relative flex items-center gap-3 rounded-md border-0 bg-secondary p-3 text-left text-foreground transition-colors outline-none hover:bg-accent active:bg-control/30 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-accent",
+        className
+      )}
+      {...props}
+    >
+      <span data-slot="radio-card-mark" aria-hidden="true" className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-control text-primary-foreground group-data-[state=checked]/radio-card:bg-primary">
+        <RadioGroupPrimitive.Indicator><CircleIcon className="size-1.5 fill-current" /></RadioGroupPrimitive.Indicator>
+      </span>
+      {children}
+    </RadioGroupPrimitive.Item>
+  )
   return (
     <RadioGroupPrimitive.Item
       data-slot="radio-group-item"

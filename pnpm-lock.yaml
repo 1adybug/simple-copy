@@ -120,6 +120,10 @@ importers:
         version: 8.3.7(@types/node@24.19.2)(jiti@2.7.0)
 
   packages/brand:
+    dependencies:
+      '@luzixu/mi-sans':
+        specifier: 0.1.2
+        version: 0.1.2
     devDependencies:
       typescript:
         specifier: ~6.0.0
@@ -216,6 +220,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==, tarball: https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz}
+
+  '@luzixu/mi-sans@0.1.2':
+    resolution: {integrity: sha512-Tw9RS0oAS1s9Diud+92o6DS2wrU04/e/6J/lobi8fw8hc4NYWJcAJqoU4nPjDjaZo4y96FUGFXYZV8kwgyMmZQ==}
 
   '@oxc-project/types@0.156.0':
     resolution: {integrity: sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw==, tarball: https://registry.npmjs.org/@oxc-project/types/-/types-0.156.0.tgz}
@@ -1583,6 +1590,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@luzixu/mi-sans@0.1.2': {}
 
   '@oxc-project/types@0.156.0': {}
 

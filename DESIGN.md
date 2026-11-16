@@ -20,7 +20,7 @@ colors:
   danger: "#a4263b"
 typography:
   sans:
-    fontFamily: '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif'
+    fontFamily: '"MiSans VF", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif'
     fontSize: "13px"
     lineHeight: "1.5"
 rounded:
@@ -79,7 +79,7 @@ components:
 
 ## Overview
 
-The user-supplied Windows clipboard screenshot determines the composition, density, rounded cards and pin placement. The user's flat-design direction determines boundaries: use background colors and spacing throughout the software, without decorative borders, gradients or shadows. The explicitly requested Windows transparency setting controls native acrylic on the window shell; content cards and controls stay solid. The history list and settings form retain their explicitly requested blurred edge fades. The primary task is selecting recently copied content while working in another desktop application. The product follows the system language by default, offers a manual language choice and uses operating-system fonts.
+The user-supplied Windows clipboard screenshot determines the composition, density, rounded cards and pin placement. The user's flat-design direction determines boundaries: use background colors and spacing throughout the software, without decorative borders, gradients or shadows. The explicitly requested Windows transparency setting controls native acrylic on the window shell; content cards and controls stay solid. The history list and settings form retain their explicitly requested blurred edge fades. The primary task is selecting recently copied content while working in another desktop application. The product follows the system language by default, offers a manual language choice and uses bundled MiSans VF fonts.
 
 The shared runtime source of brand colors and the body font is packages/brand/tokens.css. These colors remain the desktop fallback and the website palette. For Windows, apps/desktop/src-tauri/src/appearance owns native system appearance events and material results; apps/desktop/src/theme.ts consumes its versioned snapshots, and system-palette.ts generates the desktop semantic colors from the current system accent and resolved light/dark scheme. That shared adapter overrides the existing --sc-* variables once on the document. packages/ui/styles.css maps those variables into the existing desktop variables and Tailwind 4 theme adapter, then the shared shadcn/ui components. apps/website/src/styles.css imports the brand tokens for the marketing surface. This document mirrors accepted values. Shared brand palette changes must update the token package and this document together. Product geometry and component radii remain owned by packages/ui/styles.css. Both desktop and browser demonstration import this stylesheet and the shared @simple-copy/ui components.
 
@@ -113,7 +113,7 @@ Language selection parity is enforced by packages/i18n/locale-cases.json in Rust
 
 ## Typography
 
-The Windows font stack matches the reference. Shared brand font tokens select Microsoft JhengHei UI for Traditional Chinese, Yu Gothic UI for Japanese, and Malgun Gothic for Korean, with local platform fallbacks; the website display face uses the same locale-specific font. Japanese headings retain normal letter spacing and strict line breaking. History text uses 13px type with 1.65 line height. Settings use 13px section headings, 12px labels and 11px supporting copy. Preview text preserves source whitespace and wraps long lines.
+packages/brand/tokens.css imports @luzixu/mi-sans and owns the shared MiSans VF family and native weight tokens: Regular 330, Medium 380, Semibold 520 and Bold 630. The desktop, website and isolated browser demonstration bundle the package's Unicode-range WOFF2 subsets for local loading without an external font service. Every locale prefers MiSans VF; uncovered glyphs use the existing platform fallbacks, including Microsoft JhengHei UI for Traditional Chinese, Yu Gothic UI for Japanese and Malgun Gothic for Korean. packages/ui/styles.css maps the shared family and weights into Tailwind and product styles; apps/website/src/styles.css uses the same tokens for headings, body, shortcuts and commands. Explicit body weights and font shorthands use Regular 330 rather than CSS normal (400). Both surfaces retain explicit line heights and progressively apply font-size-adjust: from-font. Japanese headings retain normal letter spacing and strict line breaking. History text uses 13px type with 1.65 line height. Settings use 13px section headings, 12px labels and 11px supporting copy. Preview text preserves source whitespace and wraps long lines.
 
 ## Layout
 
@@ -192,7 +192,7 @@ The website feels like a small, useful object on a lavender desktop. Its signatu
 
 The palette extends the shared plum (#793d91), ink (#261d2a), muted text (#716576) and flat lavender surfaces with a near-white page (#fdfcfe) and a lavender demo stage (#e0d1e9). Color blocks and whitespace replace borders and shadows throughout the website, including its product demonstration, format list and build guide. Website-only color roles live in the root variables in apps/website/src/styles.css; they do not change desktop colors. All visible text, including demo feedback, meets normal-text contrast.
 
-Display type uses Segoe UI Variable Display with Segoe UI and Microsoft YaHei UI fallbacks; body type uses the shared operating-system stack. Commands use Cascadia Code and Consolas. No remote font requests or font-swap layout changes. Desktop headings reach 65px, mobile headings scale down to 36px. Section headings use 26–28px, body copy uses 13–15px, with compact supporting captions. Every meaningful text color, including demo captions, meets normal-text contrast against its actual surface.
+Display type, body copy, shortcuts and commands use the shared bundled MiSans VF family and native weight tokens. Font subsets load from the same origin with the package's font-display: swap policy; no external font service is used. Desktop headings reach 65px, mobile headings scale down to 36px. Section headings use 26–28px, body copy uses 13–15px, with compact supporting captions. Every meaningful text color, including demo captions, meets normal-text contrast against its actual surface.
 
 The website uses a maximum 1160px content width. The hero places the product statement beside the working demonstration; at 760px it stacks naturally with all controls retained. Keep one short supporting sentence and the acquisition and demo actions. Show the three-step copy/paste sequence as a compact ordered list and five content formats as icons with labels. Pinning and optional restore receive short feature labels rather than a second illustration. Do not add privacy or FAQ sections, repeated slogans, decorative captions, or footer taglines.
 

@@ -6,6 +6,11 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
+  --font-sans: var(--sc-font-sans);
+  --font-weight-normal: var(--sc-font-weight-regular);
+  --font-weight-medium: var(--sc-font-weight-medium);
+  --font-weight-semibold: var(--sc-font-weight-semibold);
+  --font-weight-bold: var(--sc-font-weight-bold);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -36,6 +41,8 @@
   color-scheme: light dark;
   accent-color: var(--primary);
   font-family: var(--sc-font-sans);
+  font-weight: var(--sc-font-weight-regular);
+  font-size-adjust: from-font;
   color: var(--sc-foreground);
   font-size: 13px;
   line-height: 1.5;
@@ -86,7 +93,7 @@ kbd { font: inherit; }
 .window-heading { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; user-select: none; }
 .window-heading > img { display: block; flex-shrink: 0; }
 .window-heading * { pointer-events: none; }
-.window-heading h1 { font-weight: 500; font-size: 14px; line-height: 24px; margin: 0; }
+.window-heading h1 { font-weight: var(--sc-font-weight-medium); font-size: 14px; line-height: 24px; margin: 0; }
 .header-actions { display: flex; align-items: center; gap: 2px; }
 .header-actions > button { height: 25px; width: 25px; color: var(--sc-header-icon); }
 .history-search { position: relative; z-index: 1; flex-shrink: 0; margin: 3px var(--history-list-padding) 0; }
@@ -157,7 +164,7 @@ kbd { font: inherit; }
 .image-placeholder { min-height: 65px; display: flex; align-items: center; gap: 8px; color: var(--muted-foreground); font-size: 11px; }
 .file-label { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; color: var(--sc-file-label); font-size: 10px; }
 .empty-state { flex: 1; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 5px; color: var(--sc-empty-icon); gap: 10px; text-align: center; }
-.empty-state h2 { margin: 1px 0 -5px; color: var(--sc-empty-title); font-size: 13px; font-weight: 500; }
+.empty-state h2 { margin: 1px 0 -5px; color: var(--sc-empty-title); font-size: 13px; font-weight: var(--sc-font-weight-medium); }
 .empty-state p { font-size: 11px; color: var(--sc-empty-description); }
 .window-feedback { position: absolute; bottom: var(--window-padding); left: var(--window-padding); right: var(--window-padding); z-index: 30; }
 .window-feedback .feedback { max-height: 115px; overflow-y: auto; }
@@ -186,9 +193,9 @@ kbd { font: inherit; }
 .settings-form > * { flex-shrink: 0; width: 100%; max-width: 620px; margin-inline: auto; }
 .settings-panel { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 9px; background: var(--card); }
 .settings-field { display: flex; flex-direction: column; min-width: 0; gap: 8px; margin: 0; padding: 0; border: 0; }
-.settings-field legend { padding: 0; margin-bottom: 8px; font-size: 12px; font-weight: 500; line-height: 18px; }
+.settings-field legend { padding: 0; margin-bottom: 8px; font-size: 12px; font-weight: var(--sc-font-weight-medium); line-height: 18px; }
 .setting-line { display: flex; justify-content: space-between; align-items: center; gap: 14px; min-width: 0; }
-.setting-line > label, .setting-label { font-size: 12px; font-weight: 500; line-height: 18px; }
+.setting-line > label, .setting-label { font-size: 12px; font-weight: var(--sc-font-weight-medium); line-height: 18px; }
 .setting-label { min-width: 0; }
 .shortcut-setting { display: flex; flex-direction: column; gap: 7px; }
 .shortcut-recorder { min-width: 137px; max-width: 100%; height: auto; min-height: 36px; padding: 5px 10px; font-size: 12px; background: var(--secondary); }
@@ -200,7 +207,7 @@ kbd { font: inherit; }
 .select-setting [data-slot="select-trigger"]:is(:hover, [data-state="open"]) { background: var(--accent); }
 .format-options { display: grid; grid-template-columns: repeat(3, minmax(min-content, 1fr)); gap: 6px; }
 .format-choice {
-  display: grid; grid-template-columns: 22px minmax(0, 1fr) 14px; align-items: center;
+  display: grid; grid-template-columns: 22px minmax(min-content, 1fr) 14px; align-items: center;
   gap: 7px; min-width: 0; min-height: 40px; padding: 8px; border-radius: 7px; background: var(--secondary); cursor: pointer;
   transition: background-color 120ms;
 }
@@ -208,7 +215,7 @@ kbd { font: inherit; }
 .format-choice[data-checked] { background: var(--accent); }
 .format-choice:hover { background: var(--sc-hover); }
 .format-choice:active { background: var(--accent); }
-.format-title { min-width: 0; overflow-wrap: anywhere; font-size: 12px; line-height: 18px; font-weight: 500; }
+.format-title { min-width: 0; overflow-wrap: anywhere; font-size: 12px; line-height: 18px; font-weight: var(--sc-font-weight-medium); }
 .format-icon { display: flex; color: var(--muted-foreground); }
 .format-icon svg { width: 22px; height: 22px; }
 .format-choice[data-checked] .format-icon { color: var(--primary); }
@@ -221,8 +228,8 @@ kbd { font: inherit; }
 .retention-choice { justify-content: center; min-width: 0; min-height: 34px; padding: 6px; gap: 6px; font-size: 12px; }
 .retention-choice > span:not([data-slot]) { min-width: 0; overflow-wrap: anywhere; }
 .retention-choice [data-slot="radio-card-mark"] { width: 11px; height: 11px; }
-.choice-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; font-size: 12px; line-height: 18px; font-weight: 500; }
-.choice-copy small { font-size: 11px; line-height: 16px; color: var(--muted-foreground); font-weight: 400; }
+.choice-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; font-size: 12px; line-height: 18px; font-weight: var(--sc-font-weight-medium); }
+.choice-copy small { font-size: 11px; line-height: 16px; color: var(--muted-foreground); font-weight: var(--sc-font-weight-regular); }
 .restore-toggle > label { cursor: pointer; }
 .field-help { font-size: 11px; line-height: 17px; color: var(--muted-foreground); margin: 0; }
 .field-error { margin: 0; color: var(--sc-danger); font-size: 11px; line-height: 17px; }

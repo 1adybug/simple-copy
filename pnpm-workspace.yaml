@@ -6,3 +6,4 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - lucide-react@1.71.0
+  - '@luzixu/mi-sans@0.1.2'

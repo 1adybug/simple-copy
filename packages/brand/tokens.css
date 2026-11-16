@@ -1,5 +1,11 @@
+@import "@luzixu/mi-sans";
+
 :root {
-  --sc-font-sans: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+  --sc-font-sans: "MiSans VF", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+  --sc-font-weight-regular: 330;
+  --sc-font-weight-medium: 380;
+  --sc-font-weight-semibold: 520;
+  --sc-font-weight-bold: 630;
   --sc-primary: #793d91;
   --sc-primary-hover: #633578;
   --sc-primary-active: #552e67;
@@ -33,15 +39,15 @@
 }
 
 :root:lang(zh-TW) {
-  --sc-font-sans: "Microsoft JhengHei UI", "Microsoft JhengHei", system-ui, sans-serif;
+  --sc-font-sans: "MiSans VF", "Microsoft JhengHei UI", "Microsoft JhengHei", system-ui, sans-serif;
 }
 
 :root:lang(ja) {
-  --sc-font-sans: "Yu Gothic UI", "Meiryo UI", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+  --sc-font-sans: "MiSans VF", "Yu Gothic UI", "Meiryo UI", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
 }
 
 :root:lang(ko) {
-  --sc-font-sans: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --sc-font-sans: "MiSans VF", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
 }
 
 :root[data-theme="light"] {

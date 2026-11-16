@@ -2,14 +2,16 @@
 
 :root {
   font-family: var(--sc-font-sans);
+  font-weight: var(--sc-font-weight-regular);
+  font-size-adjust: from-font;
   color: var(--sc-foreground);
   background: #fdfcfe;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --site-background: #fdfcfe;
-  --site-display: "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
-  --site-utility: "Cascadia Code", Consolas, monospace;
+  --site-display: var(--sc-font-sans);
+  --site-utility: var(--sc-font-sans);
   --site-muted: var(--sc-muted);
   --site-stage: #e0d1e9;
   --site-primary-hover: var(--sc-primary-hover);
@@ -24,7 +26,6 @@
   scrollbar-color: var(--site-scrollbar) var(--site-scrollbar-track);
 }
 
-:root:is(:lang(zh-TW), :lang(ja), :lang(ko)) { --site-display: var(--sc-font-sans); }
 :root:lang(ja) :is(.hero h1, .features-section h2, .download-section h2) { letter-spacing: normal; line-break: strict; }
 
 * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--site-scrollbar) var(--site-scrollbar-track); }
@@ -55,7 +56,7 @@ h1, h2, h3 { text-wrap: balance; }
 .skip-link:focus { transform: translateY(0); }
 
 .site-header { min-height: 92px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
-.brand { display: inline-flex; align-items: center; gap: 9px; font-family: var(--site-display); font-weight: 650; font-size: 19px; letter-spacing: -.7px; white-space: nowrap; }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-family: var(--site-display); font-weight: var(--sc-font-weight-bold); font-size: 19px; letter-spacing: -.7px; white-space: nowrap; }
 .brand img { display: block; }
 .brand:hover { color: var(--sc-primary); }
 .header-download { display: inline-flex; justify-content: center; align-items: center; gap: 10px; min-height: 40px; padding: 8px 17px; font-size: 12px; border-radius: 8px; background: var(--sc-secondary); transition: background .18s; }
@@ -63,11 +64,11 @@ h1, h2, h3 { text-wrap: balance; }
 
 .hero { display: grid; grid-template-columns: minmax(0, 1.03fr) minmax(0, 1fr); align-items: center; gap: 46px; padding-block: 36px 42px; }
 .hero-copy { padding-bottom: 8px; }
-.hero h1 { font-family: var(--site-display); font-size: clamp(44px, 4.5vw, 65px); line-height: 1.35; letter-spacing: -.065em; font-weight: 650; margin-bottom: 24px; }
+.hero h1 { font-family: var(--site-display); font-size: clamp(44px, 4.5vw, 65px); line-height: 1.35; letter-spacing: -.065em; font-weight: var(--sc-font-weight-bold); margin-bottom: 24px; }
 .hero h1 span { color: var(--sc-primary); }
 .hero-description { color: var(--site-muted); line-height: 1.95; font-size: 15px; }
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; margin-top: 30px; }
-.button { display: inline-flex; min-height: 49px; align-items: center; justify-content: center; gap: 11px; padding: 12px 21px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: background .18s; }
+.button { display: inline-flex; min-height: 49px; align-items: center; justify-content: center; gap: 11px; padding: 12px 21px; border-radius: 8px; font-size: 13px; font-weight: var(--sc-font-weight-medium); transition: background .18s; }
 .button > svg:first-child { width: 16px; height: 16px; }
 .button-primary { --sc-focus-background: var(--sc-primary-active); background: var(--sc-primary); color: #fff; }
 .button-primary:hover { background: var(--site-primary-hover); }
@@ -90,10 +91,10 @@ h1, h2, h3 { text-wrap: balance; }
 .workflow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; list-style: none; padding: 20px 24px; border-radius: 12px; background: var(--sc-hover); }
 .workflow li { display: flex; justify-content: center; align-items: center; gap: 12px; font-size: 12px; color: var(--site-muted); }
 .workflow li > :first-child { color: var(--sc-primary); }
-.workflow kbd { font: 12px var(--site-utility); white-space: nowrap; }
+.workflow kbd { font: var(--sc-font-weight-regular) 12px var(--site-utility); white-space: nowrap; }
 
 .features-section { padding-block: 58px 30px; text-align: center; }
-.features-section h2, .download-section h2 { font-family: var(--site-display); font-size: 28px; line-height: 1.5; letter-spacing: -.055em; font-weight: 600; }
+.features-section h2, .download-section h2 { font-family: var(--site-display); font-size: 28px; line-height: 1.5; letter-spacing: -.055em; font-weight: var(--sc-font-weight-semibold); }
 .formats-grid { display: flex; flex-wrap: wrap; gap: 12px; list-style: none; margin: 24px 0 0; padding: 0; }
 .formats-grid li { flex: 1 1 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px 14px; border-radius: 10px; background: var(--sc-hover); font-size: 14px; }
 .formats-grid svg { color: var(--sc-primary); }
@@ -106,12 +107,13 @@ h1, h2, h3 { text-wrap: balance; }
 .download-section .download-meta { margin-top: 14px; font-size: 12px; color: var(--site-muted); }
 .build-guide { max-width: 510px; margin: 26px auto 0; background: var(--sc-hover); border-radius: 10px; padding: 17px 20px 9px; text-align: left; }
 .build-guide-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.build-guide-heading > span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; }
+.build-guide-heading > span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: var(--sc-font-weight-medium); }
 .build-guide-heading > span svg { width: 12px; height: 12px; color: var(--sc-primary); }
 .copy-command { display: inline-flex; justify-content: center; align-items: center; gap: 5px; width: 87px; min-height: 34px; border: 0; border-radius: 5px; background: var(--sc-card); font-size: 10px; color: var(--sc-primary); flex-shrink: 0; }
 .copy-command:hover:not(:disabled) { background: var(--sc-accent); }
 .build-guide > p { font-size: 12px; color: var(--site-muted); margin-top: 9px; }
-.build-guide pre { margin: 12px 0; background: var(--sc-secondary); border-radius: 6px; padding: 13px 14px; overflow-x: auto; font: 11px/1.9 var(--site-utility); color: #674878; }
+.build-guide pre { margin: 12px 0; background: var(--sc-secondary); border-radius: 6px; padding: 13px 14px; overflow-x: auto; font: var(--sc-font-weight-regular) 11px/1.9 var(--site-utility); color: #674878; }
+.build-guide code { font: inherit; }
 .build-requirements { line-height: 1.8; }
 .build-guide .copy-status { font-size: 11px; min-height: 21px; color: var(--sc-primary); }
 .site-footer { display: flex; align-items: center; gap: 24px; padding-block: 24px 29px; }

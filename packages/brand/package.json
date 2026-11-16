@@ -13,5 +13,8 @@
   },
   "devDependencies": {
     "typescript": "~6.0.0"
+  },
+  "dependencies": {
+    "@luzixu/mi-sans": "0.1.2"
   }
 }

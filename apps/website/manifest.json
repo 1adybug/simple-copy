@@ -1,0 +1,16 @@
+{
+  "name": "Simple Copy",
+  "short_name": "Simple Copy",
+  "description": "Simple Copy is a local clipboard tool for Windows. Find copied text, links, images and files, and pin content you use often.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#fdfcfe",
+  "background_color": "#fdfcfe",
+  "icons": [
+    { "src": "icons/pwa-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/pwa-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/pwa-maskable-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

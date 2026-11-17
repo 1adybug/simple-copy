@@ -19,6 +19,8 @@
     "build:website": "pnpm --filter @simple-copy/website build",
     "build:installer": "pnpm --filter @simple-copy/desktop tauri build --bundles nsis",
     "package:website": "node scripts/package-website.mjs",
+    "generate:pwa-icons": "node scripts/pwa/generate-icons.mjs --source packages/brand/assets/logo.svg --background \"#fdfcfe\" --output apps/website/public/icons --url-prefix icons/ --overwrite",
+    "test:pwa": "node --test scripts/pwa/*.test.mjs && playwright test tests/ui/pwa.spec.ts",
     "preview:website": "pnpm --filter @simple-copy/website preview",
     "check:rust": "cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all --check && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings",
     "test": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib",
@@ -29,6 +31,7 @@
     "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "1.61.1",
     "@types/node": "24.19.2",
+    "sharp": "0.35.5",
     "typescript": "~6.0.0"
   }
 }

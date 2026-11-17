@@ -134,6 +134,8 @@ package:website 从当前版本的 NSIS 输出中选择安装包，将下载地�
 
 将完整的 apps/website/dist 部署到任意支持静态文件的托管服务即可；无需 Node.js 服务端。宣传网站不会自动发布到外部托管。普通 pnpm build 或 pnpm build:website 会重新生成不含安装包的 dist，发布带下载的网站时应最后运行 pnpm package:website。
 
+网站已接入 Windows / Android PWA 和 iOS 主屏幕 Web App 的安装元信息与专用图标。首次完整缓存后可离线查看官网及共享软件演示；安装包下载继续使用网络。更新等待旧窗口关闭后生效，不自动刷新操作中的页面。生产 HTTPS、缓存头、子目录部署、图标再生成与验证说明见 [网站 PWA](docs/pwa.md)。
+
 共享 Logo 位于 packages/brand/assets/logo.svg，是用平滑曲线、椭圆和圆形重建的无描边卡通鹦鹉，背景透明，不包含嵌入位图。需要调整或重新生成几何时，使用已安装的 image-to-geometric-svg Skill 工具目录：
 
 ~~~powershell

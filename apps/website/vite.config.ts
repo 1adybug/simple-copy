@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
+import { websitePwa } from './pwa.ts'
 
 export default defineConfig(({ mode }) => {
   const { VITE_DOWNLOAD_URL = '', VITE_SITE_URL = '' } = loadEnv(mode, process.cwd(), 'VITE_')
@@ -16,20 +17,11 @@ export default defineConfig(({ mode }) => {
     throw new Error('VITE_SITE_URL must be an HTTPS URL.')
   }
   return {
+    appType: 'mpa',
     plugins: [
       react(),
       tailwindcss(),
-      {
-        name: 'simple-copy-site-metadata',
-        transformIndexHtml() {
-          if (!VITE_SITE_URL) return []
-          const url = new URL('/', VITE_SITE_URL).href
-          return [
-            { tag: 'link', attrs: { rel: 'canonical', href: url }, injectTo: 'head' },
-            { tag: 'meta', attrs: { property: 'og:url', content: url }, injectTo: 'head' },
-          ]
-        },
-      },
+      websitePwa(VITE_SITE_URL),
     ],
     server: { port: 5173 },
     preview: { port: 4173 },

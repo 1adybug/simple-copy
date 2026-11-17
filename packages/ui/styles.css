@@ -333,3 +333,7 @@ kbd { font: inherit; }
   .format-options { grid-template-columns: repeat(2, minmax(min-content, 1fr)); }
   .shortcut-recorder { min-width: 125px; }
 }
+
+@media (max-width: 399px) {
+  .format-options { grid-template-columns: minmax(0, 1fr); }
+}

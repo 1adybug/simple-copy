@@ -211,7 +211,7 @@
   "site.resetDone": "示範已重設。",
   "site.pinned": "已釘選。",
   "site.unpinned": "已取消釘選。",
-  "site.pasted": "已貼上至便箋。",
+  "site.pasted": "已選取範例內容。",
   "site.pasteNote": "貼上至範例便箋：{text}",
   "site.sampleNoteLabel": "範例便箋",
   "site.noteEmpty": "點選記錄，貼上到這裡。",

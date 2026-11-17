@@ -211,7 +211,7 @@
   "site.resetDone": "Démo réinitialisée.",
   "site.pinned": "Épinglé.",
   "site.unpinned": "Désépinglé.",
-  "site.pasted": "Collé dans la note.",
+  "site.pasted": "Exemple sélectionné.",
   "site.pasteNote": "Coller dans la note d’exemple : {text}",
   "site.sampleNoteLabel": "Note d’exemple",
   "site.noteEmpty": "Cliquez sur un élément pour le coller ici.",

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { createDemoClips } from '../../apps/website/src/demo-data'
+import { translate } from '../../packages/i18n/src/index'
 
 const demoClips = createDemoClips('zh-CN')
 import { checkAccessibility } from './accessibility'
@@ -20,32 +21,35 @@ test('keyboard users can skip the header and use the demo', async ({ page }) => 
   await page.keyboard.press('ArrowDown')
   await expect(clips.nth(1)).toBeFocused()
   await page.keyboard.press('Enter')
-  await expect(page.locator('.note-text')).toHaveText('周五下午三点，带上新提案见面。')
+  await expect(demo.locator('.window-feedback').getByRole('status')).toHaveText(translate('zh-CN', 'site.pasted'))
   await demo.getByRole('button', { name: '置顶', exact: true }).first().click()
   await expect(clips.first()).toContainText('周五下午三点')
-  await page.getByRole('button', { name: '重置演示' }).click()
-  await expect(clips.first()).toContainText('留一点空间')
-  await expect(page.locator('.demo-disclaimer')).toHaveText('仅使用示例内容，不读取系统剪贴板。')
+  await expect(demo.locator('.clip-card').first()).toHaveAttribute('data-kind', 'richText')
 })
 
-test('demo settings and dismiss actions accept clicks and keyboard activation without effects', async ({ page }) => {
+test('demo opens the shared settings and restores history and keyboard focus on close', async ({ page }) => {
   await page.goto(websiteUrl)
   const demo = page.frameLocator('.demo-window')
-  await expect(demo.locator('.clip-card')).toHaveCount(3)
-  const initial = await demo.locator('.app-window').innerHTML()
+  await expect(demo.locator('.clip-card')).toHaveCount(5)
   const url = page.url()
-  for (const name of ['设置', '收起']) {
-    const button = demo.getByRole('button', { name, exact: true })
-    await expect(button).toBeEnabled()
-    await button.click()
-    await button.press('Enter')
-    await button.press('Space')
-    await expect(demo.locator('.app-window')).toHaveJSProperty('innerHTML', initial)
-  }
-  await demo.getByRole('searchbox', { name: '搜索剪贴板' }).press('Escape')
-  await expect(demo.locator('.app-window')).toBeVisible()
+  const search = demo.getByRole('searchbox', { name: '搜索剪贴板' })
+  await search.fill('链接')
+  const settings = demo.getByRole('button', { name: '设置', exact: true })
+  await settings.press('Enter')
+  await expect(demo.locator('.settings-window')).toBeVisible()
+  await expect(demo.getByRole('combobox', { name: '语言', exact: true })).toBeVisible()
+  await expect(demo.getByRole('button', { name: '关闭设置', exact: true })).toBeFocused()
+  await demo.getByRole('button', { name: '关闭设置', exact: true }).click()
+  await expect(search).toHaveValue('链接')
+  await expect(settings).toBeFocused()
+  await settings.press('Space')
+  await expect(demo.locator('.settings-window')).toBeVisible()
+  await demo.getByRole('button', { name: '关闭设置', exact: true }).press('Escape')
+  await expect(settings).toBeFocused()
+  await demo.getByRole('button', { name: '收起', exact: true }).click()
+  await search.press('Escape')
+  await expect(demo.locator('.history-window')).toBeVisible()
   await expect(demo.getByRole('alertdialog')).toHaveCount(0)
-  await expect(page.locator('.note-text')).toHaveText('点击记录，粘贴到这里。')
   expect(page.url()).toBe(url)
   expect(page.context().pages()).toHaveLength(1)
 })
@@ -61,10 +65,10 @@ test('demo shares search, clear confirmation, deletion and empty states with the
   await demo.getByRole('button', { name: '清空搜索' }).click()
   await expect(search).toBeFocused()
   await demo.getByRole('button', { name: '清除未置顶', exact: true }).click()
-  await expect(demo.getByRole('alertdialog')).toContainText('清除 2 条未置顶记录。')
+  await expect(demo.getByRole('alertdialog')).toContainText('清除 4 条未置顶记录。')
   await expect(demo.getByRole('alertdialog').getByRole('button')).toHaveText(['取消', '确定'])
   await demo.getByRole('button', { name: '取消', exact: true }).click()
-  await expect(demo.locator('.clip-card')).toHaveCount(3)
+  await expect(demo.locator('.clip-card')).toHaveCount(5)
   await demo.getByRole('button', { name: '清除未置顶', exact: true }).click()
   await demo.getByRole('button', { name: '确定', exact: true }).click()
   await expect(demo.locator('.clip-card')).toHaveCount(1)
@@ -74,8 +78,8 @@ test('demo shares search, clear confirmation, deletion and empty states with the
   await expect(demo.getByRole('alertdialog').getByRole('button')).toHaveText(['取消', '确定'])
   await demo.getByRole('button', { name: '确定', exact: true }).click()
   await expect(demo.getByRole('img', { name: '剪贴板为空' })).toBeVisible()
-  await page.getByRole('button', { name: '重置演示' }).click()
-  await expect(demo.locator('.clip-card')).toHaveCount(3)
+  await page.reload()
+  await expect(demo.locator('.clip-card')).toHaveCount(5)
   await expect(search).toHaveValue('')
   await checkAccessibility(page)
 })
@@ -106,29 +110,113 @@ test('demo copies only selected sample text after an explicit click and reports 
   await expect(demo.locator('.clip-main').first()).toBeEnabled()
 })
 
-test('command copying announces success and supports manual recovery on failure', async ({ page }) => {
+test('the website keeps five record types and removes the surrounding demonstration and guide content', async ({ page }) => {
+  await page.goto(websiteUrl)
+  const demo = page.frameLocator('.demo-window')
+  await expect(demo.locator('.clip-card')).toHaveCount(5)
+  for (const kind of ['text', 'link', 'richText', 'image', 'files']) {
+    await expect(demo.locator(`.clip-card[data-kind="${kind}"]`)).toHaveCount(1)
+  }
+  expect(await demo.getByRole('img', { name: translate('zh-CN', 'imageAlt') }).evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true)
+  await expect(demo.locator('.file-label')).toContainText('2')
+  await expect(page.locator('.demo-controls, .demo-note, .demo-status, .demo-disclaimer, .workflow, .features-section, .download-section, .build-guide')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '重置演示' })).toHaveCount(0)
+  await expect(page.locator('.demo-scene')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await expect(page.locator('a[href="#download"]')).toHaveCount(0)
+})
+
+test('settings apply language and theme to the whole website and persist without resetting records', async ({ page }) => {
+  await page.goto(websiteUrl)
+  const demo = page.frameLocator('.demo-window')
+  await demo.getByRole('button', { name: '置顶', exact: true }).first().click()
+  await demo.getByRole('button', { name: '设置', exact: true }).click()
+  await demo.getByRole('combobox', { name: '语言', exact: true }).click()
+  await demo.getByRole('option', { name: 'English', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(demo.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(page).toHaveTitle(translate('en', 'site.title'))
+  await expect(page.locator('.brand span')).toHaveText(['Simple Copy', 'Simple Copy'])
+  await expect(demo.locator('.settings-window')).toBeVisible()
+  await demo.getByRole('combobox', { name: translate('en', 'theme'), exact: true }).click()
+  await demo.getByRole('option', { name: translate('en', 'theme.dark'), exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(demo.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(29, 23, 33)')
+  await checkAccessibility(page)
+  await page.screenshot({ path: '.artifacts/website-settings-dark.png', fullPage: true })
+  await demo.getByRole('button', { name: translate('en', 'closeSettings'), exact: true }).click()
+  await expect(demo.locator('.clip-card').first()).toHaveAttribute('data-kind', 'richText')
+  await expect(demo.locator('.clip-card').first()).toHaveAttribute('data-pinned', 'true')
+  await expect(demo.locator('.clip-main').first()).toContainText(translate('en', 'site.sampleNote'))
+  await expect(page.locator('.demo-window')).toHaveAttribute('data-view', 'history')
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(demo.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await demo.getByRole('button', { name: translate('en', 'settings'), exact: true }).click()
+  await expect(demo.getByRole('combobox', { name: translate('en', 'language'), exact: true })).toHaveText('English')
+  await expect(demo.getByRole('combobox', { name: translate('en', 'theme'), exact: true })).toHaveText(translate('en', 'theme.dark'))
+})
+
+test('system preferences remain live and manual settings stay selected until restored to system', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto(websiteUrl)
+  const demo = page.frameLocator('.demo-window')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(demo.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await demo.getByRole('button', { name: '设置', exact: true }).click()
+  await demo.getByRole('combobox', { name: '明暗模式', exact: true }).click()
+  await demo.getByRole('option', { name: translate('zh-CN', 'theme.light'), exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(demo.locator('html')).toHaveAttribute('data-theme', 'light')
+  await demo.getByRole('combobox', { name: '明暗模式', exact: true }).click()
+  await demo.getByRole('option', { name: translate('zh-CN', 'theme.system'), exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.emulateMedia({ colorScheme: 'light' })
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(demo.locator('html')).toHaveAttribute('data-theme', 'light')
+  await demo.getByRole('combobox', { name: '语言', exact: true }).click()
+  await demo.getByRole('option', { name: 'English', exact: true }).click()
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'languages', { value: ['de-DE'], configurable: true })
+    dispatchEvent(new Event('languagechange'))
+  })
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await demo.getByRole('combobox', { name: 'Language', exact: true }).click()
+  await demo.getByRole('option', { name: 'Follow system', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'de')
+  await expect(demo.locator('html')).toHaveAttribute('lang', 'de')
+  await expect(demo.locator('.settings-window')).toBeVisible()
+})
+
+test('settings still synchronize when browser storage is unavailable', async ({ page }) => {
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true })
+    Storage.prototype.getItem = () => { throw new Error('Storage blocked') }
+    Storage.prototype.setItem = () => { throw new Error('Storage blocked') }
   })
   await page.goto(websiteUrl)
-  await page.getByRole('button', { name: '复制命令' }).click()
-  await expect(page.locator('.copy-status')).toHaveText('构建命令已复制到剪贴板。')
-  await page.evaluate(() => {
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => { throw new Error('Denied') } } })
-  })
-  await page.getByRole('button', { name: '已复制' }).click()
-  await expect(page.locator('.copy-status')).toHaveText('无法自动复制，请选中上方命令手动复制。')
+  const demo = page.frameLocator('.demo-window')
+  await demo.getByRole('button', { name: '设置', exact: true }).click()
+  await demo.getByRole('combobox', { name: '语言', exact: true }).click()
+  await demo.getByRole('option', { name: 'English', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(demo.locator('.settings-window')).toBeVisible()
+  await demo.getByRole('combobox', { name: translate('en', 'theme'), exact: true }).click()
+  await demo.getByRole('option', { name: translate('en', 'theme.dark'), exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 })
 
 test('phone layout keeps touch actions large and content inside the viewport', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 320, height: 740 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' })
+  const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 320, height: 740 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' })
   const page = await context.newPage()
   try {
     await page.goto(websiteUrl)
     const demo = page.frameLocator('.demo-window')
-    await expect(demo.locator('.clip-card')).toHaveCount(3)
+    await expect(demo.locator('.clip-card')).toHaveCount(5)
     const targets = [
-      ...await page.locator('.demo-controls button, .copy-command, .header-download').all(),
+      ...await page.locator('.header-download').all(),
       ...await demo.locator('.header-actions > button, .clip-actions > button').all(),
     ]
     for (const target of targets) {
@@ -140,6 +228,20 @@ test('phone layout keeps touch actions large and content inside the viewport', a
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior)).toBe('auto')
     await demo.getByRole('button', { name: '置顶', exact: true }).first().tap()
     await expect(demo.locator('.clip-main').first()).toContainText('周五下午三点')
+    await demo.getByRole('button', { name: '设置', exact: true }).tap()
+    await demo.getByRole('combobox', { name: '语言', exact: true }).tap()
+    await expect(demo.getByRole('listbox')).toBeVisible()
+    await demo.getByRole('option', { name: 'Deutsch', exact: true }).tap()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'de')
+    await expect(demo.locator('.settings-window')).toBeVisible()
+    for (const choice of await demo.locator('.format-choice').all()) {
+      expect(await choice.evaluate((element) => {
+        const range = document.createRange()
+        range.selectNodeContents(element.querySelector('.format-title')!)
+        const lines = [...range.getClientRects()].filter((box) => box.width > 0)
+        return lines.length === 1 && lines[0].right <= element.querySelector('[data-slot="checkbox"]')!.getBoundingClientRect().left
+      })).toBe(true)
+    }
     expect(await demo.locator('html').evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await checkAccessibility(page)
     await page.screenshot({ path: '.artifacts/optimization-website-mobile-after.png' })
@@ -162,19 +264,30 @@ test('website demonstration and desktop render the same panel geometry and visua
       '.app-window', '.window-header', '.window-heading h1', '.header-actions > button',
       '.history-search-input', '.history-list', '.clip-card', '.clip-main', '.clip-text-lines', '.clip-actions > button',
     ]
+    const styles = (element: Element) => {
+      const computed = getComputedStyle(element)
+      return Object.fromEntries([
+        'width', 'height', 'padding', 'gap', 'border-radius', 'background-color', 'color',
+        'font-family', 'font-size', 'line-height',
+      ].map((property) => [property, computed.getPropertyValue(property)]))
+    }
     for (const selector of selectors) {
-      const styles = (element: Element) => {
-        const computed = getComputedStyle(element)
-        return Object.fromEntries([
-          'width', 'height', 'padding', 'gap', 'border-radius', 'background-color', 'color',
-          'font-family', 'font-size', 'line-height',
-        ].map((property) => [property, computed.getPropertyValue(property)]))
-      }
       expect(await demo.locator(selector).first().evaluate(styles), selector)
         .toEqual(await desktopPage.locator(selector).first().evaluate(styles))
     }
     await page.screenshot({ path: '.artifacts/website-shared-panel.png' })
     await desktopPage.screenshot({ path: '.artifacts/desktop-shared-panel.png' })
+    await demo.getByRole('button', { name: '设置', exact: true }).click()
+    await expect(page.locator('.demo-window')).toHaveAttribute('data-view', 'settings')
+    await desktopPage.setViewportSize({ width: 480, height: 640 })
+    await desktopPage.goto('http://127.0.0.1:1421/?view=settings')
+    await expect(desktopPage.locator('.settings-form')).toBeVisible()
+    for (const selector of ['.settings-window', '.settings-scroll', '.settings-panel', '.format-options', '#language', '#theme-mode', '.quantity-input']) {
+      expect(await demo.locator(selector).first().evaluate(styles), selector)
+        .toEqual(await desktopPage.locator(selector).first().evaluate(styles))
+    }
+    await page.screenshot({ path: '.artifacts/website-shared-settings.png', fullPage: true })
+    await desktopPage.screenshot({ path: '.artifacts/desktop-shared-settings.png' })
   } finally {
     await desktopPage.close()
   }

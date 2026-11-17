@@ -211,7 +211,7 @@
   "site.resetDone": "Demo reiniciada.",
   "site.pinned": "Fijado.",
   "site.unpinned": "Desfijado.",
-  "site.pasted": "Pegado en la nota.",
+  "site.pasted": "Contenido de ejemplo seleccionado.",
   "site.pasteNote": "Pegar en la nota de ejemplo: {text}",
   "site.sampleNoteLabel": "Nota de ejemplo",
   "site.noteEmpty": "Haz clic en un registro para pegarlo aquí.",

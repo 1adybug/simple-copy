@@ -211,7 +211,7 @@
   "site.resetDone": "演示已重置。",
   "site.pinned": "已置顶。",
   "site.unpinned": "已取消置顶。",
-  "site.pasted": "已粘贴到便笺。",
+  "site.pasted": "已选择示例内容。",
   "site.pasteNote": "粘贴到示例便笺：{text}",
   "site.sampleNoteLabel": "示例便笺",
   "site.noteEmpty": "点击记录，粘贴到这里。",

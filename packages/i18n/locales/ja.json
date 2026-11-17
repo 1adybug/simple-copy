@@ -211,7 +211,7 @@
   "site.resetDone": "デモをリセットしました。",
   "site.pinned": "ピン留めしました。",
   "site.unpinned": "ピン留めを解除しました。",
-  "site.pasted": "メモに貼り付けました。",
+  "site.pasted": "サンプルを選択しました。",
   "site.pasteNote": "サンプルメモに貼り付け：{text}",
   "site.sampleNoteLabel": "サンプルメモ",
   "site.noteEmpty": "履歴をクリックすると、ここに貼り付けます。",

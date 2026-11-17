@@ -211,7 +211,7 @@
   "site.resetDone": "데모를 초기화했습니다.",
   "site.pinned": "고정했습니다.",
   "site.unpinned": "고정을 해제했습니다.",
-  "site.pasted": "메모에 붙여넣었습니다.",
+  "site.pasted": "예제 콘텐츠를 선택했습니다.",
   "site.pasteNote": "예제 메모에 붙여넣기: {text}",
   "site.sampleNoteLabel": "예제 메모",
   "site.noteEmpty": "기록을 클릭하면 여기에 붙여넣습니다.",

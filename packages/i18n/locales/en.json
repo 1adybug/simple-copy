@@ -211,7 +211,7 @@
   "site.resetDone": "Demo reset.",
   "site.pinned": "Pinned.",
   "site.unpinned": "Unpinned.",
-  "site.pasted": "Pasted into the note.",
+  "site.pasted": "Sample content selected.",
   "site.pasteNote": "Paste into the sample note: {text}",
   "site.sampleNoteLabel": "Sample note",
   "site.noteEmpty": "Click a record to paste it here.",

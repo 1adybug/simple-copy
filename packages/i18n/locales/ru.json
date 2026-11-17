@@ -211,7 +211,7 @@
   "site.resetDone": "Демонстрация сброшена.",
   "site.pinned": "Закреплено.",
   "site.unpinned": "Откреплено.",
-  "site.pasted": "Вставлено в заметку.",
+  "site.pasted": "Пример выбран.",
   "site.pasteNote": "Вставить в пример заметки: {text}",
   "site.sampleNoteLabel": "Пример заметки",
   "site.noteEmpty": "Нажмите на запись, чтобы вставить её сюда.",

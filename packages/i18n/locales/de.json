@@ -211,7 +211,7 @@
   "site.resetDone": "Demo zurückgesetzt.",
   "site.pinned": "Angeheftet.",
   "site.unpinned": "Losgelöst.",
-  "site.pasted": "In die Notiz eingefügt.",
+  "site.pasted": "Beispielinhalt ausgewählt.",
   "site.pasteNote": "In die Beispielnotiz einfügen: {text}",
   "site.sampleNoteLabel": "Beispielnotiz",
   "site.noteEmpty": "Einen Eintrag anklicken, um ihn hier einzufügen.",

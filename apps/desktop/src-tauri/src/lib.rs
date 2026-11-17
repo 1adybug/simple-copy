@@ -5,6 +5,7 @@ mod model;
 mod platform;
 mod service;
 mod store;
+mod updates;
 mod windows;
 
 use tauri::{Manager, WebviewWindow};
@@ -133,12 +134,50 @@ fn record_shortcut(
     Ok(())
 }
 
+fn check_settings_window(window: &WebviewWindow) -> Result<(), String> {
+    if window.label() == "settings" {
+        Ok(())
+    } else {
+        Err(crate::i18n::t("native.windowPermission").into())
+    }
+}
+
+#[tauri::command]
+fn update_snapshot(
+    window: WebviewWindow,
+    state: tauri::State<'_, updates::Updates>,
+) -> Result<updates::Snapshot, String> {
+    check_settings_window(&window)?;
+    Ok(state.snapshot())
+}
+
+#[tauri::command]
+async fn check_for_updates(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, updates::Updates>,
+) -> Result<updates::Snapshot, String> {
+    check_settings_window(&window)?;
+    Ok(state.check(&app).await)
+}
+
+#[tauri::command]
+async fn install_update(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, updates::Updates>,
+) -> Result<updates::Snapshot, String> {
+    check_settings_window(&window)?;
+    Ok(state.install(&app).await)
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             windows::toggle(app)
         }))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(WindowState::default())
         .invoke_handler(tauri::generate_handler![
             system_locale,
@@ -151,9 +190,13 @@ pub fn run() {
             hide_history,
             open_settings,
             record_shortcut,
+            update_snapshot,
+            check_for_updates,
+            install_update,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+            app.manage(updates::Updates::new(&handle));
             appearance::initialize(&handle);
             windows::build(&handle)?;
             let data = std::env::var_os("SIMPLE_COPY_DATA_DIR")
@@ -161,6 +204,7 @@ pub fn run() {
                 .unwrap_or(app.path().app_local_data_dir()?);
             let service = ServiceHandle::start(handle.clone(), data.join("history.sqlite"));
             app.manage(service.clone());
+            updates::Updates::start(handle.clone());
             let wake = std::sync::Arc::new(move || service.wake());
             let shortcut_app = handle.clone();
             let shortcut =

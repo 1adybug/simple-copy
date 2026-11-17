@@ -77,6 +77,39 @@ pnpm typecheck 检查所有工作区，pnpm build 构建两个应用的前端；
 
 `pnpm test:ui` 检查已构建的两个前端，运行前先执行 `pnpm build`。浏览器测试使用隔离的 Tauri IPC 和剪贴板模拟，覆盖长图片历史的按需加载与资源释放、设置选择器、各明暗模式下的系统强调色与原生外观能力状态、外观事件与首次查询的竞争、极端强调色的对比度、网站键盘与触屏操作，以及自动化无障碍检查；不会操作系统剪贴板。测试产物位于 `.artifacts/ui-tests`，这类检查不代替 Windows 原生交互验收。
 
+## 标签发布与软件更新
+
+推送 Git tag 后，`.github/workflows/release.yml` 只在 Windows runner 上构建 x64 NSIS 安装包，并将安装包、`.sig` 签名和 `latest.json` 更新清单上传到同一个 GitHub Release。全部构建与上传成功后才公开 Release，失败时保留草稿。tag 使用 `v0.1.1` 或 `0.1.1` 这样的语义化版本号；支持 `v0.2.0-beta.1` 等预发布标签。带预发布版本号的标签会发布为 Prerelease，软件的更新检查只读取正式版。
+
+首次发布前，在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 中配置更新签名：
+
+1. 生成并妥善保存一对密钥（命令会提示设置密码）：
+
+   ~~~powershell
+   pnpm tauri signer generate -w "$env:USERPROFILE\.tauri\simple-copy.key"
+   ~~~
+
+2. 将 `simple-copy.key.pub` 的完整内容保存为 Actions **Variable**：`TAURI_SIGNING_PUBLIC_KEY`。
+3. 将 `simple-copy.key` 的完整内容保存为 Actions **Secret**：`TAURI_SIGNING_PRIVATE_KEY`；如果设置了密码，再将密码保存为 Secret：`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
+
+私钥不应放进仓库，每个后续版本沿用同一对密钥。Tauri 会在安装前验证签名；更新签名与 Windows Authenticode 代码签名是两回事，前者不会消除 Windows 的未签名程序提示。详见 [Tauri 更新签名文档](https://v2.tauri.app/plugin/updater/#signing-updates)。缺少公钥或私钥时，发布任务会在构建前给出错误。
+
+准备完成后，正常提交代码，再创建和推送标签：
+
+~~~powershell
+git tag v0.1.1
+git push origin main
+git push origin v0.1.1
+~~~
+
+CI 由标签确定实际软件版本，并从 `GITHUB_REPOSITORY` 自动生成更新地址，无需在源码里写死仓库名。`scripts/prepare-release.mjs` 只在 CI 的工作副本中更新 Tauri 配置；开发用的 package.json 和 Cargo 版本保持原值。更新地址为公开可访问的 `https://github.com/<owner>/<repo>/releases/latest/download/latest.json`，安装包也需要允许未登录用户下载。
+
+设置中新增「软件更新」：显示当前软件版本，可手动「检查更新」，发现新版后点击「下载并安装」；下载进度、已是最新版和可重试的错误都会在原处显示。安装前先等待设置保存完成，安装后由 Windows 安装器重启软件。
+
+「自动更新」默认关闭，通过现有设置队列和 SQLite 持久保存。开启后立即检查，并在每次启动和运行期间每 6 小时检查；发现新版本后下载、校验、安装并重启。设置窗口打开期间暂缓自动安装，关闭后会在一分钟内继续；下载期间关闭自动更新会阻止后续自动安装。更新任务由 Rust 管理，不依赖网页窗口是否可见。未配置更新地址和公钥的本地构建，以及非 Windows 平台，会禁用在线更新控件。
+
+发布脚本可离线测试：`node --test scripts/prepare-release.test.mjs`。界面更新流程由 `tests/ui/updates.spec.ts` 的 IPC 模拟覆盖；这些测试不连接 GitHub，也不会安装更新。真实 GitHub 发布和已安装版本之间的升级仍需在配置仓库及密钥后验证。
+
 ## 宣传网站
 
 ~~~powershell

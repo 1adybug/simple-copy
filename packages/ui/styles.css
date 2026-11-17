@@ -323,6 +323,10 @@ kbd { font: inherit; }
   .quantity-input:has([aria-invalid="true"]):focus-within > span { color: Highlight; forced-color-adjust: none; }
   .history-search:has(input:focus) .history-search-clear:hover { background: Highlight; color: HighlightText; }
 }
+.update-action { min-inline-size: 136px; }
+.update-status { min-block-size: 3em; overflow-wrap: anywhere; }
+.update-progress { display: block; width: 100%; height: 6px; accent-color: var(--primary); }
+
 @media (max-width: 479px) {
   .settings-form { gap: 10px; }
   .settings-panel { padding: 14px; }

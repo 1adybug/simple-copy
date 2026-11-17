@@ -1,0 +1,82 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Prepare version and signed updater configuration
+        id: prepare
+        run: node scripts/prepare-release.mjs
+        env:
+          TAURI_SIGNING_PUBLIC_KEY: ${{ vars.TAURI_SIGNING_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Check release configuration
+        run: node --test scripts/prepare-release.test.mjs
+
+      - name: Build and upload Windows installer
+        id: build
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: Simple Copy ${{ github.ref_name }}
+          releaseDraft: true
+          prerelease: ${{ steps.prepare.outputs.prerelease }}
+          generateReleaseNotes: true
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --target x86_64-pc-windows-msvc --bundles nsis -- --locked
+
+      - name: Publish complete release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ steps.build.outputs.releaseId }}
+          PRERELEASE: ${{ steps.prepare.outputs.prerelease }}
+        run: |
+          $isPrerelease = $env:PRERELEASE -eq 'true'
+          $latest = if ($isPrerelease) { 'false' } else { 'legacy' }
+          $payload = @{ draft = $false; prerelease = $isPrerelease; make_latest = $latest } | ConvertTo-Json
+          $payloadPath = Join-Path $env:RUNNER_TEMP 'simple-copy-release.json'
+          Set-Content -LiteralPath $payloadPath -Value $payload -Encoding utf8NoBOM
+          gh api --method PATCH "repos/$env:GH_REPO/releases/$env:RELEASE_ID" --input $payloadPath

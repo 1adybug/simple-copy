@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEffect, useRef, useState } from 'react'
 import { desktop, errorText, type useClipboard } from './native'
+import { useUpdates } from './updates'
 
 const shortcutRecorder: ShortcutRecorder = {
   start: () => invoke('record_shortcut', { recording: true }),
@@ -15,6 +16,7 @@ export default function SettingsView({ state }: { state: ReturnType<typeof useCl
   const [closeError, setCloseError] = useState<string | null>(null)
   const closing = useRef(false)
   const { flushSettings } = state
+  const updates = useUpdates(flushSettings)
 
   useEffect(() => {
     if (!desktop) return
@@ -31,7 +33,7 @@ export default function SettingsView({ state }: { state: ReturnType<typeof useCl
     return () => { void stop.then((unlisten) => unlisten()) }
   }, [flushSettings])
 
-  return <SettingsPanel shortcutRecorder={desktop ? shortcutRecorder : undefined} state={{
+  return <SettingsPanel updates={updates} shortcutRecorder={desktop ? shortcutRecorder : undefined} state={{
     ...state,
     error: closeError || state.error,
     clearMessage: () => { setCloseError(null); state.clearMessage() },

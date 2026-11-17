@@ -317,6 +317,45 @@ mod tests {
     use super::*;
 
     #[test]
+    fn update_opt_in_migrates_existing_settings_and_remains_transactional() {
+        let mut store =
+            Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
+        store
+            .db
+            .execute(
+                "INSERT INTO settings(id, value) VALUES(1, ?1)",
+                [r#"{"retention":"session","language":"ja","maxHistoryItems":37}"#],
+            )
+            .unwrap();
+        let (mut settings, history) = store.load().unwrap();
+        assert!(!settings.auto_update);
+        settings.auto_update = true;
+        store.sync(&settings, &history).unwrap();
+
+        let mut reopened = Store::initialize(store.db, false, None).unwrap();
+        let (saved, history) = reopened.load().unwrap();
+        assert_eq!(saved, settings);
+        assert_eq!(saved.language, crate::i18n::Language::Japanese);
+        assert_eq!(saved.max_history_items, 37);
+        settings.auto_update = false;
+        reopened
+            .db
+            .execute_batch(
+                "CREATE TRIGGER reject_settings BEFORE UPDATE ON settings
+             BEGIN SELECT RAISE(ABORT, 'settings write failed'); END;",
+            )
+            .unwrap();
+        assert!(reopened.sync(&settings, &history).is_err());
+        assert!(reopened.load().unwrap().0.auto_update);
+        reopened
+            .db
+            .execute_batch("DROP TRIGGER reject_settings")
+            .unwrap();
+        reopened.sync(&settings, &history).unwrap();
+        assert!(!reopened.load().unwrap().0.auto_update);
+    }
+
+    #[test]
     fn language_choice_survives_reload_and_can_return_to_system() {
         let mut store =
             Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();

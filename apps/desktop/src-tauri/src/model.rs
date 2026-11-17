@@ -61,6 +61,7 @@ pub struct Settings {
     pub expiry_seconds: u32,
     pub restore_enabled: bool,
     pub restore_seconds: u32,
+    pub auto_update: bool,
 }
 
 impl Default for Settings {
@@ -80,6 +81,7 @@ impl Default for Settings {
             expiry_seconds: 24 * 60 * 60,
             restore_enabled: false,
             restore_seconds: 5,
+            auto_update: false,
         }
     }
 }

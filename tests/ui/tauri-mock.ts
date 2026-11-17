@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import type { Snapshot } from '../../apps/desktop/src/native'
 import type { SystemAppearance } from '../../apps/desktop/src/theme'
 import type { Locale } from '../../packages/i18n/src/index'
+import type { UpdateSnapshot } from '../../packages/ui/src/types'
 
 interface MockOptions {
   systemLocale?: Locale
@@ -18,6 +19,13 @@ interface MockOptions {
   appearance?: Partial<SystemAppearance>
   appearanceDelay?: number
   appearanceFailure?: boolean
+  updates?: Partial<UpdateSnapshot>
+  updateSnapshotDelay?: number
+  updateSnapshotFailure?: boolean
+  updateDelay?: number
+  updateFailures?: number
+  updateVersion?: string | null
+  installFailure?: 'downloadFailed' | 'installFailed'
 }
 
 export async function mockTauri(page: Page, options: MockOptions = {}) {
@@ -40,7 +48,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
         shortcut: 'Super+V', themeMode: 'system', language: 'system',
         formats: { text: true, link: true, richText: true, image: true, files: true },
         retention: 'pinned', maxHistoryItems: 20, expirySeconds: 86400,
-        restoreEnabled: false, restoreSeconds: 5,
+        restoreEnabled: false, restoreSeconds: 5, autoUpdate: false,
         ...options.settings,
       },
       capabilities: {
@@ -50,6 +58,11 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
       },
       storageStatus: null, shortcutError: null, error: null, restorePending: false,
     }
+    const updates: UpdateSnapshot = {
+      revision: 1, currentVersion: '0.1.0', status: 'idle', version: null, downloaded: 0, total: null,
+      ...options.updates,
+    }
+    let updateFailures = options.updateFailures ?? 0
     let nextId = 0
     const callbacks = new Map<number, (event: unknown) => void>()
     const listeners = new Map<number, { event: string; handler: number }>()
@@ -70,7 +83,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
       }
     }
     const inspection = {
-      snapshot, appearance, calls, activeUrls, pendingThumbnails: 0, pendingAppearance: 0,
+      snapshot, appearance, updates, calls, activeUrls, pendingThumbnails: 0, pendingAppearance: 0,
       emit,
       publish: () => {
         snapshot.locale = snapshot.settings.language === 'system' ? systemLocale : snapshot.settings.language
@@ -78,6 +91,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
         emit('clipboard-state', structuredClone(snapshot))
       },
       publishAppearance: () => { appearance.revision++; emit('system-appearance-changed', structuredClone(appearance)) },
+      publishUpdates: () => { updates.revision++; emit('update-state', structuredClone(updates)) },
       reopen: () => { snapshot.popupToken++; emit('popup-opened', snapshot.popupToken) },
     }
     let saveFailures = options.saveFailures ?? 0
@@ -98,6 +112,35 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
           }
           if (command === 'plugin:event|unlisten') { listeners.delete(args.eventId as number); return }
           calls.push({ command, args })
+          if (command === 'update_snapshot') {
+            const initial = structuredClone(updates)
+            if (options.updateSnapshotDelay) await new Promise((resolve) => setTimeout(resolve, options.updateSnapshotDelay))
+            if (options.updateSnapshotFailure) throw new Error('Update status unavailable')
+            return initial
+          }
+          if (command === 'check_for_updates') {
+            updates.status = 'checking'
+            updates.version = null
+            inspection.publishUpdates()
+            if (options.updateDelay) await new Promise((resolve) => setTimeout(resolve, options.updateDelay))
+            if (updateFailures > 0) { updateFailures--; updates.status = 'checkFailed' }
+            else {
+              updates.version = options.updateVersion === undefined ? '0.2.0' : options.updateVersion
+              updates.status = updates.version ? 'available' : 'upToDate'
+            }
+            inspection.publishUpdates()
+            return structuredClone(updates)
+          }
+          if (command === 'install_update') {
+            updates.status = 'downloading'
+            updates.downloaded = 1024
+            updates.total = 2048
+            inspection.publishUpdates()
+            if (options.updateDelay) await new Promise((resolve) => setTimeout(resolve, options.updateDelay))
+            updates.status = options.installFailure ?? 'installing'
+            inspection.publishUpdates()
+            return structuredClone(updates)
+          }
           if (command === 'system_locale') {
             if (options.systemLocaleFailure) throw new Error('System locale unavailable')
             return snapshot.locale
@@ -146,6 +189,7 @@ declare global {
     inspection: {
       snapshot: Snapshot
       appearance: SystemAppearance
+      updates: UpdateSnapshot
       calls: { command: string; args: Record<string, unknown> }[]
       activeUrls: Set<string>
       pendingThumbnails: number
@@ -153,6 +197,7 @@ declare global {
       emit: (event: string, payload: unknown) => void
       publish: () => void
       publishAppearance: () => void
+      publishUpdates: () => void
       reopen: () => void
     }
   }

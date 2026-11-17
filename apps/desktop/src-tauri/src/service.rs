@@ -110,6 +110,8 @@ impl ServiceHandle {
                 crate::i18n::set_language(settings.language);
                 windows::refresh_language(&app);
                 windows::apply_theme(&app, settings.theme_mode);
+                app.state::<crate::updates::Updates>()
+                    .set_automatic(settings.auto_update);
                 let backend = platform::create(app.clone());
                 let (backend, initial_error) = match backend {
                     Ok(backend) => (Some(backend), None),
@@ -306,6 +308,9 @@ impl Service {
                 }
                 self.history = history;
                 self.settings = settings;
+                self.app
+                    .state::<crate::updates::Updates>()
+                    .set_automatic(self.settings.auto_update);
                 self.publish();
                 Ok(Reply::Snapshot(Box::new(self.snapshot())))
             }

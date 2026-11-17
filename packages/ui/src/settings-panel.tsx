@@ -18,7 +18,7 @@ import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectV
 import { Switch } from './ui/switch'
 import { errorText } from './errors'
 import { shortcutLabel } from './shortcuts'
-import type { Kind, Retention, Settings, SettingsPatch, ThemeMode } from './types'
+import type { Kind, Retention, Settings, SettingsPatch, ThemeMode, UpdateController } from './types'
 
 export interface ShortcutRecorder {
   start: () => Promise<void>
@@ -52,8 +52,8 @@ const retentionOptions = [
   'session', 'pinned', 'all',
 ] as const
 
-export function SettingsPanel({ state, shortcutRecorder }: {
-  state: SettingsPanelState; shortcutRecorder?: ShortcutRecorder
+export function SettingsPanel({ state, shortcutRecorder, updates }: {
+  state: SettingsPanelState; shortcutRecorder?: ShortcutRecorder; updates?: UpdateController
 }) {
   useI18n()
   const { snapshot, settings, savingSettings, save } = state
@@ -176,6 +176,7 @@ export function SettingsPanel({ state, shortcutRecorder }: {
             </div>
             {!snapshot.capabilities.restoreAvailable && !snapshot.capabilities.message && <p className="field-help">{t('restoreUnavailable')}</p>}
           </SettingsSection>
+          <UpdateSettings settings={settings} save={save} updates={updates} />
           {snapshot.capabilities.message && <Feedback message={snapshot.capabilities.message} />}
         </form>
       </div>
@@ -197,6 +198,49 @@ export function SettingsPanel({ state, shortcutRecorder }: {
       </AlertDialog>
     </>
   )
+}
+
+function UpdateSettings({ settings, save, updates }: {
+  settings: Settings; save: SettingsPanelState['save']; updates?: UpdateController
+}) {
+  const snapshot = updates?.snapshot
+  const status = snapshot?.status
+  const unavailable = !snapshot || status === 'unavailable'
+  const busy = !!updates?.busy || status === 'checking' || status === 'downloading' || status === 'installing'
+  const failed = status === 'checkFailed' || status === 'downloadFailed' || status === 'installFailed'
+  const errorMessage = updates?.error ? t(`updates.${updates.error}`) : null
+  return <SettingsSection id="updates-heading" title={t('updates.title')}>
+    <div className="settings-field">
+      <div className="setting-line">
+        <span className="setting-label">{t('updates.title')}</span>
+        <Button type="button" variant="secondary" className="update-action" disabled={status === 'unavailable' || busy || (!snapshot && !updates?.error)}
+          aria-busy={status === 'checking'} onClick={() => { void updates?.check() }}>
+          {status === 'checking' && <LoaderCircle className="animate-spin" aria-hidden="true" />}{t('updates.check')}
+        </Button>
+      </div>
+      {snapshot && <p className="field-help">{t('updates.currentVersion', { version: snapshot.currentVersion })}</p>}
+      <p className={failed || (!snapshot && errorMessage) ? 'field-error update-status' : 'field-help update-status'}
+        role={failed || (!snapshot && errorMessage) ? 'alert' : 'status'} aria-atomic="true">
+        {status ? t(`updates.${status}`, { version: snapshot?.version ?? '' }) : errorMessage || t('updates.loading')}
+      </p>
+      {status === 'downloading' && <progress className="update-progress" aria-label={t('updates.downloading')}
+        value={snapshot?.total ? snapshot.downloaded : undefined} max={snapshot?.total || undefined} />}
+      {snapshot?.version && <Button type="button" variant="secondary" className="update-action" disabled={busy}
+        aria-busy={status === 'downloading' || status === 'installing'} onClick={() => { void updates?.install() }}>
+        {(status === 'downloading' || status === 'installing') && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+        {t('updates.install')}
+      </Button>}
+      {errorMessage && snapshot && <Feedback error={errorMessage} />}
+    </div>
+    <div className="settings-field">
+      <div className="setting-line">
+        <Label htmlFor="auto-update">{t('updates.automatic')}</Label>
+        <Switch id="auto-update" checked={settings.autoUpdate} disabled={unavailable || status === 'installing'} aria-describedby="auto-update-help"
+          onCheckedChange={(autoUpdate) => { void save({ autoUpdate }) }} />
+      </div>
+      <p id="auto-update-help" className="field-help">{t('updates.automaticHelp')}</p>
+    </div>
+  </SettingsSection>
 }
 
 function SettingsSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {

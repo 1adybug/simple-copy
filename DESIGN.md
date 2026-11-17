@@ -171,6 +171,8 @@ The history panel in settings places 过期时间 immediately after the record-c
 
 ### Canonical UI Map
 
+Software updates form the final compact settings group. The shared SettingsPanel owns the current version, check/install actions, accessible status/progress and automatic-update switch; its host supplies an UpdateController. Rust Settings owns the persisted autoUpdate opt-in (off by default), and src-tauri/src/updates.rs owns one serialized updater and a six-hour native schedule. Automatic installation waits until the settings window is closed and rechecks the opt-in after download. Manual installation flushes the existing settings queue. apps/desktop/src/updates.ts consumes revisioned native snapshots so a late initial query cannot replace newer progress. All statuses and actions follow the active locale.
+
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
 | Window Shell | packages/ui/src/window-frame.tsx and packages/ui/styles.css | Shared desktop shell rules in this document | History actions; settings close action; browser demonstration with inert settings/dismiss callbacks | tests/ui/desktop.spec.ts, settings.spec.ts and website.spec.ts; panel style comparison |

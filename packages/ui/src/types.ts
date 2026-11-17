@@ -14,6 +14,27 @@ export interface Settings {
   expirySeconds: number
   restoreEnabled: boolean
   restoreSeconds: number
+  autoUpdate: boolean
+}
+
+export type UpdateStatus = 'unavailable' | 'idle' | 'checking' | 'upToDate' | 'available'
+  | 'downloading' | 'installing' | 'checkFailed' | 'downloadFailed' | 'installFailed'
+
+export interface UpdateSnapshot {
+  revision: number
+  currentVersion: string
+  status: UpdateStatus
+  version: string | null
+  downloaded: number
+  total: number | null
+}
+
+export interface UpdateController {
+  snapshot: UpdateSnapshot | null
+  busy: boolean
+  error: 'connectionFailed' | null
+  check: () => Promise<void>
+  install: () => Promise<void>
 }
 
 export type SettingsPatch = Partial<Omit<Settings, 'formats'>> & { formats?: Partial<Settings['formats']> }

@@ -120,7 +120,9 @@ pnpm preview:website    # http://127.0.0.1:4173
 
 网站保留页头、产品介绍与软件示例、页脚，支持手机布局、键盘、减少动态效果与高对比度模式。演示复用实际软件的历史面板和设置表单；设置按钮打开设置界面，关闭设置返回历史记录，历史界面的收起按钮可点击但不执行操作。选择、置顶、删除与清除只操作示例内容，不读取系统剪贴板；「复制」仅在点击时写入所选示例文字，并在失败时提示。
 
-有正式下载地址时，将 apps/website/.env.example 复制为 apps/website/.env.local，设置 VITE_DOWNLOAD_URL 为 HTTPS 下载地址或网站根路径下的安装包地址；可选设置 VITE_SITE_URL 为正式 HTTPS 站点地址，用于 canonical 和 Open Graph URL。环境变量在构建时注入，修改后需重新构建。没有下载地址时，页面保留可用的在线演示入口。演示的设置按钮打开与软件相同的设置表单，语言和明暗模式立即应用于网站及演示，并在浏览器存储可用时保留；它们独立于已安装软件的设置。示例包含文字、链接、富文本、图片和文件五种记录类型。
+网站页头提供 [GitHub 仓库](https://github.com/1adybug/simple-copy) 链接，页头和产品介绍中的 Windows 下载按钮默认打开该仓库的 [Releases 页面](https://github.com/1adybug/simple-copy/releases)，可从中选择正式版或预发布版本的安装包。需要覆盖下载地址时，将 apps/website/.env.example 复制为 apps/website/.env.local，设置 VITE_DOWNLOAD_URL 为 HTTPS 地址或网站根路径下的安装包地址；可选设置 VITE_SITE_URL 为正式 HTTPS 站点地址，用于 canonical 和 Open Graph URL。环境变量在构建时注入，修改后需重新构建。
+
+在线演示入口始终保留。演示的设置按钮打开与软件相同的设置表单，语言和明暗模式立即应用于网站及演示，并在浏览器存储可用时保留；它们独立于已安装软件的设置。示例包含文字、链接、富文本、图片和文件五种记录类型。
 
 如果需要一个自带真实安装包、可直接部署的静态网站：
 
@@ -132,7 +134,7 @@ pnpm preview:website
 
 package:website 从当前版本的 NSIS 输出中选择安装包，将下载地址注入网站构建，复制安装包及 SHA-256 校验文件到 apps/website/dist/downloads。存在多个架构的安装包时，需显式指定：pnpm package:website "安装包完整路径"。
 
-将完整的 apps/website/dist 部署到任意支持静态文件的托管服务即可；无需 Node.js 服务端。宣传网站不会自动发布到外部托管。普通 pnpm build 或 pnpm build:website 会重新生成不含安装包的 dist，发布带下载的网站时应最后运行 pnpm package:website。
+将完整的 apps/website/dist 部署到任意支持静态文件的托管服务即可；无需 Node.js 服务端。宣传网站不会自动发布到外部托管。普通 pnpm build 或 pnpm build:website 会重新生成不含安装包的 dist，默认通过 GitHub Releases 下载；需要随网站托管安装包时，应最后运行 pnpm package:website。
 
 网站已接入 Windows / Android PWA 和 iOS 主屏幕 Web App 的安装元信息与专用图标。首次完整缓存后可离线查看官网及共享软件演示；安装包下载继续使用网络。更新等待旧窗口关闭后生效，不自动刷新操作中的页面。生产 HTTPS、缓存头、子目录部署、图标再生成与验证说明见 [网站 PWA](docs/pwa.md)。
 

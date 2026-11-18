@@ -217,6 +217,24 @@ test('settings still synchronize when browser storage is unavailable', async ({ 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 })
 
+test('the desktop footer reaches the viewport edge and expanding the demo keeps the headline in place', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto(websiteUrl)
+  const demo = page.frameLocator('.demo-window')
+  const settings = demo.getByRole('button', { name: '设置', exact: true })
+  await expect(settings).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
+
+  const heading = page.getByRole('heading', { level: 1 })
+  const documentTop = (element: Element) => element.getBoundingClientRect().top + window.scrollY
+  const headingTop = await heading.evaluate(documentTop)
+  expect(await page.locator('footer').evaluate((footer) => footer.getBoundingClientRect().bottom)).toBe(900)
+
+  await settings.click()
+  await expect(page.locator('.demo-window')).toHaveCSS('height', '640px')
+  expect(await heading.evaluate(documentTop)).toBe(headingTop)
+})
+
 test('phone layout keeps touch actions large and content inside the viewport', async ({ browser }) => {
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 320, height: 740 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' })
   const page = await context.newPage()
@@ -224,8 +242,9 @@ test('phone layout keeps touch actions large and content inside the viewport', a
     await page.goto(websiteUrl)
     const demo = page.frameLocator('.demo-window')
     await expect(demo.locator('.clip-card')).toHaveCount(5)
+    await expect(page.locator('header').getByRole('link', { name: translate('zh-CN', 'site.getWindows') })).toBeInViewport()
     const targets = [
-      ...await page.locator('.header-download').all(),
+      ...await page.locator('.site-header a, .hero-actions a, .site-footer a').all(),
       ...await demo.locator('.header-actions > button, .clip-actions > button').all(),
     ]
     for (const target of targets) {
@@ -238,6 +257,7 @@ test('phone layout keeps touch actions large and content inside the viewport', a
     await demo.getByRole('button', { name: '置顶', exact: true }).first().tap()
     await expect(demo.locator('.clip-main').first()).toContainText('周五下午三点')
     await demo.getByRole('button', { name: '设置', exact: true }).tap()
+    await expect(page.locator('.demo-window[data-view="settings"]')).toBeInViewport({ ratio: 0.99 })
     await demo.getByRole('combobox', { name: '语言', exact: true }).tap()
     await expect(demo.getByRole('listbox')).toBeVisible()
     await demo.getByRole('option', { name: 'Deutsch', exact: true }).tap()

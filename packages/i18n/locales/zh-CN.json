@@ -184,7 +184,7 @@
   "site.getWindows": "获取 Windows 版",
   "site.heroLead": "把复制过的，",
   "site.heroEnd": "留在手边。",
-  "site.heroDescription": "按 Win + V，找回复制过的内容。",
+  "site.heroDescription": "从本机剪贴板找回文字、链接、图片和文件。把常用内容置顶，下次粘贴时就能直接选用。",
   "site.try": "先试一试",
   "site.steps": "使用步骤",
   "site.openHistory": "打开历史",

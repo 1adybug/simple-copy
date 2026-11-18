@@ -289,10 +289,20 @@ for (const scenario of [
       form.scrollTop += panel.getBoundingClientRect().top - form.getBoundingClientRect().top
     })
     await page.screenshot({ path: `.artifacts/settings-${scenario.name}-recording.png` })
-    await page.getByRole('switch', { name: '自动恢复置顶内容', exact: true }).focus()
+    const toggle = page.getByRole('switch', { name: '自动恢复置顶内容', exact: true })
+    const trackColor = (element: Element) => getComputedStyle(element).backgroundColor
+    const offTrack = await toggle.evaluate(trackColor)
+    await toggle.focus()
+    await expect(toggle.and(page.locator(':focus-visible'))).toBeFocused()
+    const focusedOffTrack = await toggle.evaluate(trackColor)
+    await toggle.press('Space')
+    await expect(toggle).toBeChecked()
+    await expect(toggle).not.toHaveCSS('background-color', focusedOffTrack)
     await expect(page.getByRole('button', { name: '关闭设置', exact: true })).toBeInViewport()
     await expect(page.locator('.settings-status')).toHaveCount(0)
     await checkAccessibility(page)
     await page.screenshot({ path: `.artifacts/settings-${scenario.name}-restore.png` })
+    await toggle.blur()
+    await expect(toggle).not.toHaveCSS('background-color', offTrack)
   })
 }

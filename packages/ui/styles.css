@@ -235,14 +235,20 @@ kbd { font: inherit; }
 .retention-choice [data-slot="radio-card-mark"] { width: 11px; height: 11px; }
 .choice-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; font-size: 12px; line-height: 18px; font-weight: var(--sc-font-weight-medium); }
 .choice-copy small { font-size: 11px; line-height: 16px; color: var(--muted-foreground); font-weight: var(--sc-font-weight-regular); }
-.switch-setting > label { cursor: pointer; }
+.switch-setting:has(> [data-slot="switch"]:enabled) > label { cursor: pointer; }
+[data-slot="switch"] { background: var(--secondary); color: var(--sc-muted-on-fill); }
+[data-slot="switch"][data-state="checked"] { background: var(--primary); color: var(--sc-primary-foreground); }
+/* Each state keeps a distinct track and thumb against the focused row. */
+[data-slot="switch"]:focus-visible { background: var(--sc-primary-active); color: var(--sc-primary-foreground); }
+[data-slot="switch"][data-state="checked"]:focus-visible { background: var(--sc-primary-foreground); color: var(--primary); }
 .field-help { font-size: 11px; line-height: 17px; color: var(--muted-foreground); margin: 0; }
 .field-error { margin: 0; color: var(--sc-danger); font-size: 11px; line-height: 17px; }
 .settings-loading { flex: 1; min-height: 0; overflow-y: auto; display: flex; gap: 15px; flex-direction: column; justify-content: center; align-items: center; padding: 25px; color: var(--primary); }
 
 /* Shared focus roles distinguish editable surfaces from action fills. */
-:is([data-slot="button"], [data-slot="alert-dialog-action"], [data-slot="alert-dialog-cancel"])[data-variant="default"],
-[data-slot="switch"] { --sc-focus-background: var(--sc-primary-active); }
+:is([data-slot="button"], [data-slot="alert-dialog-action"], [data-slot="alert-dialog-cancel"])[data-variant="default"] {
+  --sc-focus-background: var(--sc-primary-active);
+}
 :is([data-variant="destructive"], .delete-button, .feedback-error button, [aria-invalid="true"]) {
   --sc-focus-background: var(--sc-danger-hover); --sc-focus-foreground: var(--sc-danger-foreground);
 }
@@ -253,7 +259,7 @@ kbd { font: inherit; }
 :is(input, textarea, [contenteditable="true"])[aria-invalid="true"] {
   --sc-focus-background: var(--sc-error-background); --sc-focus-foreground: var(--sc-error-foreground);
 }
-:root :is(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible,
+:root :is(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible:where(:not([data-slot="switch"])),
 :root :is(input, select, textarea, .clip-main):focus,
 :root .clip-main[data-selected],
 :root :is(.format-choice, .switch-setting):has(:focus-visible) {
@@ -264,11 +270,9 @@ kbd { font: inherit; }
 [data-slot="select-item"][data-highlighted] span { color: inherit; }
 .clip-main:is(:focus, [data-selected]) + .clip-actions > button:not(:hover) { color: var(--sc-primary-foreground); }
 :root .format-choice:has(:focus-visible) [data-slot="checkbox"],
-:root [data-slot="radio-group-item"]:focus-visible [data-slot="radio-card-mark"],
-:root .switch-setting:has(:focus-visible) [data-slot="switch"] {
+:root [data-slot="radio-group-item"]:focus-visible [data-slot="radio-card-mark"] {
   background: var(--sc-primary-foreground); color: var(--primary);
 }
-:root .switch-setting:has(:focus-visible) [data-slot="switch-thumb"] { background: var(--primary); }
 :root :is(input, textarea):focus::placeholder { color: inherit; opacity: .8; }
 .quantity-input:focus-within > span { color: var(--foreground); }
 .quantity-input:has([aria-invalid="true"]):focus-within > span { color: var(--sc-error-foreground); }
@@ -301,11 +305,11 @@ kbd { font: inherit; }
   [data-slot="radio-group-item"][data-state="checked"] [data-slot="radio-card-mark"],
   [data-slot="radio-group-item"]:not([data-variant="card"])[data-state="checked"],
   [data-slot="checkbox"][data-state="checked"],
-  [data-slot="switch"][data-state="checked"] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  [data-slot="switch"][data-state="checked"],
+  [data-slot="switch"]:focus-visible { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  [data-slot="switch"][data-state="checked"]:focus-visible { background: HighlightText; color: Highlight; }
   [data-slot="select-item"][data-highlighted] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   [data-slot="select-item"][data-highlighted] span { color: inherit; }
-  [data-slot="switch-thumb"] { background: ButtonFace; }
-  [data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] { background: HighlightText; }
   .clip-card[data-pinned] .pin-button { color: LinkText; forced-color-adjust: none; }
   .shortcut-recorder[aria-pressed="true"] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   :root :where(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible,
@@ -319,9 +323,7 @@ kbd { font: inherit; }
     --sc-focus-background: HighlightText; --sc-focus-foreground: Highlight;
   }
   :root .format-choice:has(:focus-visible) [data-slot="checkbox"],
-  :root [data-slot="radio-group-item"]:focus-visible [data-slot="radio-card-mark"],
-  :root .switch-setting:has(:focus-visible) [data-slot="switch"] { background: HighlightText; color: Highlight; }
-  :root .switch-setting:has(:focus-visible) [data-slot="switch-thumb"] { background: Highlight; }
+  :root [data-slot="radio-group-item"]:focus-visible [data-slot="radio-card-mark"] { background: HighlightText; color: Highlight; }
   .history-search:has(input:focus) :is(.history-search-icon, .history-search-clear),
   .quantity-input:focus-within > span,
   .quantity-input:has([aria-invalid="true"]):focus-within > span { color: Highlight; forced-color-adjust: none; }

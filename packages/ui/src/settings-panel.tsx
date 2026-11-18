@@ -241,7 +241,7 @@ function UpdateSettings({ settings, save, updates }: {
       {errorMessage && snapshot && <Feedback error={errorMessage} />}
     </div>
     <div className="settings-field">
-      <div className="setting-line">
+      <div className="setting-line switch-setting">
         <Label htmlFor="auto-update">{t('updates.automatic')}</Label>
         <Switch id="auto-update" checked={settings.autoUpdate} disabled={unavailable || status === 'installing'} aria-describedby="auto-update-help"
           onCheckedChange={(autoUpdate) => { void save({ autoUpdate }) }} />

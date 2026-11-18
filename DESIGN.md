@@ -58,8 +58,10 @@ components:
     textColor: "{colors.muted}"
   on-tint-caption:
     textColor: "{colors.muted-on-fill}"
-  switch:
+  checkbox:
     backgroundColor: "{colors.control}"
+  switch:
+    backgroundColor: "{colors.secondary}"
   switch-checked:
     backgroundColor: "{colors.primary}"
   button-hover:
@@ -127,7 +129,9 @@ The history window measures 360 by 400 logical pixels. Its single-row title bar 
 
 The fixed search field sits between the title bar and history list, uses the shared Input with a card fill, and aligns to the list's horizontal padding. It filters the current list's preview text and content-type labels immediately, ignoring case and surrounding whitespace. IME composition updates the input without filtering unfinished text. A localized clear button restores all items and focuses the input; Arrow Down enters the filtered list. Empty history shows a centered clipboard icon with an accessible name and no visible heading or description. No-results copy is distinct from empty history. Search is transient and resets when the popup opens; clipboard queries are not written to URLs or persistent storage. Clear-unpinned continues to apply to the complete history and states its full count in the confirmation.
 
-All focusable elements remain borderless in resting, pointer-focus and keyboard-focus states. packages/ui/styles.css owns the shared focus treatment for primitives, raw buttons and portal controls: primary fill with its paired foreground, primary-active fill for filled primary actions, and danger-hover with danger-foreground for destructive or invalid controls. Text inputs use this treatment on pointer focus as well. The search icon, placeholder and numeric units follow the focused field's foreground. Checkbox tiles and the restore row highlight as a whole, while inverted marks and the switch thumb preserve checked-state cues. Radio cards retain their inner dot. Shortcut recording also uses a filled color state. Forced-colors mode uses Highlight/HighlightText with inverted system-color indicators, never a border, outline or shadow. Selection and focus remain independently identifiable through checkmarks, radio dots, switch position and pin shape.
+All focusable elements remain borderless in resting, pointer-focus and keyboard-focus states. packages/ui/styles.css owns the shared focus treatment for primitives, raw buttons and portal controls: primary fill with its paired foreground, primary-active fill for filled primary actions, and danger-hover with danger-foreground for destructive or invalid controls. Text inputs use this treatment on pointer focus as well. The search icon, placeholder and numeric units follow the focused field's foreground. Checkbox tiles and switch rows highlight as a whole. Radio cards retain their inner dot. Shortcut recording also uses a filled color state. Forced-colors mode uses Highlight/HighlightText with inverted system-color indicators, never a border, outline or shadow. Selection and focus remain independently identifiable through checkmarks, radio dots, switch position and pin shape.
+
+Switches use a secondary track with a muted left thumb when off, and a primary track with a contrasting right thumb when on. Within a focused row, the off track uses the primary-active fill and the on track uses the primary foreground fill with a primary thumb. Forced colors preserve that difference with paired system colors.
 
 All desktop scroll surfaces, including history, settings, feedback and menus, hide native scrollbars while retaining wheel, touchpad and keyboard scrolling. Scrollbar tracks reserve no layout space. The global rule in packages/ui/styles.css owns this behavior.
 

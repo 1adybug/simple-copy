@@ -344,7 +344,10 @@ test('website demonstration and desktop render the same panel geometry and visua
     await desktopPage.setViewportSize({ width: 480, height: 640 })
     await desktopPage.goto('http://127.0.0.1:1421/?view=settings')
     await expect(desktopPage.locator('.settings-form')).toBeVisible()
-    for (const selector of ['.settings-window', '.settings-scroll', '.settings-panel', '.format-options', '#language', '#theme-mode', '.quantity-input']) {
+    for (const selector of [
+      '.settings-window', '.settings-scroll', '.settings-panel', '.format-options', '#language', '#theme-mode',
+      '#launch-on-startup', '#restore-enabled', '.quantity-input',
+    ]) {
       expect(await demo.locator(selector).first().evaluate(styles), selector)
         .toEqual(await desktopPage.locator(selector).first().evaluate(styles))
     }

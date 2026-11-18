@@ -169,10 +169,15 @@ test('search filters previews immediately, follows clipboard updates and clears 
 })
 
 test('search respects IME composition and keyboard actions use only matching history', async ({ page }) => {
-  await mockTauri(page, { items: searchItems })
+  await mockTauri(page, { items: searchItems, snapshotDelay: 250 })
   await page.goto(desktopUrl)
   const search = page.getByRole('searchbox', { name: '搜索剪贴板' })
-  await expect(page.locator('.clip-card')).toHaveCount(5)
+  const clips = page.locator('.clip-main')
+  await expect(clips.first()).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(clips.nth(1)).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(clips.first()).toBeFocused()
   await search.focus()
   await search.dispatchEvent('compositionstart')
   await search.fill('zhongwen')
@@ -202,7 +207,10 @@ test('search respects IME composition and keyboard actions use only matching his
   await expect(page.locator('.clip-card')).toHaveCount(2)
   await page.evaluate(() => window.inspection.reopen())
   await expect(search).toHaveValue('')
-  await expect(page.locator('.clip-card')).toHaveCount(5)
+  await expect(clips).toHaveCount(5)
+  await expect(clips.first()).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(clips.nth(1)).toBeFocused()
 })
 
 test('search keeps empty history distinct and fits a narrow dark popup', async ({ page }) => {

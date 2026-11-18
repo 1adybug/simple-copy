@@ -10,7 +10,7 @@ import type { SettingsPatch, UpdateController } from '@simple-copy/ui/types'
 import '@simple-copy/ui/styles.css'
 import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createDemoClips, demoViewMessage } from './demo-data'
+import { createDemoClips, demoViewMessage, focusDemoMessage } from './demo-data'
 import { saveWebsiteSettings, useWebsiteSettings } from './settings'
 import { version } from '../package.json'
 
@@ -25,6 +25,7 @@ function Demo() {
   const { locale } = useI18n()
   const settings = useWebsiteSettings()
   const [view, setView] = useState<'history' | 'settings'>('history')
+  const [resetKey, setResetKey] = useState(window.parent === window ? 0 : undefined)
   const [records, setRecords] = useState(() => createDemoClips().map(({ id, pinned }) => ({ id, pinned })))
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -37,6 +38,17 @@ function Demo() {
     ...clips.filter((clip) => clip.pinned),
     ...clips.filter((clip) => !clip.pinned).sort((a, b) => a.id - b.id),
   ]
+
+  useEffect(() => {
+    if (view !== 'history') return
+    const receiveFocus = (event: MessageEvent) => {
+      if (event.origin === location.origin && event.source === window.parent && event.data?.type === focusDemoMessage) {
+        setResetKey((previous) => (previous ?? 0) + 1)
+      }
+    }
+    window.addEventListener('message', receiveFocus)
+    return () => window.removeEventListener('message', receiveFocus)
+  }, [view])
 
   useEffect(() => {
     document.title = `${t('site.demo')} · ${t('appName')}`
@@ -116,7 +128,7 @@ function Demo() {
 
   return <>
     <div hidden={view !== 'history'}>
-      <HistoryPanel items={items} busy={busy} error={error} message={message} onAction={(request) => { void action(request) }}
+      <HistoryPanel items={items} busy={busy} error={error} message={message} resetKey={resetKey} onAction={(request) => { void action(request) }}
         onOpenSettings={() => { setMessage(null); setError(null); setView('settings') }} onDismiss={noWindowAction}
         renderImage={() => <span className="clip-image-frame"><img className="clip-image" src={logo} alt={t('imageAlt')} draggable={false} decoding="async" /></span>}
         onClearMessage={() => { setMessage(null); setError(null) }} />

@@ -254,13 +254,14 @@ kbd { font: inherit; }
   --sc-focus-background: var(--sc-error-background); --sc-focus-foreground: var(--sc-error-foreground);
 }
 :root :is(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible,
-:root :is(input, select, textarea):focus,
+:root :is(input, select, textarea, .clip-main):focus,
 :root :is(.format-choice, .restore-toggle):has(:focus-visible) {
   background: var(--sc-focus-background, var(--primary)); color: var(--sc-focus-foreground, var(--sc-primary-foreground));
 }
-:root :focus-visible :is(svg, span, .clip-text, .file-label, .image-placeholder),
+:root :is(:focus-visible, .clip-main:focus) :is(svg, span, .clip-text, .file-label, .image-placeholder),
 :root :is(.format-choice, .restore-toggle):has(:focus-visible) :is(.format-icon, .choice-copy small),
 [data-slot="select-item"][data-highlighted] span { color: inherit; }
+.clip-main:focus + .clip-actions > button:not(:hover) { color: var(--sc-primary-foreground); }
 :root .format-choice:has(:focus-visible) [data-slot="checkbox"],
 :root [data-slot="radio-group-item"]:focus-visible [data-slot="radio-card-mark"],
 :root .restore-toggle:has(:focus-visible) [data-slot="switch"] {
@@ -307,10 +308,11 @@ kbd { font: inherit; }
   .clip-card[data-pinned] .pin-button { color: LinkText; forced-color-adjust: none; }
   .shortcut-recorder[aria-pressed="true"] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   :root :where(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible,
-  :root :where(input, select, textarea):focus,
+  :root :where(input, select, textarea, .clip-main):focus,
   :root :is(.format-choice, .restore-toggle):has(:focus-visible) {
     --sc-focus-background: Highlight; --sc-focus-foreground: HighlightText; forced-color-adjust: none;
   }
+  .clip-main:focus + .clip-actions > button:not(:hover) { color: HighlightText; forced-color-adjust: none; }
   :root :is(input, textarea, [contenteditable="true"]):focus {
     --sc-focus-background: HighlightText; --sc-focus-foreground: Highlight;
   }

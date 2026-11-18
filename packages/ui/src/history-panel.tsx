@@ -1,7 +1,7 @@
 import { t } from '@simple-copy/i18n'
 import { useI18n } from '@simple-copy/i18n/react'
 import { Clipboard, File, LoaderCircle, Search, X } from 'lucide-react'
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import { Feedback, IconButton } from './app-controls'
 import { WindowFrame } from './window-frame'
 import { BroomIcon } from './icons/broom-icon'
@@ -17,6 +17,8 @@ import { Input } from './ui/input'
 import type { Clip, HistoryAction, Kind } from './types'
 
 function kindLabel(kind: Kind) { return t(`format.${kind}`) }
+
+const clipButtonSelector = '.clip-main:not(:disabled)'
 
 export interface HistoryPanelProps {
   items: readonly Clip[]
@@ -43,6 +45,13 @@ export function HistoryPanel({
   const confirmationFocus = useRef<HTMLButtonElement | null>(null)
   const [searchValue, setSearchValue] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResetKey, setSearchResetKey] = useState(resetKey)
+  const focusedResetKey = useRef<number | undefined>(undefined)
+  if (searchResetKey !== resetKey) {
+    setSearchResetKey(resetKey)
+    setSearchValue('')
+    setSearchQuery('')
+  }
   const search = useRef<HTMLInputElement>(null)
   const composing = useRef(false)
   const localList = useRef<HTMLDivElement>(null)
@@ -53,14 +62,14 @@ export function HistoryPanel({
     : items
   const ordinaryCount = items.filter((item) => !item.pinned).length
 
-  useEffect(() => { list.current?.scrollTo({ top: 0 }) }, [query, list])
-
-  useEffect(() => {
-    composing.current = false
-    setSearchValue('')
-    setSearchQuery('')
-    list.current?.scrollTo({ top: 0 })
-  }, [resetKey, list])
+  useLayoutEffect(() => { composing.current = false }, [resetKey])
+  useLayoutEffect(() => { list.current?.scrollTo({ top: 0 }) }, [query, resetKey, list])
+  useLayoutEffect(() => {
+    if (resetKey === undefined || focusedResetKey.current === resetKey || loading || busy) return
+    focusedResetKey.current = resetKey
+    if (confirmation || searchValue) return
+    list.current?.querySelector<HTMLButtonElement>(clipButtonSelector)?.focus({ preventScroll: true })
+  }, [busy, confirmation, list, loading, resetKey, searchValue])
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
@@ -75,7 +84,7 @@ export function HistoryPanel({
     if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
     if (!(event.target instanceof HTMLButtonElement) || !event.target.classList.contains('clip-main')) return
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>('.clip-main:not(:disabled)') ?? [])
+    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>(clipButtonSelector) ?? [])
     const current = buttons.indexOf(event.target)
     const destination = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
       : Math.min(buttons.length - 1, Math.max(0, current + (event.key === 'ArrowDown' ? 1 : -1)))
@@ -112,7 +121,7 @@ export function HistoryPanel({
           onKeyDown={(event) => {
             if (event.key !== 'ArrowDown' || event.nativeEvent.isComposing || composing.current
               || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-            const first = list.current?.querySelector<HTMLButtonElement>('.clip-main:not(:disabled)')
+            const first = list.current?.querySelector<HTMLButtonElement>(clipButtonSelector)
             if (!first) return
             event.preventDefault()
             first.focus({ preventScroll: true })

@@ -10,3 +10,4 @@ export const createDemoClips = (locale: Locale = getLocale()): Clip[] => [
 ]
 
 export const demoViewMessage = 'simple-copy:demo-view'
+export const focusDemoMessage = 'simple-copy:focus-demo'

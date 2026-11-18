@@ -9,17 +9,12 @@ use crate::model::{Formats, Payload, WriteId, file_uri};
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use windows::{
-    Monitor, Native, Target, capture_target, enable_win_v, start_monitor, stop_watching_popup,
-    target_has_focus, watch_popup,
-};
+pub use windows::{Monitor, Native, Target, capture_target, enable_win_v, start_monitor};
 
 #[cfg(not(windows))]
 mod desktop;
 #[cfg(not(windows))]
-pub use desktop::{
-    Monitor, Native, Target, capture_target, enable_win_v, start_monitor, target_has_focus,
-};
+pub use desktop::{Monitor, Native, Target, capture_target, enable_win_v, start_monitor};
 
 pub const ORIGIN_FORMAT: &str = "io.simplecopy.write-origin";
 

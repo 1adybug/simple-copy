@@ -17,7 +17,13 @@ test('keyboard users can skip the header and use the demo', async ({ page }) => 
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
   const demo = page.frameLocator('.demo-window')
   const clips = demo.locator('.clip-main')
-  await clips.first().focus()
+  const tryDemo = page.locator('.hero-actions').getByRole('link', { name: '先试一试', exact: true })
+  await tryDemo.press('Enter')
+  await expect(clips.first()).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(clips.nth(1)).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(clips.first()).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(clips.nth(1)).toBeFocused()
   await page.keyboard.press('Enter')
@@ -25,6 +31,9 @@ test('keyboard users can skip the header and use the demo', async ({ page }) => 
   await demo.getByRole('button', { name: '置顶', exact: true }).first().click()
   await expect(clips.first()).toContainText('周五下午三点')
   await expect(demo.locator('.clip-card').first()).toHaveAttribute('data-kind', 'richText')
+  await tryDemo.click()
+  await expect(clips.first()).toBeFocused()
+  await expect(clips.first()).toHaveCSS('background-color', 'rgb(121, 61, 145)')
 })
 
 test('demo opens the shared settings and restores history and keyboard focus on close', async ({ page }) => {
@@ -259,7 +268,9 @@ test('website demonstration and desktop render the same panel geometry and visua
     await desktopPage.setViewportSize({ width: 360, height: 400 })
     await mockTauri(desktopPage, { items: demoClips, settings: { themeMode: 'light' } })
     await desktopPage.goto('http://127.0.0.1:1421')
-    await expect(desktopPage.locator('.clip-card')).toHaveCount(demoClips.length)
+    await expect(desktopPage.locator('.clip-main').first()).toBeFocused()
+    await page.locator('.hero-actions').getByRole('link', { name: '先试一试', exact: true }).press('Enter')
+    await expect(demo.locator('.clip-main').first()).toBeFocused()
     const selectors = [
       '.app-window', '.window-header', '.window-heading h1', '.header-actions > button',
       '.history-search-input', '.history-list', '.clip-card', '.clip-main', '.clip-text-lines', '.clip-actions > button',

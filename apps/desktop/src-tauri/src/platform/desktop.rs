@@ -27,10 +27,6 @@ pub fn capture_target() -> Option<Target> {
     None
 }
 
-pub fn target_has_focus(_target: &Target) -> bool {
-    false
-}
-
 pub fn enable_win_v(_enabled: bool) -> Result<(), String> {
     Ok(())
 }

@@ -2,8 +2,8 @@ import { t } from '@simple-copy/i18n'
 import { useI18n } from '@simple-copy/i18n/react'
 import logo from '@simple-copy/brand/logo.svg'
 import { ArrowDownToLine, ArrowRight } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import { demoViewMessage } from './demo-data'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { demoViewMessage, focusDemoMessage } from './demo-data'
 import { syncDemoSettings } from './settings'
 
 const downloadUrl = import.meta.env.VITE_DOWNLOAD_URL?.trim()
@@ -18,9 +18,10 @@ function Brand({ footer = false }: { footer?: boolean }) {
   </a>
 }
 
-function ClipboardDemo() {
-  const [view, setView] = useState<'history' | 'settings'>('history')
+function ClipboardDemo({ openRequest }: { openRequest: number }) {
+  const [view, setView] = useState<'history' | 'settings' | null>(null)
   const frame = useRef<HTMLIFrameElement>(null)
+  const ready = view !== null
 
   useEffect(() => {
     const receiveView = (event: MessageEvent) => {
@@ -32,8 +33,12 @@ function ClipboardDemo() {
     return () => window.removeEventListener('message', receiveView)
   }, [])
 
+  useEffect(() => {
+    if (ready && openRequest > 0) frame.current?.contentWindow?.postMessage({ type: focusDemoMessage }, location.origin)
+  }, [openRequest, ready])
+
   return <div className="demo-scene" id="demo" role="region" aria-label={t('site.demo')}>
-    <iframe ref={frame} className="demo-window" data-view={view} src="./demo.html"
+    <iframe ref={frame} className="demo-window" data-view={view ?? 'history'} src="./demo.html"
       onLoad={syncDemoSettings} title={`${t('appName')} · ${t('site.demo')}`}
       width={view === 'settings' ? 480 : 360} height={view === 'settings' ? 640 : 400} />
   </div>
@@ -41,6 +46,14 @@ function ClipboardDemo() {
 
 export default function App() {
   const { locale } = useI18n()
+  const [demoOpenRequest, setDemoOpenRequest] = useState(0)
+
+  function openDemo(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.button === 0 && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      setDemoOpenRequest((previous) => previous + 1)
+    }
+  }
+
   useEffect(() => {
     document.title = t('site.title')
     document.querySelector('meta[name="description"]')?.setAttribute('content', t('site.description'))
@@ -54,7 +67,7 @@ export default function App() {
     <a className="skip-link" href="#hero-title">{t('site.skip')}</a>
     <header className="site-header section-shell" id="top">
       <Brand />
-      <a className="header-download" href={downloadUrl || '#demo'}>
+      <a className="header-download" href={downloadUrl || '#demo'} onClick={downloadUrl ? undefined : openDemo}>
         {downloadUrl ? <>{t('site.getWindows')}<ArrowDownToLine size={15} /></> : <>{t('site.try')}<ArrowRight size={15} /></>}
       </a>
     </header>
@@ -66,10 +79,10 @@ export default function App() {
           <p className="hero-description">{t('site.heroDescription')}</p>
           <div className="hero-actions">
             {downloadUrl && <a className="button button-primary" href={downloadUrl}><WindowsMark />{t('site.getWindows')}<ArrowDownToLine size={17} /></a>}
-            <a className={`button ${downloadUrl ? 'button-text' : 'button-primary'}`} href="#demo">{t('site.try')}<ArrowRight size={17} /></a>
+            <a className={`button ${downloadUrl ? 'button-text' : 'button-primary'}`} href="#demo" onClick={openDemo}>{t('site.try')}<ArrowRight size={17} /></a>
           </div>
         </div>
-        <ClipboardDemo />
+        <ClipboardDemo openRequest={demoOpenRequest} />
       </section>
     </main>
 

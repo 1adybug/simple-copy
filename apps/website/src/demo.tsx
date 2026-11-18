@@ -137,7 +137,10 @@ function Demo() {
       <IconButton label={t('closeSettings')} onClick={() => setView('history')}><CloseIcon /></IconButton>
     }>
       <SettingsPanel updates={updates} state={{ settings, savingSettings: false, save, error, message,
-        snapshot: { shortcutError: null, storageStatus: null, capabilities: { restoreAvailable: true, message: null } },
+        snapshot: {
+          shortcutError: null, storageStatus: null, startupAvailable: true, startupError: null,
+          capabilities: { restoreAvailable: true, message: null },
+        },
         clearMessage: () => { setMessage(null); setError(null) },
       }} />
     </WindowFrame>}

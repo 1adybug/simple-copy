@@ -4,6 +4,7 @@ mod i18n;
 mod model;
 mod platform;
 mod service;
+mod startup;
 mod store;
 mod updates;
 mod windows;
@@ -173,8 +174,10 @@ async fn install_update(
 
 pub fn run() {
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            windows::toggle(app)
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if !args.iter().any(|arg| arg == startup::LOGIN_ARG) {
+                windows::toggle(app);
+            }
         }))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -224,7 +227,9 @@ pub fn run() {
                 }
             }
             app.state::<ServiceHandle>().initialize_shortcut();
-            windows::toggle(&handle);
+            if !startup::from_login() {
+                windows::toggle(&handle);
+            }
             Ok(())
         })
         .build(tauri::generate_context!())

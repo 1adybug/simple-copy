@@ -5,7 +5,7 @@ import { useSyncExternalStore } from 'react'
 const storageKey = 'simple-copy:website-settings'
 const settingsMessage = 'simple-copy:website-settings'
 const defaults: Settings = {
-  shortcut: 'Super+V', themeMode: 'system', language: 'system',
+  shortcut: 'Super+V', themeMode: 'system', language: 'system', launchOnStartup: true,
   formats: { text: true, link: true, richText: true, image: true, files: true },
   retention: 'pinned', maxHistoryItems: 20, expirySeconds: 86400,
   restoreEnabled: false, restoreSeconds: 5, autoUpdate: false,
@@ -15,6 +15,7 @@ function validSettings(value: unknown): value is Settings {
   if (!value || typeof value !== 'object') return false
   const settings = value as Settings
   return typeof settings.shortcut === 'string'
+    && typeof settings.launchOnStartup === 'boolean'
     && ['system', 'light', 'dark'].includes(settings.themeMode)
     && (settings.language === 'system' || supportedLocales.includes(settings.language))
     && ['session', 'pinned', 'all'].includes(settings.retention)
@@ -28,7 +29,10 @@ function validSettings(value: unknown): value is Settings {
 function readSettings(): Settings {
   try {
     const stored: unknown = JSON.parse(localStorage.getItem(storageKey) || 'null')
-    if (validSettings(stored)) return stored
+    if (stored && typeof stored === 'object') {
+      const migrated = { launchOnStartup: defaults.launchOnStartup, ...stored }
+      if (validSettings(migrated)) return migrated
+    }
   } catch { /* Blocked or invalid browser storage keeps the default settings usable. */ }
   return defaults
 }

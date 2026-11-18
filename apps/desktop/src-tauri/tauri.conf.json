@@ -33,6 +33,7 @@
       "nsis": {
         "languages": ["English", "SimpChinese", "TradChinese", "Japanese", "Korean", "German", "French", "Spanish", "PortugueseBR", "Russian"],
         "displayLanguageSelector": false,
+        "installerHooks": "installer-hooks.nsh",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico"
       }

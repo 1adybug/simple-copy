@@ -8,6 +8,7 @@ export interface Settings {
   shortcut: string
   themeMode: ThemeMode
   language: Language
+  launchOnStartup: boolean
   formats: Record<Kind, boolean>
   retention: Retention
   maxHistoryItems: number

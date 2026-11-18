@@ -45,7 +45,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
         fileCount: 0,
       })),
       settings: {
-        shortcut: 'Super+V', themeMode: 'system', language: 'system',
+        shortcut: 'Super+V', themeMode: 'system', language: 'system', launchOnStartup: true,
         formats: { text: true, link: true, richText: true, image: true, files: true },
         retention: 'pinned', maxHistoryItems: 20, expirySeconds: 86400,
         restoreEnabled: false, restoreSeconds: 5, autoUpdate: false,
@@ -56,7 +56,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
         restoreAvailable: true, canAuthorize: false, message: null,
         ...options.capabilities,
       },
-      storageStatus: null, shortcutError: null, error: null, restorePending: false,
+      storageStatus: null, shortcutError: null, startupAvailable: true, startupError: null, error: null, restorePending: false,
     }
     const updates: UpdateSnapshot = {
       revision: 1, currentVersion: '0.1.0', status: 'idle', version: null, downloaded: 0, total: null,

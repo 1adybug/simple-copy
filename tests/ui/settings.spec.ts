@@ -44,6 +44,20 @@ test('compact groups retain every setting without persistent hints and rapid for
   await expect(page.getByRole('checkbox', { name: '图片', exact: true })).toBeChecked()
 })
 
+test('launch at startup defaults on and can be retried after a failed save', async ({ page }) => {
+  await mockTauri(page, { saveFailures: 1 })
+  await page.goto(settingsUrl)
+  const startup = page.getByRole('switch', { name: '开机启动', exact: true })
+  await expect(startup).toBeChecked()
+  await startup.press('Space')
+  await expect(page.getByRole('alert')).toContainText('设置保存失败，请重试。')
+  await expect(startup).toBeChecked()
+  await startup.press('Space')
+  await expect.poll(() => page.evaluate(() => window.inspection.snapshot.settings.launchOnStartup)).toBe(false)
+  await expect(startup).not.toBeChecked()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
 test('history limit commits only on blur or non-composing Enter and confirms reductions', async ({ page }) => {
   await mockTauri(page, { settings: { maxHistoryItems: 100 } })
   await page.goto(settingsUrl)

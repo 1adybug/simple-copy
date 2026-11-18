@@ -29,6 +29,8 @@ export interface Snapshot {
   }
   storageStatus: string | null
   shortcutError: string | null
+  startupAvailable: boolean
+  startupError: string | null
   error: string | null
   restorePending: boolean
 }

@@ -166,6 +166,33 @@ test('settings apply language and theme to the whole website and persist without
   await expect(demo.getByRole('combobox', { name: translate('en', 'theme'), exact: true })).toHaveText(translate('en', 'theme.dark'))
 })
 
+test('older demo preferences keep their language and theme when startup defaults on', async ({ page }) => {
+  await page.addInitScript(() => {
+    const key = 'simple-copy:website-settings'
+    if (localStorage.getItem(key)) return
+    localStorage.setItem(key, JSON.stringify({
+      shortcut: 'Super+V', themeMode: 'dark', language: 'en',
+      formats: { text: true, link: true, richText: true, image: true, files: true },
+      retention: 'pinned', maxHistoryItems: 20, expirySeconds: 86400,
+      restoreEnabled: false, restoreSeconds: 5, autoUpdate: false,
+    }))
+  })
+  await page.goto(websiteUrl)
+  const demo = page.frameLocator('.demo-window')
+  const openSettings = demo.getByRole('button', { name: translate('en', 'settings'), exact: true })
+  const startup = demo.getByRole('switch', { name: translate('en', 'launchOnStartup'), exact: true })
+  await openSettings.click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(demo.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(startup).toBeChecked()
+  await startup.click()
+  await expect(startup).not.toBeChecked()
+  await page.reload()
+  await openSettings.click()
+  await expect(startup).toBeEnabled()
+  await expect(startup).not.toBeChecked()
+})
+
 test('system preferences remain live and manual settings stay selected until restored to system', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto(websiteUrl)

@@ -31,6 +31,8 @@ export interface SettingsPanelState {
   snapshot: {
     shortcutError: string | null
     storageStatus: string | null
+    startupAvailable: boolean
+    startupError: string | null
     capabilities: { restoreAvailable: boolean; message: string | null }
   } | null
   savingSettings: boolean
@@ -115,6 +117,12 @@ export function SettingsPanel({ state, shortcutRecorder, updates }: {
                 </SelectContent>
               </SelectRoot>
             </div>
+            <div className="setting-line switch-setting">
+              <Label htmlFor="launch-on-startup">{t('launchOnStartup')}</Label>
+              <Switch id="launch-on-startup" checked={settings.launchOnStartup} disabled={!snapshot.startupAvailable}
+                onCheckedChange={(launchOnStartup) => void save({ launchOnStartup })} />
+            </div>
+            {snapshot.startupError && <Feedback error={snapshot.startupError} />}
           </SettingsSection>
           <SettingsSection id="recording-heading" title={t('recording')}>
             <fieldset className="settings-field">
@@ -154,7 +162,7 @@ export function SettingsPanel({ state, shortcutRecorder, updates }: {
             {snapshot.storageStatus && <Feedback error={snapshot.storageStatus} />}
           </SettingsSection>
           <SettingsSection id="restore-heading" title={t('restore')}>
-            <div className="setting-line restore-toggle">
+            <div className="setting-line switch-setting">
               <Label htmlFor="restore-enabled" className="choice-copy"><span id="restore-label">{t('restoreEnabled')}</span>
                 <small id="restore-help" className="sr-only">{t('restoreHelp')}</small></Label>
               <Switch id="restore-enabled" aria-labelledby="restore-label" aria-describedby="restore-help" checked={settings.restoreEnabled}

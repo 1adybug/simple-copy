@@ -14,6 +14,7 @@ use crate::{
     history::{History, Preview, Restore, now_millis},
     model::{ClipId, Payload, Settings, WriteId},
     platform::{self, Capabilities, ClipboardBackend, Written},
+    startup,
     store::Store,
     windows::{self, WindowState},
 };
@@ -66,6 +67,8 @@ pub struct Snapshot {
     pub capabilities: Capabilities,
     pub storage_status: Option<String>,
     pub shortcut_error: Option<String>,
+    pub startup_available: bool,
+    pub startup_error: Option<String>,
     pub error: Option<String>,
     pub restore_pending: bool,
 }
@@ -103,11 +106,20 @@ impl ServiceHandle {
             .name("clipboard-state".into())
             .spawn(move || {
                 let mut store = Store::open(&path).unwrap_or_else(Store::memory);
-                let (settings, history) = store.load().unwrap_or_else(|error| {
+                let loaded = store.load();
+                // Only settings from the persistent database govern startup registration.
+                let startup_available =
+                    startup::available() && store.is_persistent() && loaded.is_ok();
+                let (settings, history) = loaded.unwrap_or_else(|error| {
                     store.status = Some(error);
                     (Settings::default(), History::default())
                 });
                 crate::i18n::set_language(settings.language);
+                let startup_error = if startup_available && !startup::from_login() {
+                    startup::apply(&app.config().identifier, settings.launch_on_startup).err()
+                } else {
+                    None
+                };
                 windows::refresh_language(&app);
                 windows::apply_theme(&app, settings.theme_mode);
                 app.state::<crate::updates::Updates>()
@@ -122,6 +134,8 @@ impl ServiceHandle {
                     backend,
                     store,
                     settings,
+                    startup_available,
+                    startup_error,
                     history,
                     restore: Restore::default(),
                     last_revision: None,
@@ -203,6 +217,8 @@ struct Service {
     backend: Option<Box<dyn ClipboardBackend>>,
     store: Store,
     settings: Settings,
+    startup_available: bool,
+    startup_error: Option<std::io::Error>,
     history: History,
     restore: Restore,
     last_revision: Option<u64>,
@@ -240,6 +256,11 @@ impl Service {
                 .lock()
                 .ok()
                 .and_then(|error| error.clone()),
+            startup_available: self.startup_available,
+            startup_error: self
+                .startup_error
+                .as_ref()
+                .map(|error| crate::i18n::with_error("native.startupChange", error)),
             error: self.error.clone(),
             restore_pending: self.restore.deadline().is_some(),
         }
@@ -279,11 +300,33 @@ impl Service {
                     return Err(crate::i18n::t("native.restoreUnsupported").into());
                 }
                 let before = self.settings.clone();
+                let startup_changed = settings.launch_on_startup != before.launch_on_startup;
+                if startup_changed && !self.startup_available {
+                    return Err(crate::i18n::t("native.startupUnavailable").into());
+                }
                 let mut history = self.history.clone();
                 history.set_expiry_seconds(settings.expiry_seconds);
                 history.set_max_items(settings.max_history_items);
                 windows::apply_shortcut(&self.app, &settings.shortcut)?;
-                if let Err(error) = self.store.sync(&settings, &history) {
+                let mut undo_startup = None;
+                let saved = (|| {
+                    if startup_changed {
+                        undo_startup = startup::apply(
+                            &self.app.config().identifier,
+                            settings.launch_on_startup,
+                        )
+                        .map_err(|error| crate::i18n::with_error("native.startupChange", error))?;
+                    }
+                    self.store.sync(&settings, &history)
+                })();
+                if let Err(error) = saved {
+                    let mut rollback_failed = false;
+                    if let Some(undo) = undo_startup
+                        && let Err(error) = undo()
+                    {
+                        self.startup_error = Some(error);
+                        rollback_failed = true;
+                    }
                     if windows::apply_shortcut(&self.app, &before.shortcut).is_err() {
                         self.settings.shortcut = settings.shortcut;
                         *self
@@ -293,9 +336,15 @@ impl Service {
                             .lock()
                             .expect("shortcut error lock") =
                             Some(crate::i18n::t("native.shortcutRollback").into());
+                        rollback_failed = true;
+                    }
+                    if rollback_failed {
                         self.publish();
                     }
                     return Err(error);
+                }
+                if startup_changed {
+                    self.startup_error = None;
                 }
                 self.restore
                     .settings_changed(&before, &settings, Instant::now());

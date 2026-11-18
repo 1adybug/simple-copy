@@ -39,6 +39,10 @@ impl Store {
         .expect("in-memory SQLite schema")
     }
 
+    pub fn is_persistent(&self) -> bool {
+        !self.memory_only
+    }
+
     fn initialize(
         mut db: Connection,
         memory_only: bool,
@@ -315,6 +319,27 @@ mod tests {
     use crate::model::Payload;
 
     use super::*;
+
+    #[test]
+    fn launch_at_startup_defaults_on_for_older_settings_and_preserves_opt_out() {
+        let mut store = Store::memory("test database".into());
+        store
+            .db
+            .execute(
+                "INSERT INTO settings(id, value) VALUES(1, ?1)",
+                [r#"{"retention":"session","maxHistoryItems":37}"#],
+            )
+            .unwrap();
+        let (mut settings, history) = store.load().unwrap();
+        assert!(settings.launch_on_startup);
+        settings.launch_on_startup = false;
+        store.sync(&settings, &history).unwrap();
+
+        let mut reopened = Store::initialize(store.db, true, None).unwrap();
+        let (saved, _) = reopened.load().unwrap();
+        assert!(!saved.launch_on_startup);
+        assert_eq!(saved.max_history_items, 37);
+    }
 
     #[test]
     fn update_opt_in_migrates_existing_settings_and_remains_transactional() {

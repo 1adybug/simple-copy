@@ -8,7 +8,7 @@ const defaults: Settings = {
   shortcut: 'Super+V', themeMode: 'system', language: 'system', launchOnStartup: true,
   formats: { text: true, link: true, richText: true, image: true, files: true },
   retention: 'pinned', maxHistoryItems: 20, expirySeconds: 86400,
-  restoreEnabled: false, restoreSeconds: 5, autoUpdate: false,
+  restoreEnabled: false, restoreSeconds: 5, autoUpdate: true,
 }
 
 function validSettings(value: unknown): value is Settings {
@@ -30,7 +30,7 @@ function readSettings(): Settings {
   try {
     const stored: unknown = JSON.parse(localStorage.getItem(storageKey) || 'null')
     if (stored && typeof stored === 'object') {
-      const migrated = { launchOnStartup: defaults.launchOnStartup, ...stored }
+      const migrated = { launchOnStartup: defaults.launchOnStartup, autoUpdate: defaults.autoUpdate, ...stored }
       if (validSettings(migrated)) return migrated
     }
   } catch { /* Blocked or invalid browser storage keeps the default settings usable. */ }

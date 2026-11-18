@@ -83,7 +83,7 @@ impl Default for Settings {
             expiry_seconds: 24 * 60 * 60,
             restore_enabled: false,
             restore_seconds: 5,
-            auto_update: false,
+            auto_update: true,
         }
     }
 }

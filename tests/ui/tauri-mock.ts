@@ -48,7 +48,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
         shortcut: 'Super+V', themeMode: 'system', language: 'system', launchOnStartup: true,
         formats: { text: true, link: true, richText: true, image: true, files: true },
         retention: 'pinned', maxHistoryItems: 20, expirySeconds: 86400,
-        restoreEnabled: false, restoreSeconds: 5, autoUpdate: false,
+        restoreEnabled: false, restoreSeconds: 5, autoUpdate: true,
         ...options.settings,
       },
       capabilities: {

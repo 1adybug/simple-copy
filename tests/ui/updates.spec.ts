@@ -59,14 +59,14 @@ test('automatic updates persist through the existing queue, roll back failed sav
   await mockTauri(page, { saveFailures: 1 })
   await page.goto(settingsUrl)
   const toggle = page.getByRole('switch', { name: '自动更新', exact: true })
-  await expect(toggle).not.toBeChecked()
+  await expect(toggle).toBeChecked()
   await toggle.press('Space')
   await expect(page.getByRole('alert')).toContainText('设置保存失败')
-  await expect(toggle).not.toBeChecked()
+  await expect(toggle).toBeChecked()
   await toggle.click()
-  await expect.poll(() => page.evaluate(() => window.inspection.snapshot.settings.autoUpdate)).toBe(true)
-  await page.evaluate(() => { window.inspection.snapshot.settings.autoUpdate = false; window.inspection.publish() })
-  await expect(toggle).not.toBeChecked()
+  await expect.poll(() => page.evaluate(() => window.inspection.snapshot.settings.autoUpdate)).toBe(false)
+  await page.evaluate(() => { window.inspection.snapshot.settings.autoUpdate = true; window.inspection.publish() })
+  await expect(toggle).toBeChecked()
 })
 
 test('manual installation waits for a pending settings save', async ({ page }) => {
@@ -76,7 +76,7 @@ test('manual installation waits for a pending settings save', async ({ page }) =
   await page.getByRole('switch', { name: '自动更新', exact: true }).click()
   await page.getByRole('button', { name: '下载并安装', exact: true }).click()
   await expect.poll(() => page.evaluate(() => window.inspection.calls.some((call) => call.command === 'install_update'))).toBe(true)
-  expect(await page.evaluate(() => window.inspection.snapshot.settings.autoUpdate)).toBe(true)
+  expect(await page.evaluate(() => window.inspection.snapshot.settings.autoUpdate)).toBe(false)
 })
 
 test('a late initial snapshot cannot overwrite a newer native update event', async ({ page }) => {

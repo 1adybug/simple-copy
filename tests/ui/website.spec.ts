@@ -47,6 +47,9 @@ test('demo opens the shared settings and restores history and keyboard focus on 
   await settings.press('Enter')
   await expect(demo.locator('.settings-window')).toBeVisible()
   await expect(demo.getByRole('combobox', { name: '语言', exact: true })).toBeVisible()
+  const automaticUpdates = demo.getByRole('switch', { name: '自动更新', exact: true })
+  await expect(automaticUpdates).toBeChecked()
+  await expect(automaticUpdates).toBeDisabled()
   await expect(demo.getByRole('button', { name: '关闭设置', exact: true })).toBeFocused()
   await demo.getByRole('button', { name: '关闭设置', exact: true }).click()
   await expect(search).toHaveValue('链接')
@@ -166,7 +169,7 @@ test('settings apply language and theme to the whole website and persist without
   await expect(demo.getByRole('combobox', { name: translate('en', 'theme'), exact: true })).toHaveText(translate('en', 'theme.dark'))
 })
 
-test('older demo preferences keep their language and theme when startup defaults on', async ({ page }) => {
+test('older demo preferences keep their language and theme when new settings default on', async ({ page }) => {
   await page.addInitScript(() => {
     const key = 'simple-copy:website-settings'
     if (localStorage.getItem(key)) return
@@ -174,7 +177,7 @@ test('older demo preferences keep their language and theme when startup defaults
       shortcut: 'Super+V', themeMode: 'dark', language: 'en',
       formats: { text: true, link: true, richText: true, image: true, files: true },
       retention: 'pinned', maxHistoryItems: 20, expirySeconds: 86400,
-      restoreEnabled: false, restoreSeconds: 5, autoUpdate: false,
+      restoreEnabled: false, restoreSeconds: 5,
     }))
   })
   await page.goto(websiteUrl)
@@ -185,6 +188,7 @@ test('older demo preferences keep their language and theme when startup defaults
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   await expect(demo.locator('html')).toHaveAttribute('data-theme', 'dark')
   await expect(startup).toBeChecked()
+  await expect(demo.getByRole('switch', { name: translate('en', 'updates.automatic'), exact: true })).toBeChecked()
   await startup.click()
   await expect(startup).not.toBeChecked()
   await page.reload()

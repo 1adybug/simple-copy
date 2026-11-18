@@ -342,7 +342,8 @@ mod tests {
     }
 
     #[test]
-    fn update_opt_in_migrates_existing_settings_and_remains_transactional() {
+    fn automatic_updates_default_on_and_saved_opt_out_is_transactional() {
+        assert!(Settings::default().auto_update);
         let mut store =
             Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
         store
@@ -353,8 +354,7 @@ mod tests {
             )
             .unwrap();
         let (mut settings, history) = store.load().unwrap();
-        assert!(!settings.auto_update);
-        settings.auto_update = true;
+        assert!(settings.auto_update);
         store.sync(&settings, &history).unwrap();
 
         let mut reopened = Store::initialize(store.db, false, None).unwrap();

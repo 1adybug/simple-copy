@@ -1,7 +1,7 @@
 import { t } from '@simple-copy/i18n'
 import { useI18n } from '@simple-copy/i18n/react'
 import { Clipboard, File, LoaderCircle, Search, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref, type RefObject } from 'react'
 import { Feedback, IconButton } from './app-controls'
 import { WindowFrame } from './window-frame'
 import { BroomIcon } from './icons/broom-icon'
@@ -20,6 +20,12 @@ function kindLabel(kind: Kind) { return t(`format.${kind}`) }
 
 const clipButtonSelector = '.clip-main:not(:disabled)'
 
+export type HistoryNavigationKey = 'ArrowUp' | 'ArrowDown' | 'Home' | 'End' | 'Enter'
+
+export interface HistoryPanelHandle {
+  navigate: (key: HistoryNavigationKey, resetKey: number) => void
+}
+
 export interface HistoryPanelProps {
   items: readonly Clip[]
   busy?: boolean
@@ -28,6 +34,7 @@ export interface HistoryPanelProps {
   message?: string | null
   resetKey?: number
   listRef?: RefObject<HTMLDivElement | null>
+  navigationRef?: Ref<HistoryPanelHandle>
   onAction: (action: HistoryAction) => void
   onOpenSettings: () => void
   onDismiss: () => void
@@ -37,7 +44,7 @@ export interface HistoryPanelProps {
 }
 
 export function HistoryPanel({
-  items, busy = false, loading = false, error, message, resetKey, listRef,
+  items, busy = false, loading = false, error, message, resetKey, listRef, navigationRef,
   onAction, onOpenSettings, onDismiss, onCapture, onClearMessage, renderImage,
 }: HistoryPanelProps) {
   useI18n()
@@ -51,6 +58,7 @@ export function HistoryPanel({
     setSearchResetKey(resetKey)
     setSearchValue('')
     setSearchQuery('')
+    setConfirmation(null)
   }
   const search = useRef<HTMLInputElement>(null)
   const composing = useRef(false)
@@ -80,18 +88,37 @@ export function HistoryPanel({
     return () => document.removeEventListener('keydown', onKey)
   }, [onDismiss])
 
+  function navigateHistory(key: HistoryNavigationKey, selected: Element | null) {
+    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>(clipButtonSelector) ?? [])
+    const current = buttons.findIndex((button) => button === selected)
+    if (key === 'Enter') {
+      const button = buttons[current] ?? buttons[0]
+      button?.click()
+      return !!button
+    }
+    const destination = key === 'Home' ? 0 : key === 'End' ? buttons.length - 1
+      : Math.min(buttons.length - 1, Math.max(0, current + (key === 'ArrowDown' ? 1 : -1)))
+    const button = buttons[destination]
+    if (!button || destination === current) return false
+    button.focus({ preventScroll: true })
+    button.closest('.clip-card')?.scrollIntoView({ block: 'nearest' })
+    return true
+  }
+
+  useImperativeHandle(navigationRef, () => ({
+    navigate(key, openKey) {
+      if (openKey === resetKey && !confirmation && !loading && !busy) {
+        navigateHistory(key, document.activeElement)
+      }
+    },
+  }))
+
   function navigate(event: KeyboardEvent<HTMLDivElement>) {
     if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-    if (!(event.target instanceof HTMLButtonElement) || !event.target.classList.contains('clip-main')) return
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>(clipButtonSelector) ?? [])
-    const current = buttons.indexOf(event.target)
-    const destination = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
-      : Math.min(buttons.length - 1, Math.max(0, current + (event.key === 'ArrowDown' ? 1 : -1)))
-    if (current < 0 || destination === current) return
-    event.preventDefault()
-    buttons[destination]?.focus({ preventScroll: true })
-    buttons[destination]?.closest('.clip-card')?.scrollIntoView({ block: 'nearest' })
+    if (!(event.target instanceof HTMLButtonElement) || !event.target.matches(clipButtonSelector)) return
+    const { key } = event
+    if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'Home' && key !== 'End') return
+    if (navigateHistory(key, event.target)) event.preventDefault()
   }
 
   return (

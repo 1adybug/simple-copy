@@ -382,7 +382,7 @@ impl Service {
         match action {
             Action::Copy { id } | Action::Paste { id } => {
                 let paste = matches!(action, Action::Paste { .. });
-                if paste && !windows::popup_is_current(&self.app, popup_token) {
+                if paste && windows::popup_for_paste(&self.app, popup_token).is_none() {
                     return Err(crate::i18n::t("native.popupChanged").into());
                 }
                 let clip = self
@@ -410,25 +410,33 @@ impl Service {
                 );
                 self.publish();
                 if paste {
-                    if !windows::popup_is_current(&self.app, popup_token) {
+                    let Some(mode) = windows::popup_for_paste(&self.app, popup_token) else {
                         return Ok(Operation {
                             message: Some(crate::i18n::t("native.pasteCancelled").into()),
                         });
-                    }
+                    };
                     if let Some(target) = target {
+                        let passive_popup =
+                            (mode != windows::PopupMode::Active).then_some(popup_token);
                         match self
                             .backend
                             .as_ref()
                             .ok_or(crate::i18n::t("native.serviceUnavailable"))?
-                            .paste(&target, revision)
+                            .paste(&target, revision, passive_popup)
                         {
                             Ok(true) => {
-                                windows::hide_from_worker(&self.app)?;
+                                windows::hide_from_worker(&self.app, popup_token)?;
                                 return Ok(Operation { message: None });
                             }
-                            Ok(false) => windows::show_notice(&self.app),
+                            Ok(false) => {
+                                if passive_popup.is_none() {
+                                    windows::show_notice(&self.app, popup_token);
+                                }
+                            }
                             Err(error) => {
-                                windows::show_notice(&self.app);
+                                if passive_popup.is_none() {
+                                    windows::show_notice(&self.app, popup_token);
+                                }
                                 return Err(error);
                             }
                         }

@@ -36,12 +36,22 @@ pub struct WindowState {
 struct PopupContext {
     token: u64,
     target: Option<Target>,
+    mode: PopupMode,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum PopupMode {
+    #[default]
+    Active,
+    #[cfg(windows)]
+    Passive,
 }
 
 impl PopupContext {
-    fn open(&mut self, target: Option<Target>) -> u64 {
+    fn open(&mut self, target: Option<Target>, mode: PopupMode) -> u64 {
         self.token += 1;
         self.target = target;
+        self.mode = mode;
         self.token
     }
 }
@@ -100,8 +110,16 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             api.prevent_close();
             let _ = hide(&handle);
         }
+        #[cfg(windows)]
+        tauri::WindowEvent::Focused(true) => {
+            if let Some(window) = handle.get_webview_window("history") {
+                let _ = adopt_popup(&window);
+            }
+        }
         tauri::WindowEvent::Focused(false) => {
-            let _ = hide(&handle);
+            if current_popup_mode(&handle) == PopupMode::Active {
+                let _ = hide(&handle);
+            }
         }
         tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. } => {
             if let Some(window) = handle.get_webview_window("history") {
@@ -177,12 +195,16 @@ pub fn build(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn toggle(app: &AppHandle) {
+    toggle_popup(app, PopupMode::Active);
+}
+
+fn toggle_popup(app: &AppHandle, mode: PopupMode) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         let Some(window) = handle.get_webview_window("history") else {
             return;
         };
-        if window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false) {
+        if window.is_visible().unwrap_or(false) {
             let _ = hide(&handle);
             return;
         }
@@ -216,12 +238,90 @@ pub fn toggle(app: &AppHandle) {
         let token = {
             let state = handle.state::<WindowState>();
             let mut popup = state.popup.lock().expect("popup context lock");
-            popup.open(target)
+            popup.open(target, mode)
         };
-        if window.show().and_then(|()| window.set_focus()).is_ok() {
+        if show_popup(&window, mode, token).is_ok() {
             let _ = window.emit("popup-opened", token);
         }
     });
+}
+
+fn show_popup(window: &tauri::WebviewWindow, _mode: PopupMode, _token: u64) -> Result<(), String> {
+    #[cfg(windows)]
+    if _mode == PopupMode::Passive {
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        let app = window.app_handle().clone();
+        return platform::show_passive_popup(
+            hwnd.0,
+            _token,
+            std::sync::Arc::new(move |input| handle_passive_input(&app, _token, input)),
+        )
+        .map_err(|error| error.to_string());
+    }
+    window
+        .show()
+        .and_then(|()| window.set_focus())
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(windows)]
+fn handle_passive_input(app: &AppHandle, token: u64, input: platform::PopupInput) {
+    use platform::PopupInput;
+
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if popup_mode_for(&handle, token) != Some(PopupMode::Passive) {
+            return;
+        }
+        let Some(window) = handle.get_webview_window("history") else {
+            return;
+        };
+        match input {
+            PopupInput::Dismiss => {
+                let _ = hide(&handle);
+            }
+            PopupInput::Activate => {
+                if platform::popup_owner_is_foreground(token) {
+                    let _ = adopt_popup(&window).and_then(|()| window.set_focus());
+                }
+            }
+            PopupInput::Navigate(key) => {
+                if platform::popup_owner_is_foreground(token) {
+                    let _ = window.emit("popup-navigation", (token, key));
+                }
+            }
+        }
+    });
+}
+
+#[cfg(windows)]
+fn adopt_popup(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    if take_popup_mode(window.app_handle()) == PopupMode::Passive {
+        // Record visibility in Tauri once the user enters the popup.
+        platform::stop_watching_popup();
+        window.show()?;
+    }
+    Ok(())
+}
+
+fn current_popup_mode(app: &AppHandle) -> PopupMode {
+    app.state::<WindowState>()
+        .popup
+        .lock()
+        .expect("popup context lock")
+        .mode
+}
+
+fn take_popup_mode(app: &AppHandle) -> PopupMode {
+    let state = app.state::<WindowState>();
+    let mut popup = state.popup.lock().expect("popup context lock");
+    std::mem::take(&mut popup.mode)
+}
+
+fn popup_mode_for(app: &AppHandle, token: u64) -> Option<PopupMode> {
+    let state = app.state::<WindowState>();
+    let popup = state.popup.lock().ok()?;
+    (popup.token == token).then_some(popup.mode)
 }
 
 pub fn popup_token(app: &AppHandle) -> u64 {
@@ -242,11 +342,18 @@ pub fn target_for(app: &AppHandle, token: u64) -> Option<Target> {
     }
 }
 
-pub fn popup_is_current(app: &AppHandle, token: u64) -> bool {
-    popup_token(app) == token
-        && app.get_webview_window("history").is_some_and(|window| {
-            window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false)
-        })
+pub fn popup_for_paste(app: &AppHandle, token: u64) -> Option<PopupMode> {
+    let window = app.get_webview_window("history")?;
+    if !window.is_visible().unwrap_or(false) {
+        return None;
+    }
+    let mode = popup_mode_for(app, token)?;
+    let current = match mode {
+        PopupMode::Active => window.is_focused().unwrap_or(false),
+        #[cfg(windows)]
+        PopupMode::Passive => platform::popup_owner_is_foreground(token),
+    };
+    current.then_some(mode)
 }
 
 pub fn shortcut_triggered(app: &AppHandle, shortcut: &str) {
@@ -257,14 +364,19 @@ pub fn shortcut_triggered(app: &AppHandle, shortcut: &str) {
     {
         let _ = app.emit_to("settings", "shortcut-recorded", shortcut);
     } else {
+        #[cfg(windows)]
+        toggle_popup(app, PopupMode::Passive);
+        #[cfg(not(windows))]
         toggle(app);
     }
 }
 
-pub fn show_notice(app: &AppHandle) {
+pub fn show_notice(app: &AppHandle, token: u64) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Some(window) = handle.get_webview_window("history") {
+        if popup_mode_for(&handle, token) == Some(PopupMode::Active)
+            && let Some(window) = handle.get_webview_window("history")
+        {
             let _ = window.show();
             let _ = window.set_focus();
         }
@@ -272,17 +384,39 @@ pub fn show_notice(app: &AppHandle) {
 }
 
 pub fn hide(app: &AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("history") {
-        window.hide().map_err(|error| error.to_string())?;
+    let Some(window) = app.get_webview_window("history") else {
+        return Ok(());
+    };
+    #[cfg(windows)]
+    {
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?.0 as usize;
+        let handle = app.clone();
+        app.run_on_main_thread(move || {
+            if take_popup_mode(&handle) == PopupMode::Passive {
+                platform::hide_passive_popup(hwnd as _);
+            } else {
+                let _ = window.hide();
+            }
+        })
+        .map_err(|error| error.to_string())
     }
-    Ok(())
+    #[cfg(not(windows))]
+    {
+        window.hide().map_err(|error| error.to_string())?;
+        Ok(())
+    }
 }
 
-pub fn hide_from_worker(app: &AppHandle) -> Result<(), String> {
+pub fn hide_from_worker(app: &AppHandle, token: u64) -> Result<(), String> {
     let (tx, rx) = mpsc::sync_channel(1);
     let handle = app.clone();
     app.run_on_main_thread(move || {
-        let _ = tx.send(hide(&handle));
+        let result = if popup_token(&handle) == token {
+            hide(&handle)
+        } else {
+            Ok(())
+        };
+        let _ = tx.send(result);
     })
     .map_err(|error| error.to_string())?;
     rx.recv_timeout(Duration::from_secs(2))

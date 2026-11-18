@@ -1,4 +1,4 @@
-import { HistoryPanel } from '@simple-copy/ui'
+import { HistoryPanel, type HistoryNavigationKey, type HistoryPanelHandle } from '@simple-copy/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useEffect, useRef, useState } from 'react'
@@ -12,22 +12,29 @@ function dismissHistory() {
 export function HistoryWindow({ state }: { state: ReturnType<typeof useClipboard> }) {
   const [navigationError, setNavigationError] = useState<string | null>(null)
   const [resetKey, setResetKey] = useState(0)
+  const history = useRef<HistoryPanelHandle>(null)
   const list = useRef<HTMLDivElement>(null)
   const observeThumbnail = useThumbnailVisibility(list)
   const { snapshot, clearMessage } = state
 
   useEffect(() => {
     if (!desktop) return
-    const unlisten = listen('popup-opened', () => {
+    const stopOpened = listen<number>('popup-opened', ({ payload }) => {
       clearMessage()
-      setResetKey((previous) => previous + 1)
+      setResetKey(payload)
     })
-    return () => { void unlisten.then((stop) => stop()) }
+    const stopNavigation = listen<[number, HistoryNavigationKey]>('popup-navigation', ({ payload: [token, key] }) => {
+      history.current?.navigate(key, token)
+    })
+    return () => {
+      void stopOpened.then((stop) => stop())
+      void stopNavigation.then((stop) => stop())
+    }
   }, [clearMessage])
 
   return <HistoryPanel items={snapshot?.items ?? []} busy={state.busy} loading={!snapshot && desktop}
     error={navigationError || state.error || snapshot?.error || snapshot?.shortcutError}
-    message={state.message} resetKey={resetKey} listRef={list}
+    message={state.message} resetKey={resetKey} listRef={list} navigationRef={history}
     onAction={(action) => { void state.action(action) }}
     onOpenSettings={() => { void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error))) }}
     onDismiss={dismissHistory}

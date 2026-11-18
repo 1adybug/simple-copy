@@ -3,7 +3,7 @@ use std::{
     mem::{size_of, zeroed},
     ptr::{null, null_mut},
     sync::{
-        OnceLock,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc,
     },
@@ -12,6 +12,7 @@ use std::{
 };
 
 use clipboard_rs::ClipboardContext;
+use serde::Serialize;
 use tauri::AppHandle;
 use windows_sys::Win32::{
     Foundation::{GlobalFree, HWND, LPARAM, LRESULT, POINT, WPARAM},
@@ -26,9 +27,12 @@ use windows_sys::Win32::{
         Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock},
     },
     UI::{
+        Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent},
         Input::KeyboardAndMouse::{
             GetAsyncKeyState, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
-            SendInput, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
+            SendInput, VK_CONTROL, VK_DOWN, VK_END, VK_ESCAPE, VK_HOME, VK_LCONTROL, VK_LMENU,
+            VK_LSHIFT, VK_LWIN, VK_MENU, VK_RCONTROL, VK_RETURN, VK_RMENU, VK_RSHIFT, VK_RWIN,
+            VK_SHIFT, VK_TAB, VK_UP,
         },
         WindowsAndMessaging::*,
     },
@@ -46,8 +50,90 @@ static WIN_V_ENABLED: AtomicBool = AtomicBool::new(false);
 static MESSAGE_WINDOW: AtomicUsize = AtomicUsize::new(0);
 static HOOK_READY: AtomicBool = AtomicBool::new(false);
 static CALLBACKS: OnceLock<(Wake, Wake)> = OnceLock::new();
+static POPUP_WATCH: Mutex<Option<PopupWatch>> = Mutex::new(None);
 thread_local! {
     static V_CONSUMED: Cell<bool> = const { Cell::new(false) };
+    static POPUP_KEYS_CONSUMED: Cell<u8> = const { Cell::new(0) };
+}
+
+#[derive(Clone, Copy, Serialize)]
+pub enum HistoryKey {
+    ArrowUp,
+    ArrowDown,
+    Home,
+    End,
+    Enter,
+}
+
+#[derive(Clone, Copy)]
+pub enum PopupInput {
+    Dismiss,
+    Activate,
+    Navigate(HistoryKey),
+}
+
+#[derive(Clone)]
+struct PopupWatch {
+    window: usize,
+    owner: usize,
+    token: u64,
+    on_input: Arc<dyn Fn(PopupInput) + Send + Sync>,
+}
+
+pub fn show_passive_popup(
+    window: HWND,
+    token: u64,
+    on_input: Arc<dyn Fn(PopupInput) + Send + Sync>,
+) -> std::io::Result<()> {
+    *POPUP_WATCH.lock().expect("popup watch lock") = Some(PopupWatch {
+        window: window as usize,
+        owner: unsafe { GetForegroundWindow() } as usize,
+        token,
+        on_input,
+    });
+    // Tauri's normal show activates the window. Keep the source input queue in the foreground.
+    let shown = unsafe {
+        SetWindowPos(
+            window,
+            HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+        )
+    };
+    if shown == 0 {
+        let error = std::io::Error::last_os_error();
+        stop_watching_popup();
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub fn hide_passive_popup(window: HWND) {
+    stop_watching_popup();
+    // The native show did not set Tauri's visibility flag, so hide through Win32 as well.
+    unsafe { ShowWindow(window, SW_HIDE) };
+}
+
+pub fn stop_watching_popup() {
+    POPUP_WATCH.lock().expect("popup watch lock").take();
+}
+
+fn watched_popup() -> Option<PopupWatch> {
+    let popup = POPUP_WATCH.lock().ok()?.clone()?;
+    (unsafe { IsWindowVisible(popup.window as HWND) } != 0).then_some(popup)
+}
+
+impl PopupWatch {
+    fn owner_is_foreground(&self) -> bool {
+        unsafe { GetForegroundWindow() as usize == self.owner }
+    }
+}
+
+pub fn popup_owner_is_foreground(token: u64) -> bool {
+    watched_popup().is_some_and(|popup| popup.token == token && popup.owner_is_foreground())
 }
 
 #[derive(Clone, Debug)]
@@ -120,6 +206,16 @@ pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
                 }
                 MESSAGE_WINDOW.store(window as usize, Ordering::Release);
                 let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_proc), instance, 0);
+                let mouse_hook = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_proc), instance, 0);
+                let foreground_hook = SetWinEventHook(
+                    EVENT_SYSTEM_FOREGROUND,
+                    EVENT_SYSTEM_FOREGROUND,
+                    null_mut(),
+                    Some(foreground_proc),
+                    0,
+                    0,
+                    WINEVENT_OUTOFCONTEXT,
+                );
                 HOOK_READY.store(!hook.is_null(), Ordering::Release);
                 let _ = ready_tx.send(Ok(window as usize));
                 let mut message = zeroed();
@@ -133,6 +229,13 @@ pub fn start_monitor(changed: Wake, shortcut: Wake) -> Result<Monitor, String> {
                 if !hook.is_null() {
                     UnhookWindowsHookEx(hook);
                 }
+                if !mouse_hook.is_null() {
+                    UnhookWindowsHookEx(mouse_hook);
+                }
+                if !foreground_hook.is_null() {
+                    UnhookWinEvent(foreground_hook);
+                }
+                stop_watching_popup();
                 RemoveClipboardFormatListener(window);
                 UnregisterClassW(name.as_ptr(), instance);
             }
@@ -194,18 +297,27 @@ unsafe extern "system" fn keyboard_proc(code: i32, message: WPARAM, lparam: LPAR
     if code >= 0 {
         // Windows owns this pointer for the duration of the hook callback.
         let key = unsafe { &*(lparam as *const KBDLLHOOKSTRUCT) };
-        if key.vkCode == u32::from(b'V') && key.dwExtraInfo != INJECTED_TAG {
+        if key.dwExtraInfo != INJECTED_TAG {
             let released = matches!(message as u32, WM_KEYUP | WM_SYSKEYUP);
-            if released && V_CONSUMED.with(|consumed| consumed.replace(false)) {
-                return 1;
-            }
-            let exact_chord = WIN_V_ENABLED.load(Ordering::Acquire)
-                && (pressed(VK_LWIN) || pressed(VK_RWIN))
-                && !pressed(VK_CONTROL)
-                && !pressed(VK_MENU)
-                && !pressed(VK_SHIFT);
-            if !released && exact_chord {
-                if !V_CONSUMED.with(|consumed| consumed.replace(true)) {
+            if key.vkCode == u32::from(b'V') {
+                // Keep repeats and key-up out of the source even if Win was released first.
+                if V_CONSUMED.with(|consumed| {
+                    if released {
+                        consumed.replace(false)
+                    } else {
+                        consumed.get()
+                    }
+                }) {
+                    return 1;
+                }
+                if !released
+                    && WIN_V_ENABLED.load(Ordering::Acquire)
+                    && (pressed(VK_LWIN) || pressed(VK_RWIN))
+                    && !pressed(VK_CONTROL)
+                    && !pressed(VK_MENU)
+                    && !pressed(VK_SHIFT)
+                {
+                    V_CONSUMED.with(|consumed| consumed.set(true));
                     // A dummy key cancels the Win key's standalone Start-menu action.
                     // It carries our tag so it cannot re-enter a registered shortcut.
                     let dummy = [key_input(0xff, false), key_input(0xff, true)];
@@ -220,12 +332,97 @@ unsafe extern "system" fn keyboard_proc(code: i32, message: WPARAM, lparam: LPAR
                     unsafe {
                         PostMessageW(window, WM_SHOW_HISTORY, 0, 0);
                     }
+                    return 1;
                 }
+            }
+            if handle_popup_key(key.vkCode as u16, released) {
                 return 1;
             }
         }
     }
     unsafe { CallNextHookEx(null_mut(), code, message, lparam) }
+}
+
+fn handle_popup_key(key: u16, released: bool) -> bool {
+    use HistoryKey::*;
+    use PopupInput::*;
+
+    let (mask, input) = match key {
+        VK_UP => (1 << 0, Navigate(ArrowUp)),
+        VK_DOWN => (1 << 1, Navigate(ArrowDown)),
+        VK_HOME => (1 << 2, Navigate(Home)),
+        VK_END => (1 << 3, Navigate(End)),
+        VK_RETURN => (1 << 4, Navigate(Enter)),
+        VK_ESCAPE => (1 << 5, Dismiss),
+        VK_TAB => (1 << 6, Activate),
+        VK_SHIFT | VK_LSHIFT | VK_RSHIFT | VK_CONTROL | VK_LCONTROL | VK_RCONTROL | VK_MENU
+        | VK_LMENU | VK_RMENU | VK_LWIN | VK_RWIN => return false,
+        _ => (0, Dismiss),
+    };
+    let consumed = POPUP_KEYS_CONSUMED.with(|keys| {
+        let previous = keys.get();
+        if released {
+            keys.set(previous & !mask);
+        }
+        previous & mask != 0
+    });
+    if released {
+        return consumed;
+    }
+    if let Some(popup) = watched_popup().filter(PopupWatch::owner_is_foreground) {
+        // Forward unrelated or modified input to the application that already has focus.
+        if [VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN]
+            .into_iter()
+            .any(pressed)
+            || (key != VK_TAB && pressed(VK_SHIFT))
+        {
+            return consumed;
+        }
+        if mask == 0 {
+            (popup.on_input)(Dismiss);
+        } else {
+            if !consumed || matches!(input, Navigate(ArrowUp | ArrowDown | Home | End)) {
+                (popup.on_input)(input);
+            }
+            POPUP_KEYS_CONSUMED.with(|keys| keys.set(keys.get() | mask));
+            return true;
+        }
+    }
+    consumed
+}
+
+unsafe extern "system" fn mouse_proc(code: i32, message: WPARAM, lparam: LPARAM) -> LRESULT {
+    if code >= 0
+        && matches!(
+            message as u32,
+            WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN | WM_XBUTTONDOWN
+        )
+        && let Some(popup) = watched_popup()
+    {
+        let mouse = unsafe { &*(lparam as *const MSLLHOOKSTRUCT) };
+        let clicked = unsafe { GetAncestor(WindowFromPoint(mouse.pt), GA_ROOT) };
+        if clicked as usize != popup.window {
+            (popup.on_input)(PopupInput::Dismiss);
+        }
+    }
+    unsafe { CallNextHookEx(null_mut(), code, message, lparam) }
+}
+
+unsafe extern "system" fn foreground_proc(
+    _hook: HWINEVENTHOOK,
+    _event: u32,
+    _window: HWND,
+    _object: i32,
+    _child: i32,
+    _thread: u32,
+    _time: u32,
+) {
+    if let Some(popup) = watched_popup() {
+        let foreground = unsafe { GetForegroundWindow() } as usize;
+        if foreground != popup.window && foreground != popup.owner {
+            (popup.on_input)(PopupInput::Dismiss);
+        }
+    }
 }
 
 pub fn capture_target() -> Option<Target> {
@@ -356,7 +553,12 @@ impl ClipboardBackend for Native {
         }
     }
 
-    fn paste(&self, target: &Target, expected: u64) -> Result<bool, String> {
+    fn paste(
+        &self,
+        target: &Target,
+        expected: u64,
+        passive_popup: Option<u64>,
+    ) -> Result<bool, String> {
         let window = target.window as HWND;
         unsafe {
             let mut current_process = 0;
@@ -366,10 +568,18 @@ impl ClipboardBackend for Native {
             {
                 return Ok(false);
             }
-            SetForegroundWindow(window);
+            if GetForegroundWindow() != window {
+                if passive_popup.is_some() {
+                    return Ok(false);
+                }
+                SetForegroundWindow(window);
+            }
         }
         let deadline = Instant::now() + Duration::from_millis(500);
         while Instant::now() < deadline {
+            if passive_popup.is_some_and(|token| !popup_owner_is_foreground(token)) {
+                return Ok(false);
+            }
             if self.revision()? != expected {
                 return Err(crate::i18n::t("native.clipboardUpdated").into());
             }
@@ -816,7 +1026,8 @@ mod tests {
                         focus: edit,
                         anchor: None
                     },
-                    revision
+                    revision,
+                    None,
                 )
                 .unwrap()
         );
@@ -846,7 +1057,8 @@ mod tests {
                         focus: edit,
                         anchor: None
                     },
-                    revision
+                    revision,
+                    None,
                 )
                 .unwrap()
         );

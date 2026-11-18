@@ -151,7 +151,12 @@ impl ClipboardBackend for Native {
         Ok(Written::Applied(self.revision()?))
     }
 
-    fn paste(&self, _target: &Target, _expected: u64) -> Result<bool, String> {
+    fn paste(
+        &self,
+        _target: &Target,
+        _expected: u64,
+        _passive_popup: Option<u64>,
+    ) -> Result<bool, String> {
         Ok(false)
     }
 }

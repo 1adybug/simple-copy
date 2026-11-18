@@ -10,6 +10,11 @@ use crate::model::{Formats, Payload, WriteId, file_uri};
 mod windows;
 #[cfg(windows)]
 pub use windows::{Monitor, Native, Target, capture_target, enable_win_v, start_monitor};
+#[cfg(windows)]
+pub use windows::{
+    PopupInput, hide_passive_popup, popup_owner_is_foreground, show_passive_popup,
+    stop_watching_popup,
+};
 
 #[cfg(not(windows))]
 mod desktop;
@@ -52,7 +57,12 @@ pub trait ClipboardBackend: Send {
         expected: Option<u64>,
         origin: WriteId,
     ) -> Result<Written, String>;
-    fn paste(&self, target: &Target, expected: u64) -> Result<bool, String>;
+    fn paste(
+        &self,
+        target: &Target,
+        expected: u64,
+        passive_popup: Option<u64>,
+    ) -> Result<bool, String>;
 }
 
 pub fn create(app: AppHandle) -> Result<Box<dyn ClipboardBackend>, String> {

@@ -213,6 +213,27 @@ test('search respects IME composition and keyboard actions use only matching his
   await expect(clips.nth(1)).toBeFocused()
 })
 
+test('native navigation selects the focused record from the current popup session', async ({ page }) => {
+  await mockTauri(page, { items: searchItems })
+  await page.goto(desktopUrl)
+  const clips = page.locator('.clip-main')
+  await expect(clips.first()).toBeFocused()
+  await clips.last().focus()
+  await page.evaluate(() => window.inspection.reopen())
+  await expect(clips.first()).toBeFocused()
+  await page.evaluate(() => {
+    const { snapshot, emit } = window.inspection
+    emit('popup-navigation', [snapshot.popupToken - 1, 'Enter'])
+    emit('popup-navigation', [snapshot.popupToken, 'ArrowDown'])
+  })
+  await expect(clips.nth(1)).toBeFocused()
+  await page.evaluate(() => window.inspection.emit('popup-navigation', [window.inspection.snapshot.popupToken, 'Enter']))
+  await expect.poll(() => page.evaluate(() => window.inspection.calls
+    .filter((call) => call.command === 'history_action').map((call) => call.args))).toEqual([
+    { action: { type: 'paste', id: 2 }, popupToken: 2 },
+  ])
+})
+
 test('search keeps empty history distinct and fits a narrow dark popup', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 400 })
   await mockTauri(page, { items: [] })

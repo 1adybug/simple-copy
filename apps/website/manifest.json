@@ -1,7 +1,7 @@
 {
   "name": "Simple Copy",
   "short_name": "Simple Copy",
-  "description": "Simple Copy is a local clipboard tool for Windows. Find copied text, links, images and files, and pin content you use often.",
+  "description": "With Simple Copy for Windows, press Win + V to open clipboard history. Pick an item to paste or pin it for later.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",

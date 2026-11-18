@@ -63,10 +63,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    document.title = t('site.title')
-    document.querySelector('meta[name="description"]')?.setAttribute('content', t('site.description'))
-    document.querySelector('meta[property="og:title"]')?.setAttribute('content', t('site.title'))
-    document.querySelector('meta[property="og:description"]')?.setAttribute('content', t('site.ogDescription'))
+    const title = t('site.title')
+    const description = t('site.description')
+    document.title = title
+    document.querySelector('meta[name="description"]')?.setAttribute('content', description)
+    document.querySelector('meta[property="og:title"]')?.setAttribute('content', title)
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', description)
     document.querySelector('meta[property="og:site_name"]')?.setAttribute('content', t('appName'))
     const ogLocales = { en: 'en_US', 'zh-CN': 'zh_CN', 'zh-TW': 'zh_TW', ja: 'ja_JP', ko: 'ko_KR', de: 'de_DE', fr: 'fr_FR', es: 'es_ES', pt: 'pt_BR', ru: 'ru_RU' }
     document.querySelector('meta[property="og:locale"]')?.setAttribute('content', ogLocales[locale])

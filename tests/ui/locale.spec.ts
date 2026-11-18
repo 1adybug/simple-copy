@@ -72,6 +72,8 @@ for (const locale of supportedLocales) {
     await expect(page.locator('html')).toHaveAttribute('lang', locale)
     await expect(page).toHaveTitle(translate(locale, 'site.title'))
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', translate(locale, 'site.description'))
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', translate(locale, 'site.title'))
+    await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', translate(locale, 'site.description'))
     await expect(page.locator('.brand span')).toHaveText([translate(locale, 'appName'), translate(locale, 'appName')])
     await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', translate(locale, 'appName'))
     await expect(page.locator('.demo-window')).toHaveAttribute('title', `${translate(locale, 'appName')} · ${translate(locale, 'site.demo')}`)

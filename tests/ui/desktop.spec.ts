@@ -213,25 +213,57 @@ test('search respects IME composition and keyboard actions use only matching his
   await expect(clips.nth(1)).toBeFocused()
 })
 
-test('native navigation selects the focused record from the current popup session', async ({ page }) => {
+test('a passive history popup highlights and pastes its selection without DOM focus', async ({ page }) => {
   await mockTauri(page, { items: searchItems })
   await page.goto(desktopUrl)
   const clips = page.locator('.clip-main')
+  const selected = page.locator('.clip-main[data-selected]')
   await expect(clips.first()).toBeFocused()
-  await clips.last().focus()
-  await page.evaluate(() => window.inspection.reopen())
-  await expect(clips.first()).toBeFocused()
+  const focusFill = await clips.first().evaluate((clip) => getComputedStyle(clip).backgroundColor)
+  const focusColor = await clips.first().evaluate((clip) => getComputedStyle(clip).color)
+  await page.evaluate(() => window.inspection.reopen('passive'))
+  await expect(selected).toHaveCount(1)
+  await expect(clips.first()).toHaveAttribute('data-selected', 'true')
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await expect(clips.first()).not.toBeFocused()
+  await expect(clips.first()).toHaveCSS('background-color', focusFill)
+  await expect(clips.first()).toHaveCSS('color', focusColor)
+
   await page.evaluate(() => {
     const { snapshot, emit } = window.inspection
-    emit('popup-navigation', [snapshot.popupToken - 1, 'Enter'])
-    emit('popup-navigation', [snapshot.popupToken, 'ArrowDown'])
+    emit('popup-navigation', [snapshot.popup.token - 1, 'Enter'])
+    emit('popup-navigation', [snapshot.popup.token, 'ArrowDown'])
   })
-  await expect(clips.nth(1)).toBeFocused()
-  await page.evaluate(() => window.inspection.emit('popup-navigation', [window.inspection.snapshot.popupToken, 'Enter']))
+  await expect(clips.nth(1)).toHaveAttribute('data-selected', 'true')
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await expect(clips.nth(1)).not.toBeFocused()
+  await expect(clips.nth(1)).toHaveCSS('background-color', focusFill)
+  await expect(clips.first()).not.toHaveCSS('background-color', focusFill)
+
+  await page.emulateMedia({ forcedColors: 'active' })
+  await page.evaluate(() => {
+    const { snapshot, emit } = window.inspection
+    emit('popup-navigation', [snapshot.popup.token, 'ArrowUp'])
+  })
+  await expect(clips.first()).toHaveAttribute('data-selected', 'true')
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await expect(clips.first()).toHaveCSS('forced-color-adjust', 'none')
+  await page.evaluate(() => {
+    const { snapshot, emit } = window.inspection
+    emit('popup-navigation', [snapshot.popup.token, 'ArrowDown'])
+    emit('popup-navigation', [snapshot.popup.token, 'Enter'])
+  })
   await expect.poll(() => page.evaluate(() => window.inspection.calls
     .filter((call) => call.command === 'history_action').map((call) => call.args))).toEqual([
     { action: { type: 'paste', id: 2 }, popupToken: 2 },
   ])
+
+  await page.evaluate(() => {
+    const { snapshot, emit } = window.inspection
+    emit('popup-state', { ...snapshot.popup, mode: 'active' })
+    emit('clipboard-state', structuredClone(snapshot))
+  })
+  await expect(selected).toHaveCount(0)
 })
 
 test('search keeps empty history distinct and fits a narrow dark popup', async ({ page }) => {

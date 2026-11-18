@@ -13,10 +13,15 @@ function applySettingsPatch(settings: Settings, patch: SettingsPatch): Settings 
   return { ...settings, ...patch, formats: { ...settings.formats, ...patch.formats } }
 }
 
+export interface PopupPresentation {
+  token: number
+  mode: 'active' | 'passive'
+}
+
 export interface Snapshot {
   locale: Locale
   revision: number
-  popupToken: number
+  popup: PopupPresentation
   items: Clip[]
   settings: Settings
   capabilities: {
@@ -44,6 +49,7 @@ export const desktop = isTauri()
 
 export function useClipboard() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const [popup, setPopup] = useState<PopupPresentation>({ token: 0, mode: 'active' })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -53,16 +59,25 @@ export function useClipboard() {
   const settingsQueue = useRef(Promise.resolve(true))
   const settingsFailures = useRef(0)
   const running = useRef(false)
-  const popupToken = useRef(0)
+  const currentPopup = useRef(popup)
+
+  const updatePopup = useCallback((next: PopupPresentation) => {
+    const current = currentPopup.current
+    // A snapshot can arrive after an event. Within a token, the popup can only leave passive mode.
+    if (next.token < current.token
+      || (next.token === current.token && (current.mode === 'active' || next.mode === current.mode))) return
+    currentPopup.current = next
+    setPopup(next)
+  }, [])
 
   const update = useCallback((next: Snapshot) => {
-    popupToken.current = Math.max(popupToken.current, next.popupToken)
+    updatePopup(next.popup)
     if (!currentSnapshot.current || next.revision >= currentSnapshot.current.revision) {
       currentSnapshot.current = next
       setLocale(next.locale)
       setSnapshot(next)
     }
-  }, [])
+  }, [updatePopup])
 
   const refresh = useCallback(async () => {
     update(await invoke<Snapshot>('clipboard_snapshot'))
@@ -76,8 +91,8 @@ export function useClipboard() {
     let disposed = false
     let unlisten: (() => void) | undefined
     let unlistenPopup: (() => void) | undefined
-    void listen<number>('popup-opened', ({ payload }) => {
-      popupToken.current = Math.max(popupToken.current, payload)
+    void listen<PopupPresentation>('popup-state', ({ payload }) => {
+      if (!disposed) updatePopup(payload)
     }).then((stop) => { if (disposed) stop(); else unlistenPopup = stop })
       .catch((reason: unknown) => { if (!disposed) setError(errorText(reason)) })
     void listen<Snapshot>('clipboard-state', (event) => {
@@ -88,7 +103,7 @@ export function useClipboard() {
       await refresh()
     }).catch((reason: unknown) => { if (!disposed) setError(errorText(reason)) })
     return () => { disposed = true; unlisten?.(); unlistenPopup?.() }
-  }, [refresh, update])
+  }, [refresh, update, updatePopup])
 
   const run = useCallback(async (command: string, args?: Record<string, unknown>) => {
     if (running.current) return false
@@ -147,12 +162,12 @@ export function useClipboard() {
   }, [])
 
   return {
-    snapshot, error, busy, message,
+    snapshot, popup, error, busy, message,
     settings: snapshot ? settingsChanges.reduce(applySettingsPatch, snapshot.settings) : null,
     savingSettings: settingsChanges.length > 0,
     save, flushSettings,
     clearMessage: useCallback(() => { setMessage(null); setError(null) }, []),
-    action: (action: Action) => run('history_action', { action, popupToken: popupToken.current }),
+    action: (action: Action) => run('history_action', { action, popupToken: popup.token }),
     capture: () => run('capture_current'),
   }
 }

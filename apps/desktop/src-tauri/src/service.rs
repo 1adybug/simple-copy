@@ -61,7 +61,7 @@ pub struct Operation {
 pub struct Snapshot {
     pub locale: &'static str,
     pub revision: u64,
-    pub popup_token: u64,
+    pub popup: windows::PopupPresentation,
     pub items: Vec<Preview>,
     pub settings: Settings,
     pub capabilities: Capabilities,
@@ -233,7 +233,7 @@ impl Service {
         Snapshot {
             locale: crate::i18n::locale(),
             revision: self.event_revision,
-            popup_token: windows::popup_token(&self.app),
+            popup: windows::popup_presentation(&self.app),
             items: self.history.previews(),
             settings: self.settings.clone(),
             capabilities: self

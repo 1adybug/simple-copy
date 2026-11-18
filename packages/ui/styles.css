@@ -161,7 +161,7 @@ kbd { font: inherit; }
 /* Text line boxes include leading, so the action rows need no additional gap. */
 .clip-actions { position: absolute; top: var(--clip-padding); right: 6px; display: flex; flex-direction: column; gap: 0; }
 .clip-actions > button { width: var(--clip-line-height); height: var(--clip-line-height); padding: 0; color: var(--sc-pin); }
-.clip-card:not(:hover):not(:focus-within) .clip-action-reveal { opacity: 0; pointer-events: none; }
+.clip-card:not(:hover, :focus-within, :has(> .clip-main[data-selected])) .clip-action-reveal { opacity: 0; pointer-events: none; }
 .clip-card[data-pinned] .pin-button { color: var(--sc-pin-active); }
 .clip-actions > .delete-button { color: var(--sc-danger); }
 .clip-image-frame { display: flex; align-items: center; width: 100%; height: var(--clip-preview-height); }
@@ -255,13 +255,14 @@ kbd { font: inherit; }
 }
 :root :is(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible,
 :root :is(input, select, textarea, .clip-main):focus,
+:root .clip-main[data-selected],
 :root :is(.format-choice, .switch-setting):has(:focus-visible) {
   background: var(--sc-focus-background, var(--primary)); color: var(--sc-focus-foreground, var(--sc-primary-foreground));
 }
-:root :is(:focus-visible, .clip-main:focus) :is(svg, span, .clip-text, .file-label, .image-placeholder),
+:root :is(:focus-visible, .clip-main:is(:focus, [data-selected])) :is(svg, span, .clip-text, .file-label, .image-placeholder),
 :root :is(.format-choice, .switch-setting):has(:focus-visible) :is(.format-icon, .choice-copy small),
 [data-slot="select-item"][data-highlighted] span { color: inherit; }
-.clip-main:focus + .clip-actions > button:not(:hover) { color: var(--sc-primary-foreground); }
+.clip-main:is(:focus, [data-selected]) + .clip-actions > button:not(:hover) { color: var(--sc-primary-foreground); }
 :root .format-choice:has(:focus-visible) [data-slot="checkbox"],
 :root [data-slot="radio-group-item"]:focus-visible [data-slot="radio-card-mark"],
 :root .switch-setting:has(:focus-visible) [data-slot="switch"] {
@@ -273,7 +274,7 @@ kbd { font: inherit; }
 .quantity-input:has([aria-invalid="true"]):focus-within > span { color: var(--sc-error-foreground); }
 
 @media (hover: none) {
-  .clip-card:not(:hover):not(:focus-within) .clip-action-reveal { opacity: 1; pointer-events: auto; }
+  .clip-card:not(:hover, :focus-within, :has(> .clip-main[data-selected])) .clip-action-reveal { opacity: 1; pointer-events: auto; }
 }
 
 @media (pointer: coarse) {
@@ -309,10 +310,11 @@ kbd { font: inherit; }
   .shortcut-recorder[aria-pressed="true"] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   :root :where(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible,
   :root :where(input, select, textarea, .clip-main):focus,
+  :root :where(.clip-main[data-selected]),
   :root :is(.format-choice, .switch-setting):has(:focus-visible) {
     --sc-focus-background: Highlight; --sc-focus-foreground: HighlightText; forced-color-adjust: none;
   }
-  .clip-main:focus + .clip-actions > button:not(:hover) { color: HighlightText; forced-color-adjust: none; }
+  .clip-main:is(:focus, [data-selected]) + .clip-actions > button:not(:hover) { color: HighlightText; forced-color-adjust: none; }
   :root :is(input, textarea, [contenteditable="true"]):focus {
     --sc-focus-background: HighlightText; --sc-focus-foreground: Highlight;
   }

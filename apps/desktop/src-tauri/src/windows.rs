@@ -39,12 +39,19 @@ struct PopupContext {
     mode: PopupMode,
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum PopupMode {
     #[default]
     Active,
     #[cfg(windows)]
     Passive,
+}
+
+#[derive(Clone, Copy, serde::Serialize)]
+pub struct PopupPresentation {
+    token: u64,
+    mode: PopupMode,
 }
 
 impl PopupContext {
@@ -241,7 +248,7 @@ fn toggle_popup(app: &AppHandle, mode: PopupMode) {
             popup.open(target, mode)
         };
         if show_popup(&window, mode, token).is_ok() {
-            let _ = window.emit("popup-opened", token);
+            let _ = window.emit("popup-state", popup_presentation(&handle));
         }
     });
 }
@@ -300,16 +307,13 @@ fn adopt_popup(window: &tauri::WebviewWindow) -> tauri::Result<()> {
         // Record visibility in Tauri once the user enters the popup.
         platform::stop_watching_popup();
         window.show()?;
+        let _ = window.emit("popup-state", popup_presentation(window.app_handle()));
     }
     Ok(())
 }
 
 fn current_popup_mode(app: &AppHandle) -> PopupMode {
-    app.state::<WindowState>()
-        .popup
-        .lock()
-        .expect("popup context lock")
-        .mode
+    popup_presentation(app).mode
 }
 
 fn take_popup_mode(app: &AppHandle) -> PopupMode {
@@ -324,12 +328,13 @@ fn popup_mode_for(app: &AppHandle, token: u64) -> Option<PopupMode> {
     (popup.token == token).then_some(popup.mode)
 }
 
-pub fn popup_token(app: &AppHandle) -> u64 {
-    app.state::<WindowState>()
-        .popup
-        .lock()
-        .expect("popup context lock")
-        .token
+pub fn popup_presentation(app: &AppHandle) -> PopupPresentation {
+    let state = app.state::<WindowState>();
+    let popup = state.popup.lock().expect("popup context lock");
+    PopupPresentation {
+        token: popup.token,
+        mode: popup.mode,
+    }
 }
 
 pub fn target_for(app: &AppHandle, token: u64) -> Option<Target> {
@@ -411,7 +416,7 @@ pub fn hide_from_worker(app: &AppHandle, token: u64) -> Result<(), String> {
     let (tx, rx) = mpsc::sync_channel(1);
     let handle = app.clone();
     app.run_on_main_thread(move || {
-        let result = if popup_token(&handle) == token {
+        let result = if popup_presentation(&handle).token == token {
             hide(&handle)
         } else {
             Ok(())

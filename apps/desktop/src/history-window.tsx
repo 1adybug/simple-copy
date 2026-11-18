@@ -11,30 +11,25 @@ function dismissHistory() {
 
 export function HistoryWindow({ state }: { state: ReturnType<typeof useClipboard> }) {
   const [navigationError, setNavigationError] = useState<string | null>(null)
-  const [resetKey, setResetKey] = useState(0)
   const history = useRef<HistoryPanelHandle>(null)
   const list = useRef<HTMLDivElement>(null)
   const observeThumbnail = useThumbnailVisibility(list)
-  const { snapshot, clearMessage } = state
+  const { snapshot, popup, clearMessage } = state
 
   useEffect(() => {
+    if (popup.token > 0) clearMessage()
+  }, [popup.token, clearMessage])
+  useEffect(() => {
     if (!desktop) return
-    const stopOpened = listen<number>('popup-opened', ({ payload }) => {
-      clearMessage()
-      setResetKey(payload)
-    })
-    const stopNavigation = listen<[number, HistoryNavigationKey]>('popup-navigation', ({ payload: [token, key] }) => {
+    const unlisten = listen<[number, HistoryNavigationKey]>('popup-navigation', ({ payload: [token, key] }) => {
       history.current?.navigate(key, token)
     })
-    return () => {
-      void stopOpened.then((stop) => stop())
-      void stopNavigation.then((stop) => stop())
-    }
-  }, [clearMessage])
+    return () => { void unlisten.then((stop) => stop()) }
+  }, [])
 
   return <HistoryPanel items={snapshot?.items ?? []} busy={state.busy} loading={!snapshot && desktop}
     error={navigationError || state.error || snapshot?.error || snapshot?.shortcutError}
-    message={state.message} resetKey={resetKey} listRef={list} navigationRef={history}
+    message={state.message} resetKey={popup.token} passive={popup.mode === 'passive'} listRef={list} navigationRef={history}
     onAction={(action) => { void state.action(action) }}
     onOpenSettings={() => { void invoke('open_settings').catch((error: unknown) => setNavigationError(errorText(error))) }}
     onDismiss={dismissHistory}

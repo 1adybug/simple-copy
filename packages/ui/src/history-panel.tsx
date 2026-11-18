@@ -22,6 +22,15 @@ const clipButtonSelector = '.clip-main:not(:disabled)'
 
 export type HistoryNavigationKey = 'ArrowUp' | 'ArrowDown' | 'Home' | 'End' | 'Enter'
 
+function nextClipIndex(key: Exclude<HistoryNavigationKey, 'Enter'>, current: number, count: number) {
+  switch (key) {
+    case 'Home': return 0
+    case 'End': return count - 1
+    case 'ArrowDown': return Math.min(count - 1, current + 1)
+    case 'ArrowUp': return Math.max(0, current - 1)
+  }
+}
+
 export interface HistoryPanelHandle {
   navigate: (key: HistoryNavigationKey, resetKey: number) => void
 }
@@ -33,6 +42,7 @@ export interface HistoryPanelProps {
   error?: string | null
   message?: string | null
   resetKey?: number
+  passive?: boolean
   listRef?: RefObject<HTMLDivElement | null>
   navigationRef?: Ref<HistoryPanelHandle>
   onAction: (action: HistoryAction) => void
@@ -44,7 +54,7 @@ export interface HistoryPanelProps {
 }
 
 export function HistoryPanel({
-  items, busy = false, loading = false, error, message, resetKey, listRef, navigationRef,
+  items, busy = false, loading = false, error, message, resetKey, passive = false, listRef, navigationRef,
   onAction, onOpenSettings, onDismiss, onCapture, onClearMessage, renderImage,
 }: HistoryPanelProps) {
   useI18n()
@@ -52,6 +62,8 @@ export function HistoryPanel({
   const confirmationFocus = useRef<HTMLButtonElement | null>(null)
   const [searchValue, setSearchValue] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectionId, setSelectionId] = useState<number | null>(null)
+  const latestSelectionId = useRef<number | null>(null)
   const [searchResetKey, setSearchResetKey] = useState(resetKey)
   const focusedResetKey = useRef<number | undefined>(undefined)
   if (searchResetKey !== resetKey) {
@@ -59,6 +71,7 @@ export function HistoryPanel({
     setSearchValue('')
     setSearchQuery('')
     setConfirmation(null)
+    setSelectionId(null)
   }
   const search = useRef<HTMLInputElement>(null)
   const composing = useRef(false)
@@ -68,16 +81,31 @@ export function HistoryPanel({
   const filteredItems = query
     ? items.filter((clip) => clip.text.toLowerCase().includes(query) || kindLabel(clip.kind).toLowerCase().includes(query))
     : items
+  const selectedClip = passive && !loading
+    ? filteredItems.find((clip) => clip.id === selectionId) ?? filteredItems[0]
+    : undefined
+  const selectedId = selectedClip?.id
   const ordinaryCount = items.filter((item) => !item.pinned).length
 
-  useLayoutEffect(() => { composing.current = false }, [resetKey])
+  useLayoutEffect(() => {
+    composing.current = false
+    latestSelectionId.current = null
+  }, [resetKey])
   useLayoutEffect(() => { list.current?.scrollTo({ top: 0 }) }, [query, resetKey, list])
   useLayoutEffect(() => {
     if (resetKey === undefined || focusedResetKey.current === resetKey || loading || busy) return
     focusedResetKey.current = resetKey
-    if (confirmation || searchValue) return
+    if (passive || confirmation || searchValue) return
     list.current?.querySelector<HTMLButtonElement>(clipButtonSelector)?.focus({ preventScroll: true })
-  }, [busy, confirmation, list, loading, resetKey, searchValue])
+  }, [busy, confirmation, list, loading, passive, resetKey, searchValue])
+
+  useLayoutEffect(() => {
+    if (selectedId === undefined || busy) return
+    const button = list.current?.querySelector<HTMLButtonElement>('.clip-main[data-selected]')
+    // Prepare the DOM focus for when the user enters the popup with Tab.
+    button?.focus({ preventScroll: true })
+    button?.closest('.clip-card')?.scrollIntoView({ block: 'nearest' })
+  }, [busy, list, resetKey, selectedId])
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
@@ -88,28 +116,18 @@ export function HistoryPanel({
     return () => document.removeEventListener('keydown', onKey)
   }, [onDismiss])
 
-  function navigateHistory(key: HistoryNavigationKey, selected: Element | null) {
-    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>(clipButtonSelector) ?? [])
-    const current = buttons.findIndex((button) => button === selected)
-    if (key === 'Enter') {
-      const button = buttons[current] ?? buttons[0]
-      button?.click()
-      return !!button
-    }
-    const destination = key === 'Home' ? 0 : key === 'End' ? buttons.length - 1
-      : Math.min(buttons.length - 1, Math.max(0, current + (key === 'ArrowDown' ? 1 : -1)))
-    const button = buttons[destination]
-    if (!button || destination === current) return false
-    button.focus({ preventScroll: true })
-    button.closest('.clip-card')?.scrollIntoView({ block: 'nearest' })
-    return true
-  }
-
   useImperativeHandle(navigationRef, () => ({
     navigate(key, openKey) {
-      if (openKey === resetKey && !confirmation && !loading && !busy) {
-        navigateHistory(key, document.activeElement)
+      if (!passive || openKey !== resetKey || confirmation || loading || busy || filteredItems.length === 0) return
+      const current = Math.max(0, filteredItems.findIndex((clip) => clip.id === latestSelectionId.current))
+      if (key === 'Enter') {
+        onAction({ type: 'paste', id: filteredItems[current].id })
+        return
       }
+      const next = filteredItems[nextClipIndex(key, current, filteredItems.length)].id
+      // Native key events can arrive in the same render batch.
+      latestSelectionId.current = next
+      setSelectionId(next)
     },
   }))
 
@@ -118,7 +136,14 @@ export function HistoryPanel({
     if (!(event.target instanceof HTMLButtonElement) || !event.target.matches(clipButtonSelector)) return
     const { key } = event
     if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'Home' && key !== 'End') return
-    if (navigateHistory(key, event.target)) event.preventDefault()
+    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>(clipButtonSelector) ?? [])
+    const current = buttons.indexOf(event.target)
+    const destination = nextClipIndex(key, current, buttons.length)
+    const button = buttons[destination]
+    if (!button || current === destination) return
+    event.preventDefault()
+    button.focus({ preventScroll: true })
+    button.closest('.clip-card')?.scrollIntoView({ block: 'nearest' })
   }
 
   return (
@@ -165,7 +190,7 @@ export function HistoryPanel({
       <div className="history-scroll">
         <div ref={list} id="clipboard-history" className="history-list" role="list" aria-label={t('history')} onKeyDown={navigate}>
           {filteredItems.map((clip) => (
-            <ClipCard key={clip.id} clip={clip} busy={busy} renderImage={renderImage}
+            <ClipCard key={clip.id} clip={clip} busy={busy} selected={clip.id === selectedId} renderImage={renderImage}
               onPaste={() => onAction({ type: 'paste', id: clip.id })}
               onCopy={() => onAction({ type: 'copy', id: clip.id })}
               onPin={() => onAction({ type: 'pin', id: clip.id, pinned: !clip.pinned })}
@@ -220,13 +245,13 @@ export function HistoryPanel({
   )
 }
 
-function ClipCard({ clip, busy, onPaste, onCopy, onPin, onDelete, renderImage }: {
-  clip: Clip; busy: boolean; onPaste: () => void; onCopy: () => void; onPin: () => void; onDelete: (trigger: HTMLButtonElement) => void
+function ClipCard({ clip, busy, selected, onPaste, onCopy, onPin, onDelete, renderImage }: {
+  clip: Clip; busy: boolean; selected: boolean; onPaste: () => void; onCopy: () => void; onPin: () => void; onDelete: (trigger: HTMLButtonElement) => void
   renderImage?: (clip: Clip) => ReactNode
 }) {
   return (
     <Card className="clip-card" role="listitem" data-pinned={clip.pinned || undefined} data-kind={clip.kind} data-thumbnail={clip.hasThumbnail || undefined}>
-      <button className="clip-main" type="button" disabled={busy} onClick={onPaste}
+      <button className="clip-main" type="button" data-selected={selected || undefined} disabled={busy} onClick={onPaste}
         aria-label={t('pasteLabel', { kind: kindLabel(clip.kind), text: clip.text.slice(0, 60) })}>
         {clip.hasThumbnail && renderImage ? renderImage(clip) : (
           <div className="clip-text">

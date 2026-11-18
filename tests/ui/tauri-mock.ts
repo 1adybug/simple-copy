@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import type { Snapshot } from '../../apps/desktop/src/native'
+import type { PopupPresentation, Snapshot } from '../../apps/desktop/src/native'
 import type { SystemAppearance } from '../../apps/desktop/src/theme'
 import type { Locale } from '../../packages/i18n/src/index'
 import type { UpdateSnapshot } from '../../packages/ui/src/types'
@@ -35,7 +35,7 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
     const snapshot: Snapshot = {
       locale: options.settings?.language && options.settings.language !== 'system' ? options.settings.language : systemLocale,
       revision: 1,
-      popupToken: 1,
+      popup: { token: 1, mode: 'active' },
       items: options.items ?? Array.from({ length: options.imageCount ?? 1 }, (_, index) => ({
         id: index + 1,
         kind: options.imageCount ? 'image' : 'text',
@@ -92,7 +92,10 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
       },
       publishAppearance: () => { appearance.revision++; emit('system-appearance-changed', structuredClone(appearance)) },
       publishUpdates: () => { updates.revision++; emit('update-state', structuredClone(updates)) },
-      reopen: () => { snapshot.popupToken++; emit('popup-opened', snapshot.popupToken) },
+      reopen: (mode: PopupPresentation['mode'] = 'active') => {
+        snapshot.popup = { token: snapshot.popup.token + 1, mode }
+        emit('popup-state', snapshot.popup)
+      },
     }
     let saveFailures = options.saveFailures ?? 0
     Object.assign(window, {
@@ -198,7 +201,7 @@ declare global {
       publish: () => void
       publishAppearance: () => void
       publishUpdates: () => void
-      reopen: () => void
+      reopen: (mode?: PopupPresentation['mode']) => void
     }
   }
 }

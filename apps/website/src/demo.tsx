@@ -16,6 +16,12 @@ import { version } from '../package.json'
 
 function noWindowAction() {}
 
+interface DemoRecord { id: number; pinned: boolean; order: number }
+
+function compareRecords(first: DemoRecord, second: DemoRecord) {
+  return Number(second.pinned) - Number(first.pinned) || second.order - first.order
+}
+
 const updates: UpdateController = {
   snapshot: { revision: 0, currentVersion: version, status: 'unavailable', version: null, downloaded: 0, total: null },
   busy: false, error: null, check: async () => {}, install: async () => {},
@@ -26,18 +32,14 @@ function Demo() {
   const settings = useWebsiteSettings()
   const [view, setView] = useState<'history' | 'settings'>('history')
   const [resetKey, setResetKey] = useState(window.parent === window ? 0 : undefined)
-  const [records, setRecords] = useState(() => createDemoClips().map(({ id, pinned }) => ({ id, pinned })))
+  const [records, setRecords] = useState<DemoRecord[]>(() => createDemoClips().map(({ id, pinned }) => ({ id, pinned, order: -id })))
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const copying = useRef(false)
   const previousView = useRef(view)
   const samples = createDemoClips(locale)
-  const clips = records.map((record) => ({ ...samples.find((sample) => sample.id === record.id)!, pinned: record.pinned }))
-  const items = [
-    ...clips.filter((clip) => clip.pinned),
-    ...clips.filter((clip) => !clip.pinned).sort((a, b) => a.id - b.id),
-  ]
+  const items = records.map((record) => ({ ...samples.find((sample) => sample.id === record.id)!, pinned: record.pinned }))
 
   useEffect(() => {
     if (view !== 'history') return
@@ -75,8 +77,9 @@ function Demo() {
     if (patch.maxHistoryItems !== undefined && patch.maxHistoryItems > 0) {
       const limit = patch.maxHistoryItems
       setRecords((previous) => {
-        let ordinary = 0
-        return previous.filter((record) => record.pinned || ordinary++ < limit)
+        const retained = new Set(previous.filter((record) => !record.pinned)
+          .sort((first, second) => first.id - second.id).slice(0, limit).map((record) => record.id))
+        return previous.filter((record) => record.pinned || retained.has(record.id))
       })
     }
     setMessage(t('saved'))
@@ -91,7 +94,7 @@ function Demo() {
       setMessage(t('native.cleared'))
       return
     }
-    const clip = clips.find((item) => item.id === action.id)
+    const clip = items.find((item) => item.id === action.id)
     if (!clip) return
     switch (action.type) {
       case 'paste':
@@ -112,11 +115,27 @@ function Demo() {
         }
         break
       case 'pin': {
-        const updated = { id: clip.id, pinned: action.pinned }
-        setRecords((previous) => action.pinned
-          ? [updated, ...previous.filter((item) => item.id !== clip.id)]
-          : previous.map((item) => item.id === clip.id ? updated : item))
+        setRecords((previous) => {
+          const order = action.pinned ? Math.max(0, ...previous.map((item) => item.order)) + 1 : -clip.id
+          return previous.map((item) => item.id === clip.id ? { ...item, pinned: action.pinned, order } : item).sort(compareRecords)
+        })
         setMessage(action.pinned ? t('site.pinned') : t('site.unpinned'))
+        break
+      }
+      case 'move': {
+        setMessage(null)
+        setRecords((previous) => {
+          const from = previous.findIndex((item) => item.id === action.id && item.pinned === action.pinned)
+          if (from < 0 || action.id === action.anchor) return previous
+          const next = [...previous]
+          const [source] = next.splice(from, 1)
+          const anchor = next.findIndex((item) => item.id === action.anchor && item.pinned === action.pinned)
+          if (anchor < 0) return previous
+          const to = anchor + Number(action.position === 'after')
+          if (to === from) return previous
+          next.splice(to, 0, source)
+          return next.map((item, index) => item.pinned === action.pinned ? { ...item, order: next.length - index } : item)
+        })
         break
       }
       case 'delete':

@@ -14,6 +14,47 @@ const searchItems: Clip[] = [
 
 test.use({ viewport: { width: 360, height: 400 } })
 
+test('holding a card reorders history on drop, quick clicks paste and Escape cancels a drag', async ({ page }) => {
+  await mockTauri(page, { items: searchItems.slice(0, 3) })
+  await page.goto(desktopUrl)
+  const source = page.locator('.clip-card[data-clip-id="2"]')
+  const target = page.locator('.clip-card[data-clip-id="3"]')
+  const sourceButton = source.locator('.clip-main')
+  const actions = () => page.evaluate(() => window.inspection.calls.filter(({ command }) => command === 'history_action').map(({ args }) => args.action))
+  await sourceButton.click()
+  await expect.poll(actions).toEqual([{ type: 'paste', id: 2 }])
+  await expect(sourceButton).toBeEnabled()
+  const from = (await sourceButton.boundingBox())!
+  const to = (await target.boundingBox())!
+  await page.mouse.move(from.x + 40, from.y + from.height / 2)
+  await page.mouse.down()
+  await expect(source).toHaveAttribute('data-dragging', '')
+  await page.mouse.move(to.x + 40, to.y + to.height * 0.65)
+  await expect(target).toHaveAttribute('data-drop', 'after')
+  expect(await actions()).toEqual([{ type: 'paste', id: 2 }])
+  await page.mouse.up()
+  await expect.poll(actions).toEqual([{ type: 'paste', id: 2 }, { type: 'move', id: 2, anchor: 3, position: 'after', pinned: false }])
+  await expect(page.locator('.clip-card').nth(2)).toHaveAttribute('data-clip-id', '2')
+  await expect(source).not.toHaveAttribute('data-dragging', '')
+  await expect(target).not.toHaveAttribute('data-drop', 'after')
+
+  await sourceButton.press('Alt+ArrowUp')
+  await expect(page.locator('.clip-card').nth(1)).toHaveAttribute('data-clip-id', '2')
+  await expect(sourceButton).toBeFocused()
+  await expect(page.getByRole('status').filter({ hasText: '移到组内第 1 位' })).toHaveCount(1)
+
+  await page.mouse.move(from.x + 40, from.y + from.height / 2)
+  await page.mouse.down()
+  await expect(source).toHaveAttribute('data-dragging', '')
+  await page.mouse.move(to.x + 40, to.y + to.height * 0.65)
+  await page.keyboard.press('Escape')
+  await expect(source).not.toHaveAttribute('data-dragging', '')
+  await page.mouse.up()
+  await expect(page.locator('.clip-card').nth(1)).toHaveAttribute('data-clip-id', '2')
+  expect(await actions()).toHaveLength(3)
+  expect(await page.evaluate(() => window.inspection.calls.some(({ command }) => command === 'hide_history'))).toBe(false)
+})
+
 for (const view of ['history', 'settings']) {
   test(`the fallback ${view} shell paints inside all four rounded corners after resizing`, async ({ page }) => {
     await mockTauri(page)

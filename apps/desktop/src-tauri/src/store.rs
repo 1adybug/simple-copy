@@ -14,9 +14,23 @@ use crate::{
 pub struct Store {
     db: Connection,
     cipher: Option<Aes256Gcm>,
-    saved: HashMap<ClipId, (u64, Option<u64>, u64)>,
+    saved: HashMap<ClipId, SavedEntry>,
     pub status: Option<String>,
     memory_only: bool,
+}
+
+struct SavedEntry {
+    content: (u64, Option<u64>, u64),
+    display_order: Option<u64>,
+}
+
+impl SavedEntry {
+    fn new(entry: &Entry, display_order: Option<u64>) -> Self {
+        Self {
+            content: (entry.recency, entry.pin_order, entry.copied_at),
+            display_order,
+        }
+    }
 }
 
 impl Store {
@@ -50,10 +64,12 @@ impl Store {
     ) -> Result<Self, String> {
         db.busy_timeout(std::time::Duration::from_secs(3))
             .map_err(db_error)?;
+        db.pragma_update(None, "foreign_keys", true)
+            .map_err(db_error)?;
         let version: u32 = db
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(db_error)?;
-        if version > 2 {
+        if version > 3 {
             return Err(crate::i18n::t("native.newerDatabase").into());
         }
         let tx = db.transaction().map_err(db_error)?;
@@ -65,6 +81,10 @@ impl Store {
              CREATE TABLE IF NOT EXISTS entries (
                  id INTEGER PRIMARY KEY, pinned INTEGER NOT NULL, sealed BLOB NOT NULL,
                  copied_at INTEGER NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS entry_order (
+                 id INTEGER PRIMARY KEY REFERENCES entries(id) ON DELETE CASCADE,
+                 position INTEGER NOT NULL
              );",
         )
         .map_err(db_error)?;
@@ -77,7 +97,7 @@ impl Store {
             tx.execute("UPDATE entries SET copied_at = ?1", [now_millis()])
                 .map_err(db_error)?;
         }
-        tx.pragma_update(None, "user_version", 2)
+        tx.pragma_update(None, "user_version", 3)
             .map_err(db_error)?;
         tx.commit().map_err(db_error)?;
         Ok(Self {
@@ -127,7 +147,10 @@ impl Store {
         if let Some(cipher) = self.cipher.clone() {
             let mut query = self
                 .db
-                .prepare("SELECT id, sealed, copied_at FROM entries ORDER BY id")
+                .prepare(
+                    "SELECT entries.id, sealed, copied_at, position
+                     FROM entries LEFT JOIN entry_order USING (id) ORDER BY entries.id",
+                )
                 .map_err(db_error)?;
             let rows = query
                 .query_map([], |row| {
@@ -135,11 +158,12 @@ impl Store {
                         row.get::<_, u64>(0)?,
                         row.get::<_, Vec<u8>>(1)?,
                         row.get::<_, u64>(2)?,
+                        row.get::<_, Option<u64>>(3)?,
                     ))
                 })
                 .map_err(db_error)?;
             for row in rows {
-                let (id, sealed, copied_at) = row.map_err(db_error)?;
+                let (id, sealed, copied_at, display_order) = row.map_err(db_error)?;
                 let entry = unseal(&cipher, &sealed).and_then(|mut entry| {
                     if entry.id == id && entry.payload.size() <= crate::model::MAX_ITEM_BYTES {
                         entry.copied_at = copied_at;
@@ -151,8 +175,8 @@ impl Store {
                 match entry {
                     Ok(entry) => {
                         self.saved
-                            .insert(id, (entry.recency, entry.pin_order, entry.copied_at));
-                        entries.push(entry);
+                            .insert(id, SavedEntry::new(&entry, display_order));
+                        entries.push((entry, display_order));
                     }
                     Err(_) => {
                         self.status = Some(crate::i18n::t("native.partialDecrypt").into());
@@ -228,17 +252,23 @@ impl Store {
             self.unlock();
         }
         let mut changed = Vec::new();
+        let mut reordered = Vec::new();
         let mut retained = HashMap::new();
         if let Some(cipher) = &self.cipher {
-            for entry in history.retained(settings.retention) {
-                let stamp = (entry.recency, entry.pin_order, entry.copied_at);
-                if self.saved.get(&entry.id) != Some(&stamp) {
+            for clip in history.retained(settings.retention) {
+                let entry = clip.entry.as_ref();
+                let stamp = SavedEntry::new(entry, clip.display_order);
+                let saved = self.saved.get(&entry.id);
+                if saved.is_none_or(|saved| saved.content != stamp.content) {
                     changed.push((
                         entry.id,
                         entry.pin_order.is_some(),
                         seal(cipher, entry)?,
                         entry.copied_at,
                     ));
+                }
+                if saved.and_then(|saved| saved.display_order) != stamp.display_order {
+                    reordered.push((entry.id, stamp.display_order));
                 }
                 retained.insert(entry.id, stamp);
             }
@@ -283,6 +313,19 @@ impl Store {
                 )
                 .map_err(db_error)?;
             }
+            for (id, display_order) in reordered {
+                if let Some(position) = display_order {
+                    tx.execute(
+                        "INSERT INTO entry_order(id, position) VALUES(?1, ?2)
+                         ON CONFLICT(id) DO UPDATE SET position = excluded.position",
+                        params![id, position],
+                    )
+                    .map_err(db_error)?;
+                } else {
+                    tx.execute("DELETE FROM entry_order WHERE id = ?1", [id])
+                        .map_err(db_error)?;
+                }
+            }
         }
         tx.commit().map_err(db_error)?;
         self.saved = retained;
@@ -316,6 +359,7 @@ fn db_error(error: rusqlite::Error) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::history::MovePosition;
     use crate::model::Payload;
 
     use super::*;
@@ -685,6 +729,86 @@ mod tests {
     }
 
     #[test]
+    fn display_order_survives_reload_and_reorders_without_resealing() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE entries (id INTEGER PRIMARY KEY, pinned INTEGER NOT NULL, sealed BLOB NOT NULL, copied_at INTEGER NOT NULL);
+             PRAGMA user_version = 2;",
+        ).unwrap();
+        let mut store = Store::initialize(db, false, None).unwrap();
+        let cipher = Aes256Gcm::new_from_slice(&[7; 32]).unwrap();
+        store.cipher = Some(cipher.clone());
+        let settings = Settings {
+            retention: Retention::All,
+            ..Settings::default()
+        };
+        let mut history = History::default();
+        let first = history
+            .record(Payload {
+                text: Some("first".into()),
+                ..Payload::default()
+            })
+            .unwrap();
+        let second = history
+            .record(Payload {
+                text: Some("second".into()),
+                ..Payload::default()
+            })
+            .unwrap();
+        store.sync(&settings, &history).unwrap();
+
+        let sealed = |store: &Store| -> Vec<u8> {
+            store
+                .db
+                .query_row("SELECT sealed FROM entries WHERE id = ?1", [first], |row| {
+                    row.get(0)
+                })
+                .unwrap()
+        };
+        let original = sealed(&store);
+        assert_eq!(
+            history.move_clip(second, first, MovePosition::After, false),
+            Some(true)
+        );
+        store
+            .db
+            .execute_batch(
+                "CREATE TRIGGER reject_second_position BEFORE INSERT ON entry_order
+             WHEN (SELECT COUNT(*) FROM entry_order) > 0
+             BEGIN SELECT RAISE(ABORT, 'order write failed'); END;",
+            )
+            .unwrap();
+        assert!(store.sync(&settings, &history).is_err());
+        assert_eq!(store.load().unwrap().1.previews()[0].id, second);
+        store
+            .db
+            .execute_batch("DROP TRIGGER reject_second_position")
+            .unwrap();
+        store.sync(&settings, &history).unwrap();
+        assert_eq!(sealed(&store), original);
+
+        let mut reopened = Store::initialize(store.db, false, None).unwrap();
+        reopened.cipher = Some(cipher);
+        let (_, mut loaded) = reopened.load().unwrap();
+        assert_eq!(
+            loaded
+                .previews()
+                .into_iter()
+                .map(|clip| clip.id)
+                .collect::<Vec<_>>(),
+            [first, second]
+        );
+        assert_eq!(
+            loaded.record(Payload {
+                text: Some("second".into()),
+                ..Payload::default()
+            }),
+            Some(second)
+        );
+        assert_eq!(loaded.previews()[0].id, second);
+    }
+
+    #[test]
     fn failed_expiry_change_preserves_saved_settings_and_history() {
         let mut store =
             Store::initialize(Connection::open_in_memory().unwrap(), false, None).unwrap();
@@ -694,16 +818,19 @@ mod tests {
             ..Settings::default()
         };
         let history = History::load(
-            vec![Entry {
-                id: 1,
-                recency: 1,
-                pin_order: None,
-                payload: Payload {
-                    text: Some("still valid".into()),
-                    ..Payload::default()
+            vec![(
+                Entry {
+                    id: 1,
+                    recency: 1,
+                    pin_order: None,
+                    payload: Payload {
+                        text: Some("still valid".into()),
+                        ..Payload::default()
+                    },
+                    copied_at: now_millis() - 10_000,
                 },
-                copied_at: now_millis() - 10_000,
-            }],
+                None,
+            )],
             1,
             settings.max_history_items,
             settings.expiry_seconds,

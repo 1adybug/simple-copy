@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import type { PopupPresentation, Snapshot } from '../../apps/desktop/src/native'
 import type { SystemAppearance } from '../../apps/desktop/src/theme'
 import type { Locale } from '../../packages/i18n/src/index'
-import type { UpdateSnapshot } from '../../packages/ui/src/types'
+import type { HistoryAction, UpdateSnapshot } from '../../packages/ui/src/types'
 
 interface MockOptions {
   systemLocale?: Locale
@@ -179,7 +179,23 @@ export async function mockTauri(page: Page, options: MockOptions = {}) {
             inspection.publish()
             return structuredClone(snapshot)
           }
-          if (command === 'history_action' || command === 'capture_current') return { message: '操作已完成' }
+          if (command === 'history_action') {
+            const action = args.action as HistoryAction
+            if (action.type === 'move') {
+              const items = [...snapshot.items]
+              const from = items.findIndex((clip) => clip.id === action.id && clip.pinned === action.pinned)
+              if (from === -1) throw new Error('记录已变更')
+              const [item] = items.splice(from, 1)
+              const anchor = items.findIndex((clip) => clip.id === action.anchor && clip.pinned === action.pinned)
+              if (anchor === -1) throw new Error('位置已变更')
+              items.splice(anchor + Number(action.position === 'after'), 0, item)
+              snapshot.items = items
+              inspection.publish()
+              return { message: null }
+            }
+            return { message: '操作已完成' }
+          }
+          if (command === 'capture_current') return { message: '操作已完成' }
           return null
         },
       },

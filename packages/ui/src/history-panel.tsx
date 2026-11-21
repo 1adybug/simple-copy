@@ -3,6 +3,7 @@ import { useI18n } from '@simple-copy/i18n/react'
 import { Clipboard, File, LoaderCircle, Search, X } from 'lucide-react'
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref, type RefObject } from 'react'
 import { Feedback, IconButton } from './app-controls'
+import { useHistoryDrag } from './history-drag'
 import { WindowFrame } from './window-frame'
 import { BroomIcon } from './icons/broom-icon'
 import { CopyIcon, DeleteIcon, PinIcon } from './icons/clip-action-icons'
@@ -14,9 +15,10 @@ import {
 import { Button } from './ui/button'
 import { Card } from './ui/card'
 import { Input } from './ui/input'
-import type { Clip, HistoryAction, Kind } from './types'
+import type { Clip, HistoryAction, HistoryMove, Kind } from './types'
 
 function kindLabel(kind: Kind) { return t(`format.${kind}`) }
+function clipLabel(clip: Clip) { return clip.text.slice(0, 60) || kindLabel(clip.kind) }
 
 const clipButtonSelector = '.clip-main:not(:disabled)'
 
@@ -62,6 +64,8 @@ export function HistoryPanel({
   const confirmationFocus = useRef<HTMLButtonElement | null>(null)
   const [searchValue, setSearchValue] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [moveStatus, setMoveStatus] = useState('')
+  const pendingMove = useRef<{ action: HistoryMove; from: number; button?: HTMLButtonElement }>(null)
   const [selectionId, setSelectionId] = useState<number | null>(null)
   const latestSelectionId = useRef<number | null>(null)
   const [searchResetKey, setSearchResetKey] = useState(resetKey)
@@ -72,6 +76,7 @@ export function HistoryPanel({
     setSearchQuery('')
     setConfirmation(null)
     setSelectionId(null)
+    setMoveStatus('')
   }
   const search = useRef<HTMLInputElement>(null)
   const composing = useRef(false)
@@ -86,11 +91,42 @@ export function HistoryPanel({
     : undefined
   const selectedId = selectedClip?.id
   const ordinaryCount = items.filter((item) => !item.pinned).length
+  const visiblePinned = filteredItems.filter((clip) => clip.pinned).length
+
+  function moveClip(action: HistoryMove, button?: HTMLButtonElement) {
+    const group = items.filter((clip) => clip.pinned === action.pinned)
+    pendingMove.current = { action, from: group.findIndex((clip) => clip.id === action.id), button }
+    setMoveStatus('')
+    onAction(action)
+  }
+
+  useHistoryDrag(list, JSON.stringify([resetKey, query, filteredItems.map(({ id, pinned }) => [id, pinned])]),
+    !busy && !loading && !confirmation, moveClip, (id) => {
+      const clip = filteredItems.find((item) => item.id === id)
+      if (clip) setMoveStatus(t('history.grabbed', { text: clipLabel(clip) }))
+    }, () => setMoveStatus(t('history.moveCancelled')))
 
   useLayoutEffect(() => {
     composing.current = false
     latestSelectionId.current = null
+    pendingMove.current = null
   }, [resetKey])
+
+  useLayoutEffect(() => {
+    const pending = pendingMove.current
+    if (!pending || busy) return
+    pendingMove.current = null
+    const { action, button, from } = pending
+    if (button?.isConnected && (document.activeElement === document.body || document.activeElement === button)) {
+      button.focus({ preventScroll: true })
+      button.closest('.clip-card')?.scrollIntoView({ block: 'nearest' })
+    }
+    const group = items.filter((clip) => clip.pinned === action.pinned)
+    const position = group.findIndex((clip) => clip.id === action.id)
+    if (position >= 0 && position !== from && !error) {
+      setMoveStatus(t('history.moved', { text: clipLabel(group[position]), position: position + 1 }))
+    }
+  })
   useLayoutEffect(() => { list.current?.scrollTo({ top: 0 }) }, [query, resetKey, list])
   useLayoutEffect(() => {
     if (resetKey === undefined || focusedResetKey.current === resetKey || loading || busy) return
@@ -132,9 +168,22 @@ export function HistoryPanel({
   }))
 
   function navigate(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.shiftKey
+      || event.currentTarget.hasAttribute('data-dragging')) return
     if (!(event.target instanceof HTMLButtonElement) || !event.target.matches(clipButtonSelector)) return
     const { key } = event
+    if (event.altKey) {
+      if ((key !== 'ArrowUp' && key !== 'ArrowDown') || !event.target.hasAttribute('data-reorderable')) return
+      event.preventDefault()
+      const id = Number(event.target.closest<HTMLElement>('.clip-card')?.dataset.clipId)
+      const clip = filteredItems.find((item) => item.id === id)
+      if (!clip) return
+      const group = filteredItems.filter((item) => item.pinned === clip.pinned)
+      const direction = key === 'ArrowUp' ? -1 : 1
+      const anchor = group[group.indexOf(clip) + direction]
+      if (anchor) moveClip({ type: 'move', id, pinned: clip.pinned, anchor: anchor.id, position: direction < 0 ? 'before' : 'after' }, event.target)
+      return
+    }
     if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'Home' && key !== 'End') return
     const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>(clipButtonSelector) ?? [])
     const current = buttons.indexOf(event.target)
@@ -187,10 +236,13 @@ export function HistoryPanel({
         }}><X size={14} /></IconButton>}
       </search>
       <span className="sr-only" role="status">{query && t('searchResults', { count: filteredItems.length })}</span>
+      <span className="sr-only" role="status">{moveStatus}</span>
+      <span className="sr-only" id="history-move-hint">{t('history.moveHint')}</span>
       <div className="history-scroll">
         <div ref={list} id="clipboard-history" className="history-list" role="list" aria-label={t('history')} onKeyDown={navigate}>
           {filteredItems.map((clip) => (
             <ClipCard key={clip.id} clip={clip} busy={busy} selected={clip.id === selectedId} renderImage={renderImage}
+              reorderable={(clip.pinned ? visiblePinned : filteredItems.length - visiblePinned) > 1}
               onPaste={() => onAction({ type: 'paste', id: clip.id })}
               onCopy={() => onAction({ type: 'copy', id: clip.id })}
               onPin={() => onAction({ type: 'pin', id: clip.id, pinned: !clip.pinned })}
@@ -245,13 +297,15 @@ export function HistoryPanel({
   )
 }
 
-function ClipCard({ clip, busy, selected, onPaste, onCopy, onPin, onDelete, renderImage }: {
-  clip: Clip; busy: boolean; selected: boolean; onPaste: () => void; onCopy: () => void; onPin: () => void; onDelete: (trigger: HTMLButtonElement) => void
+function ClipCard({ clip, busy, selected, reorderable, onPaste, onCopy, onPin, onDelete, renderImage }: {
+  clip: Clip; busy: boolean; selected: boolean; reorderable: boolean; onPaste: () => void; onCopy: () => void; onPin: () => void; onDelete: (trigger: HTMLButtonElement) => void
   renderImage?: (clip: Clip) => ReactNode
 }) {
   return (
-    <Card className="clip-card" role="listitem" data-pinned={clip.pinned || undefined} data-kind={clip.kind} data-thumbnail={clip.hasThumbnail || undefined}>
+    <Card className="clip-card" role="listitem" data-clip-id={clip.id} data-pinned={clip.pinned || undefined} data-kind={clip.kind} data-thumbnail={clip.hasThumbnail || undefined}>
       <button className="clip-main" type="button" data-selected={selected || undefined} disabled={busy} onClick={onPaste}
+        data-reorderable={reorderable || undefined} aria-describedby={reorderable ? 'history-move-hint' : undefined}
+        aria-keyshortcuts={reorderable ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
         aria-label={t('pasteLabel', { kind: kindLabel(clip.kind), text: clip.text.slice(0, 60) })}>
         {clip.hasThumbnail && renderImage ? renderImage(clip) : (
           <div className="clip-text">

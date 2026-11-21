@@ -156,6 +156,17 @@ kbd { font: inherit; }
   border: 0; background: transparent; border-radius: 8px; color: inherit;
 }
 .clip-main:active { background: var(--accent); }
+.clip-main { -webkit-user-select: none; -webkit-touch-callout: none; }
+.history-list[data-dragging] { overflow-anchor: none; }
+.history-list[data-dragging], .history-list[data-dragging] * { cursor: grabbing; }
+.clip-card:is([data-dragging], [data-drop]) { content-visibility: visible; }
+.clip-card[data-dragging] { z-index: 2; background: var(--card); }
+.clip-card[data-drop]::after {
+  content: ''; position: absolute; inset-inline: 0; z-index: 3; pointer-events: none;
+  height: 3px; border-radius: 2px; background: var(--primary);
+}
+.clip-card[data-drop="before"]::after { top: -6px; }
+.clip-card[data-drop="after"]::after { bottom: -6px; }
 .clip-text { min-width: 0; width: 100%; font-size: var(--clip-text-size); overflow-wrap: anywhere; }
 .clip-text-lines { white-space: pre-wrap; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; line-height: var(--clip-line-height); }
 /* Text line boxes include leading, so the action rows need no additional gap. */
@@ -262,13 +273,14 @@ kbd { font: inherit; }
 :root :is(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible:where(:not([data-slot="switch"])),
 :root :is(input, select, textarea, .clip-main):focus,
 :root .clip-main[data-selected],
+:root .clip-card[data-dragging] > .clip-main,
 :root :is(.format-choice, .switch-setting):has(:focus-visible) {
   background: var(--sc-focus-background, var(--primary)); color: var(--sc-focus-foreground, var(--sc-primary-foreground));
 }
-:root :is(:focus-visible, .clip-main:is(:focus, [data-selected])) :is(svg, span, .clip-text, .file-label, .image-placeholder),
+:root :is(:focus-visible, .clip-main:is(:focus, [data-selected]), .clip-card[data-dragging] > .clip-main) :is(svg, span, .clip-text, .file-label, .image-placeholder),
 :root :is(.format-choice, .switch-setting):has(:focus-visible) :is(.format-icon, .choice-copy small),
 [data-slot="select-item"][data-highlighted] span { color: inherit; }
-.clip-main:is(:focus, [data-selected]) + .clip-actions > button:not(:hover) { color: var(--sc-primary-foreground); }
+:is(.clip-main:is(:focus, [data-selected]), .clip-card[data-dragging] > .clip-main) + .clip-actions > button:not(:hover) { color: var(--sc-primary-foreground); }
 :root .format-choice:has(:focus-visible) [data-slot="checkbox"],
 :root [data-slot="radio-group-item"]:focus-visible [data-slot="radio-card-mark"] {
   background: var(--sc-primary-foreground); color: var(--primary);
@@ -311,14 +323,16 @@ kbd { font: inherit; }
   [data-slot="select-item"][data-highlighted] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   [data-slot="select-item"][data-highlighted] span { color: inherit; }
   .clip-card[data-pinned] .pin-button { color: LinkText; forced-color-adjust: none; }
+  .clip-card[data-drop]::after { background: Highlight; forced-color-adjust: none; }
   .shortcut-recorder[aria-pressed="true"] { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   :root :where(a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible,
   :root :where(input, select, textarea, .clip-main):focus,
   :root :where(.clip-main[data-selected]),
+  :root :where(.clip-card[data-dragging] > .clip-main),
   :root :is(.format-choice, .switch-setting):has(:focus-visible) {
     --sc-focus-background: Highlight; --sc-focus-foreground: HighlightText; forced-color-adjust: none;
   }
-  .clip-main:is(:focus, [data-selected]) + .clip-actions > button:not(:hover) { color: HighlightText; forced-color-adjust: none; }
+  :is(.clip-main:is(:focus, [data-selected]), .clip-card[data-dragging] > .clip-main) + .clip-actions > button:not(:hover) { color: HighlightText; forced-color-adjust: none; }
   :root :is(input, textarea, [contenteditable="true"]):focus {
     --sc-focus-background: HighlightText; --sc-focus-foreground: Highlight;
   }

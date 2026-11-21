@@ -30,11 +30,12 @@ pub fn now_millis() -> u64 {
 pub struct Clip {
     pub entry: Arc<Entry>,
     pub fingerprint: [u8; 32],
+    pub display_order: Option<u64>,
     thumbnail: Option<Arc<Vec<u8>>>,
 }
 
 impl Clip {
-    fn from_entry(entry: Entry, fingerprint: [u8; 32]) -> Self {
+    fn from_entry(entry: Entry, fingerprint: [u8; 32], display_order: Option<u64>) -> Self {
         let thumbnail = entry
             .payload
             .png
@@ -43,9 +44,27 @@ impl Clip {
         Self {
             fingerprint,
             entry: Arc::new(entry),
+            display_order,
             thumbnail: thumbnail.map(Arc::new),
         }
     }
+
+    fn pinned(&self) -> bool {
+        self.entry.pin_order.is_some()
+    }
+
+    fn display_rank(&self) -> u64 {
+        self.display_order
+            .or(self.entry.pin_order)
+            .unwrap_or(self.entry.recency)
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MovePosition {
+    Before,
+    After,
 }
 
 #[derive(Serialize)]
@@ -81,33 +100,49 @@ impl Default for History {
 }
 
 impl History {
-    pub fn load(entries: Vec<Entry>, max_id: ClipId, max_items: u32, expiry_seconds: u32) -> Self {
+    pub fn load(
+        entries: Vec<(Entry, Option<u64>)>,
+        max_id: ClipId,
+        max_items: u32,
+        expiry_seconds: u32,
+    ) -> Self {
         let order = entries
             .iter()
-            .map(|entry| entry.recency.max(entry.pin_order.unwrap_or_default()))
+            .map(|(entry, display_order)| {
+                entry
+                    .recency
+                    .max(entry.pin_order.unwrap_or_default())
+                    .max(display_order.unwrap_or_default())
+            })
             .max()
             .unwrap_or_default();
-        let mut unique: HashMap<[u8; 32], Entry> = HashMap::new();
-        for entry in entries {
+        let mut unique: HashMap<[u8; 32], (Entry, Option<u64>)> = HashMap::new();
+        for (entry, display_order) in entries {
             let fingerprint = entry.payload.fingerprint();
             match unique.entry(fingerprint) {
                 std::collections::hash_map::Entry::Occupied(mut slot) => {
-                    let current = slot.get_mut();
+                    let (current, current_order) = slot.get_mut();
                     let pin_order = current.pin_order.max(entry.pin_order);
                     if entry.recency > current.recency {
                         *current = entry;
+                        *current_order = display_order;
+                    }
+                    if current.pin_order.is_none() && pin_order.is_some() {
+                        *current_order = None;
                     }
                     current.pin_order = pin_order;
                 }
                 std::collections::hash_map::Entry::Vacant(slot) => {
-                    slot.insert(entry);
+                    slot.insert((entry, display_order));
                 }
             }
         }
         let mut history = Self {
             clips: unique
                 .into_iter()
-                .map(|(fingerprint, entry)| Clip::from_entry(entry, fingerprint))
+                .map(|(fingerprint, (entry, display_order))| {
+                    Clip::from_entry(entry, fingerprint, display_order)
+                })
                 .collect(),
             next_id: max_id.saturating_add(1),
             order,
@@ -131,6 +166,9 @@ impl History {
             .iter_mut()
             .find(|clip| clip.fingerprint == fingerprint)
         {
+            if !clip.pinned() {
+                clip.display_order = None;
+            }
             let entry = Arc::make_mut(&mut clip.entry);
             entry.recency = self.order;
             entry.payload = payload;
@@ -150,6 +188,7 @@ impl History {
                 copied_at: now,
             },
             fingerprint,
+            None,
         ));
         self.trim(now);
         self.get(id).map(|_| id)
@@ -166,8 +205,8 @@ impl History {
     pub fn top_pin(&self) -> Option<&Clip> {
         self.clips
             .iter()
-            .filter(|clip| clip.entry.pin_order.is_some())
-            .max_by_key(|clip| clip.entry.pin_order)
+            .filter(|clip| clip.pinned())
+            .max_by_key(|clip| clip.display_rank())
     }
 
     pub fn pin(&mut self, id: ClipId, pinned: bool) -> bool {
@@ -179,12 +218,46 @@ impl History {
         let Some(clip) = self.clips.iter_mut().find(|clip| clip.entry.id == id) else {
             return false;
         };
-        if clip.entry.pin_order.is_some() != pinned {
+        if clip.pinned() != pinned {
             self.order += 1;
             Arc::make_mut(&mut clip.entry).pin_order = pinned.then_some(self.order);
+            clip.display_order = None;
             self.trim(now);
         }
         true
+    }
+
+    pub fn move_clip(
+        &mut self,
+        id: ClipId,
+        anchor: ClipId,
+        position: MovePosition,
+        pinned: bool,
+    ) -> Option<bool> {
+        let mut group: Vec<_> = self
+            .clips
+            .iter_mut()
+            .filter(|clip| clip.pinned() == pinned)
+            .collect();
+        group.sort_by_key(|clip| std::cmp::Reverse(clip.display_rank()));
+        let from = group.iter().position(|clip| clip.entry.id == id)?;
+        let anchor = group.iter().position(|clip| clip.entry.id == anchor)?;
+        if from == anchor {
+            return Some(false);
+        }
+        let to = anchor - usize::from(from < anchor)
+            + usize::from(matches!(position, MovePosition::After));
+        if to == from {
+            return Some(false);
+        }
+        let clip = group.remove(from);
+        group.insert(to, clip);
+        // A move changes display ranks only. Recency still drives trimming and deduplication.
+        for clip in group.into_iter().rev() {
+            self.order += 1;
+            clip.display_order = Some(self.order);
+        }
+        Some(true)
     }
 
     pub fn delete(&mut self, id: ClipId) -> bool {
@@ -199,7 +272,7 @@ impl History {
 
     pub fn previews(&self) -> Vec<Preview> {
         let mut clips: Vec<_> = self.clips.iter().collect();
-        clips.sort_by_key(|clip| std::cmp::Reverse((clip.entry.pin_order, clip.entry.recency)));
+        clips.sort_by_key(|clip| std::cmp::Reverse((clip.pinned(), clip.display_rank())));
         clips
             .into_iter()
             .map(|clip| Preview {
@@ -213,11 +286,9 @@ impl History {
             .collect()
     }
 
-    pub fn retained(&self, policy: Retention) -> impl Iterator<Item = &Entry> {
-        self.clips.iter().filter_map(move |clip| {
-            let entry = clip.entry.as_ref();
-            (policy == Retention::All || (policy == Retention::Pinned && entry.pin_order.is_some()))
-                .then_some(entry)
+    pub fn retained(&self, policy: Retention) -> impl Iterator<Item = &Clip> {
+        self.clips.iter().filter(move |clip| {
+            policy == Retention::All || (policy == Retention::Pinned && clip.pinned())
         })
     }
 
@@ -399,6 +470,51 @@ mod tests {
     }
 
     #[test]
+    fn moving_items_preserves_capture_order_and_updates_first_pin() {
+        let mut history = History::default();
+        let oldest = history.record(text("oldest")).unwrap();
+        let recent = history.record(text("recent")).unwrap();
+        let first_pin = history.record(text("first pin")).unwrap();
+        let second_pin = history.record(text("second pin")).unwrap();
+        history.pin(first_pin, true);
+        history.pin(second_pin, true);
+
+        let capture = history.get(oldest).unwrap().entry.clone();
+        assert_eq!(
+            history.move_clip(oldest, recent, MovePosition::Before, false),
+            Some(true)
+        );
+        assert_eq!(
+            history.move_clip(oldest, recent, MovePosition::Before, false),
+            Some(false)
+        );
+        assert_eq!(
+            history.move_clip(oldest, first_pin, MovePosition::Before, false),
+            None
+        );
+        assert_eq!(
+            history.move_clip(first_pin, second_pin, MovePosition::Before, true),
+            Some(true)
+        );
+        assert!(Arc::ptr_eq(&history.get(oldest).unwrap().entry, &capture));
+        assert_eq!(
+            history
+                .previews()
+                .into_iter()
+                .map(|clip| clip.id)
+                .collect::<Vec<_>>(),
+            [first_pin, second_pin, oldest, recent]
+        );
+        assert_eq!(history.top_pin().unwrap().entry.id, first_pin);
+        assert_eq!(history.record(text("second pin")), Some(second_pin));
+        assert_eq!(history.top_pin().unwrap().entry.id, first_pin);
+
+        history.set_max_items(1);
+        assert!(history.get(oldest).is_none());
+        assert!(history.get(recent).is_some());
+    }
+
+    #[test]
     fn loading_duplicates_preserves_latest_content_recency_and_pins() {
         let copied_at = now_millis();
         let latest = Payload {
@@ -428,7 +544,12 @@ mod tests {
                 copied_at,
             },
         ];
-        let mut history = History::load(entries, 99, 100, Settings::default().expiry_seconds);
+        let mut history = History::load(
+            entries.into_iter().map(|entry| (entry, None)).collect(),
+            99,
+            100,
+            Settings::default().expiry_seconds,
+        );
         assert_eq!(
             history
                 .previews()
@@ -644,7 +765,12 @@ mod tests {
                 copied_at: now - 86_400_000,
             },
         ];
-        let mut history = History::load(entries, 3, 20, 86_400);
+        let mut history = History::load(
+            entries.into_iter().map(|entry| (entry, None)).collect(),
+            3,
+            20,
+            86_400,
+        );
         assert!(history.get(1).is_none());
         assert!(history.get(2).is_some());
         history.set_expiry_seconds(1);

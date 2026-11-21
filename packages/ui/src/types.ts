@@ -49,7 +49,16 @@ export interface Clip {
   fileCount: number
 }
 
+export type HistoryMove = {
+  type: 'move'
+  id: number
+  anchor: number
+  position: 'before' | 'after'
+  pinned: boolean
+}
+
 export type HistoryAction =
   | { type: 'copy' | 'paste' | 'delete'; id: number }
   | { type: 'pin'; id: number; pinned: boolean }
+  | HistoryMove
   | { type: 'clearUnpinned' }

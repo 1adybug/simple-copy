@@ -11,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::oneshot;
 
 use crate::{
-    history::{History, Preview, Restore, now_millis},
+    history::{History, MovePosition, Preview, Restore, now_millis},
     model::{ClipId, Payload, Settings, WriteId},
     platform::{self, Capabilities, ClipboardBackend, Written},
     startup,
@@ -37,10 +37,25 @@ pub enum Request {
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Action {
-    Copy { id: ClipId },
-    Paste { id: ClipId },
-    Pin { id: ClipId, pinned: bool },
-    Delete { id: ClipId },
+    Copy {
+        id: ClipId,
+    },
+    Paste {
+        id: ClipId,
+    },
+    Pin {
+        id: ClipId,
+        pinned: bool,
+    },
+    Move {
+        id: ClipId,
+        anchor: ClipId,
+        position: MovePosition,
+        pinned: bool,
+    },
+    Delete {
+        id: ClipId,
+    },
     ClearUnpinned,
 }
 
@@ -459,6 +474,23 @@ impl Service {
                     self.restore.cancel();
                 }
                 self.publish();
+                Ok(Operation { message: None })
+            }
+            Action::Move {
+                id,
+                anchor,
+                position,
+                pinned,
+            } => {
+                let before = self.history.clone();
+                let moved = self
+                    .history
+                    .move_clip(id, anchor, position, pinned)
+                    .ok_or_else(|| crate::i18n::t("native.moveUnavailable").to_string())?;
+                if moved {
+                    self.commit_history(before)?;
+                    self.publish();
+                }
                 Ok(Operation { message: None })
             }
             Action::Delete { id } => {

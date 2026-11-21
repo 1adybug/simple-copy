@@ -9,6 +9,45 @@ import { mockTauri } from './tauri-mock'
 const websiteUrl = 'http://127.0.0.1:4174'
 test.use({ locale: 'zh-CN' })
 
+test('the demo keeps natural touch scrolling and reorders a clip after a long press', async ({ browser }) => {
+  const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' })
+  try {
+    const page = await context.newPage()
+    await page.goto(websiteUrl)
+    await page.locator('.demo-window').scrollIntoViewIfNeeded()
+    const demo = page.frameLocator('.demo-window')
+    const list = demo.locator('.history-list')
+    const source = list.locator('.clip-card[data-clip-id="2"]')
+    const target = list.locator('.clip-card[data-clip-id="3"]')
+    await expect(source).toBeVisible()
+    const touch = await context.newCDPSession(page)
+    const bounds = (await list.boundingBox())!
+    const x = bounds.x + 40
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: bounds.y + 200 }] })
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: bounds.y + 112 }] })
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: bounds.y + 55 }] })
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    await expect(list.locator('.clip-card').nth(1)).toHaveAttribute('data-clip-id', '2')
+
+    await source.evaluate((card) => {
+      const list = card.parentElement!
+      list.scrollTop += card.getBoundingClientRect().top - list.getBoundingClientRect().top - 5
+    })
+    const from = (await source.boundingBox())!
+    const to = (await target.boundingBox())!
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: from.y + from.height / 2 }] })
+    await expect(source).toHaveAttribute('data-dragging', '')
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: to.y + to.height * 0.56 }] })
+    await expect(target).toHaveAttribute('data-drop', 'after')
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await expect(list.locator('.clip-card').nth(2)).toHaveAttribute('data-clip-id', '2')
+    await expect(demo.locator('.window-feedback .feedback')).toHaveCount(0)
+  } finally {
+    await context.close()
+  }
+})
+
 test('keyboard users can skip the header and use the demo', async ({ page }) => {
   await page.goto(websiteUrl)
   await page.keyboard.press('Tab')
